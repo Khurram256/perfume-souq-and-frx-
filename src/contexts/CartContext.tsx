@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 export type CartItem = {
   id: string;
@@ -87,7 +95,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       remove: (id) => setItems((prev) => prev.filter((p) => p.id !== id)),
       setQty: (id, qty) =>
         setItems((prev) =>
-          qty <= 0 ? prev.filter((p) => p.id !== id) : prev.map((p) => (p.id === id ? { ...p, qty } : p))
+          qty <= 0
+            ? prev.filter((p) => p.id !== id)
+            : prev.map((p) => (p.id === id ? { ...p, qty } : p)),
         ),
       clear: () => setItems([]),
       fly,

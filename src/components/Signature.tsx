@@ -10,7 +10,10 @@ export function Signature() {
 
   const { data: spotlight } = useSpotlight();
   const { data: perfumes = [] } = usePerfumes();
-  const p = perfumes.find((x) => x.id === spotlight?.perfume_id) || perfumes.find((x) => x.spotlight_eligible) || perfumes[0];
+  const p =
+    perfumes.find((x) => x.id === spotlight?.perfume_id) ||
+    perfumes.find((x) => x.spotlight_eligible) ||
+    perfumes[0];
   if (!p) return null;
 
   const description = spotlight?.description_override || p.description || "";
@@ -25,7 +28,10 @@ export function Signature() {
     >
       <div
         className="pointer-events-none absolute inset-0 opacity-40"
-        style={{ background: "radial-gradient(ellipse at center, oklch(0.55 0.07 232 / 0.14), transparent 65%)" }}
+        style={{
+          background:
+            "radial-gradient(ellipse at center, oklch(0.55 0.07 232 / 0.14), transparent 65%)",
+        }}
       />
 
       <div className="relative z-10 mx-auto grid max-w-7xl grid-cols-1 items-center gap-4 px-6 lg:grid-cols-[auto_1fr_1fr] lg:px-16">
@@ -42,7 +48,9 @@ export function Signature() {
           <div className="relative">
             <div
               className="absolute inset-0 -z-10 blur-3xl"
-              style={{ background: "radial-gradient(circle, oklch(0.78 0.09 228 / 0.40), transparent 65%)" }}
+              style={{
+                background: "radial-gradient(circle, oklch(0.78 0.09 228 / 0.40), transparent 65%)",
+              }}
             />
             {p.image_url && (
               <img
@@ -110,7 +118,10 @@ export function Signature() {
 
           <div className="mt-12">
             <Magnetic>
-              <a href="#collection" className="btn-gold inline-block px-10 py-4 text-[10px] uppercase tracking-[0.4em]">
+              <a
+                href="#collection"
+                className="btn-gold inline-block px-10 py-4 text-[10px] uppercase tracking-[0.4em]"
+              >
                 Explore the Collection
               </a>
             </Magnetic>

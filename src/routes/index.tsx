@@ -23,7 +23,11 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "The Perfume Souq — by Khurram Shabbir" },
-      { name: "description", content: "The Perfume Souq — a maison of rare olfactive composition. Obsidian, gold, and the silence you leave behind." },
+      {
+        name: "description",
+        content:
+          "The Perfume Souq — a maison of rare olfactive composition. Obsidian, gold, and the silence you leave behind.",
+      },
       { property: "og:title", content: "The Perfume Souq — by Khurram Shabbir" },
       { property: "og:description", content: "A maison of rare olfactive composition." },
     ],

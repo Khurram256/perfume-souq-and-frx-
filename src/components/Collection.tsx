@@ -60,7 +60,10 @@ function ProductCard({ p, wide }: { p: Perfume; wide?: boolean }) {
         </span>
       )}
 
-      <div className={`relative mb-6 w-full overflow-visible ${wide ? "h-72" : "h-64"}`} style={{ transform: "translateZ(30px)" }}>
+      <div
+        className={`relative mb-6 w-full overflow-visible ${wide ? "h-72" : "h-64"}`}
+        style={{ transform: "translateZ(30px)" }}
+      >
         {p.image_url && (
           <img
             ref={imgRef}
@@ -76,7 +79,11 @@ function ProductCard({ p, wide }: { p: Perfume; wide?: boolean }) {
 
       <p className="mb-2 text-[9px] uppercase tracking-[0.45em] text-gold/70">{p.family}</p>
       <h3 className="font-display text-2xl italic">{p.name}</h3>
-      {p.tagline && <p className="mt-3 max-w-xs text-xs font-light leading-relaxed text-foreground/55">{p.tagline}</p>}
+      {p.tagline && (
+        <p className="mt-3 max-w-xs text-xs font-light leading-relaxed text-foreground/55">
+          {p.tagline}
+        </p>
+      )}
 
       <details className="mt-5 w-full text-left">
         <summary className="cursor-pointer text-[9px] uppercase tracking-[0.4em] text-gold/80 hover-underline">

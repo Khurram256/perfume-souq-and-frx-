@@ -30,7 +30,9 @@ export function FlyToCart() {
           {/* "Box" tray */}
           <div
             className="absolute inset-0 rounded-sm border border-gold/60"
-            style={{ background: "linear-gradient(160deg, oklch(0.14 0.02 250), oklch(0.06 0.015 250))" }}
+            style={{
+              background: "linear-gradient(160deg, oklch(0.14 0.02 250), oklch(0.06 0.015 250))",
+            }}
           />
           <img src={fly.img} alt="" className="relative h-full w-full object-contain p-2" />
           <div

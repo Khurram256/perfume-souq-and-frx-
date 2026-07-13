@@ -16,11 +16,35 @@ type Slide = {
 };
 
 const slides: Slide[] = [
-  { type: "image", src: ad1, eyebrow: "Nuit d'Obsidienne", line: "Make your presence", accent: "unforgettable." },
-  { type: "video", src: adVideo.url, eyebrow: "Élixir Doré", line: "A whisper that", accent: "echoes." },
+  {
+    type: "image",
+    src: ad1,
+    eyebrow: "Nuit d'Obsidienne",
+    line: "Make your presence",
+    accent: "unforgettable.",
+  },
+  {
+    type: "video",
+    src: adVideo.url,
+    eyebrow: "Élixir Doré",
+    line: "A whisper that",
+    accent: "echoes.",
+  },
   { type: "image", src: ad3, eyebrow: "Rose Femme", line: "Dare to be", accent: "remembered." },
-  { type: "image", src: ad4, eyebrow: "Sang Royal", line: "Not just perfume —", accent: "identity." },
-  { type: "image", src: ad5, eyebrow: "Le Gentilhomme", line: "The art of leaving a", accent: "trace." },
+  {
+    type: "image",
+    src: ad4,
+    eyebrow: "Sang Royal",
+    line: "Not just perfume —",
+    accent: "identity.",
+  },
+  {
+    type: "image",
+    src: ad5,
+    eyebrow: "Le Gentilhomme",
+    line: "The art of leaving a",
+    accent: "trace.",
+  },
 ];
 
 /**
@@ -107,7 +131,10 @@ function useAmbient(playing: boolean) {
       master.gain.linearRampToValueAtTime(0, ctx.currentTime + 1);
       setTimeout(() => {
         droneOscs.forEach(({ o, lfo }) => {
-          try { o.stop(); lfo.stop(); } catch {}
+          try {
+            o.stop();
+            lfo.stop();
+          } catch {}
         });
         ctx.close().catch(() => {});
       }, 1100);
@@ -125,10 +152,7 @@ export function AdsCarousel() {
 
   useEffect(() => {
     if (!sectionRef.current) return;
-    const obs = new IntersectionObserver(
-      ([e]) => setInView(e.isIntersecting),
-      { threshold: 0.25 }
-    );
+    const obs = new IntersectionObserver(([e]) => setInView(e.isIntersecting), { threshold: 0.25 });
     obs.observe(sectionRef.current);
     return () => obs.disconnect();
   }, []);
@@ -183,7 +207,10 @@ export function AdsCarousel() {
                 )}
                 <div
                   className="absolute inset-0"
-                  style={{ background: "linear-gradient(90deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.45) 50%, rgba(0,0,0,0.7) 100%)" }}
+                  style={{
+                    background:
+                      "linear-gradient(90deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.45) 50%, rgba(0,0,0,0.7) 100%)",
+                  }}
                 />
                 <div className="absolute inset-0 flex items-center">
                   <div className="max-w-xl px-10 md:px-20">

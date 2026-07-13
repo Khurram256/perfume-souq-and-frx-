@@ -6,6 +6,12 @@ import { useAuthUser } from "@/lib/admin/session";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin")({
+  head: () => ({
+    meta: [
+      { title: "Admin Sign In — The Perfume Souq" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: AdminGate,
 });
 
@@ -74,20 +80,31 @@ function AdminGate() {
   };
 
   if (loading || lockLoading) {
-    return <div className="flex min-h-screen items-center justify-center bg-obsidian text-gold text-[10px] uppercase tracking-[0.5em]">Loading…</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-obsidian text-gold text-[10px] uppercase tracking-[0.5em]">
+        Loading…
+      </div>
+    );
   }
 
   return (
     <main className="grain relative flex min-h-screen items-center justify-center bg-background px-6 py-16 text-foreground">
       <div className="w-full max-w-md">
         <div className="mb-10 text-center">
-          <Link to="/" className="text-[10px] uppercase tracking-[0.5em] text-gold/70 hover:text-gold">
+          <Link
+            to="/"
+            className="text-[10px] uppercase tracking-[0.5em] text-gold/70 hover:text-gold"
+          >
             ← Return to the Souq
           </Link>
         </div>
         <div className="glass-card rounded-sm border border-gold/30 p-10">
-          <p className="mb-3 text-center text-[10px] uppercase tracking-[0.5em] text-gold">The Perfume Souq</p>
-          <h1 className="text-center font-display text-3xl italic text-gradient-gold">Admin Sign In</h1>
+          <p className="mb-3 text-center text-[10px] uppercase tracking-[0.5em] text-gold">
+            The Perfume Souq
+          </p>
+          <h1 className="text-center font-display text-3xl italic text-gradient-gold">
+            Admin Sign In
+          </h1>
           <div className="mx-auto mt-6 h-px w-20" style={{ background: "var(--gradient-gold)" }} />
 
           {isClaimed && (
@@ -105,7 +122,10 @@ function AdminGate() {
             <div className="mt-8 space-y-4 text-center">
               <p className="text-sm text-foreground/70">Signed in as a non-admin account.</p>
               <button
-                onClick={async () => { await supabase.auth.signOut(); refetch(); }}
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  refetch();
+                }}
                 className="btn-gold w-full py-3 text-[10px] uppercase tracking-[0.4em]"
               >
                 Sign Out
@@ -114,16 +134,26 @@ function AdminGate() {
           ) : (
             <form onSubmit={doAuth} className="mt-8 space-y-4">
               <input
-                type="email" required placeholder="Email"
-                value={email} onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                required
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-sm border border-border bg-transparent px-4 py-3 text-sm outline-none focus:border-gold"
               />
               <input
-                type="password" required minLength={8} placeholder="Password (min 8)"
-                value={password} onChange={(e) => setPassword(e.target.value)}
+                type="password"
+                required
+                minLength={8}
+                placeholder="Password (min 8)"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-sm border border-border bg-transparent px-4 py-3 text-sm outline-none focus:border-gold"
               />
-              <button disabled={busy} className="btn-gold w-full py-3 text-[10px] uppercase tracking-[0.4em] disabled:opacity-40">
+              <button
+                disabled={busy}
+                className="btn-gold w-full py-3 text-[10px] uppercase tracking-[0.4em] disabled:opacity-40"
+              >
                 {busy ? "…" : mode === "signup" ? "Create Admin Account" : "Sign In"}
               </button>
               {!isClaimed && (
@@ -132,7 +162,9 @@ function AdminGate() {
                   onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
                   className="w-full text-center text-[10px] uppercase tracking-[0.4em] text-gold/70 hover:text-gold"
                 >
-                  {mode === "signup" ? "Already have an account? Sign in" : "First time? Create admin account"}
+                  {mode === "signup"
+                    ? "Already have an account? Sign in"
+                    : "First time? Create admin account"}
                 </button>
               )}
             </form>

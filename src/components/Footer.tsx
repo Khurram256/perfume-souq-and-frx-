@@ -3,10 +3,19 @@ import { Marquee } from "./Marquee";
 
 export function Footer() {
   return (
-    <footer className="relative overflow-hidden border-t border-border pt-16 pb-10 text-center" style={{ background: "var(--navy-deep)" }}>
-      <div className="absolute inset-x-0 top-0 h-px" style={{ background: "var(--gradient-gold)" }} />
+    <footer
+      className="relative overflow-hidden border-t border-border pt-16 pb-10 text-center"
+      style={{ background: "var(--navy-deep)" }}
+    >
+      <div
+        className="absolute inset-x-0 top-0 h-px"
+        style={{ background: "var(--gradient-gold)" }}
+      />
 
-      <Marquee items={["The Perfume Souq", "Rare Fragrances", "Hand Composed"]} className="mb-16 opacity-70" />
+      <Marquee
+        items={["The Perfume Souq", "Rare Fragrances", "Hand Composed"]}
+        className="mb-16 opacity-70"
+      />
 
       <div className="flex justify-center">
         <Logo size={72} withText={false} />

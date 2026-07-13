@@ -1,7 +1,15 @@
 import { useRef, type ReactNode } from "react";
 import { motion, useMotionValue, useSpring } from "framer-motion";
 
-export function Magnetic({ children, strength = 0.35, className }: { children: ReactNode; strength?: number; className?: string }) {
+export function Magnetic({
+  children,
+  strength = 0.35,
+  className,
+}: {
+  children: ReactNode;
+  strength?: number;
+  className?: string;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
   const y = useMotionValue(0);

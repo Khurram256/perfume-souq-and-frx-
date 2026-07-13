@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
 
 export function Particles({ count = 40 }: { count?: number }) {
-  const [particles, setParticles] = useState<Array<{ id: number; left: number; size: number; delay: number; duration: number; x: number; op: number }>>([]);
+  const [particles, setParticles] = useState<
+    Array<{
+      id: number;
+      left: number;
+      size: number;
+      delay: number;
+      duration: number;
+      x: number;
+      op: number;
+    }>
+  >([]);
 
   useEffect(() => {
     const isMobile = window.innerWidth < 768;
@@ -15,7 +25,7 @@ export function Particles({ count = 40 }: { count?: number }) {
         duration: Math.random() * 15 + 18,
         x: (Math.random() - 0.5) * 120,
         op: Math.random() * 0.25 + 0.15,
-      }))
+      })),
     );
   }, [count]);
 

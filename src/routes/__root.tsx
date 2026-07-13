@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { INSTAGRAM_URL } from "../lib/contact";
 
 function NotFoundComponent() {
   return (
@@ -77,18 +78,37 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "The Perfume Souq by Khurram Shabbir" },
+      {
+        name: "description",
+        content:
+          "The Perfume Souq by Khurram Shabbir — a maison of rare olfactive composition. Authentic and premium-inspired fragrances, hand-selected.",
+      },
+      { name: "author", content: "The Perfume Souq by Khurram Shabbir" },
+      { property: "og:site_name", content: "The Perfume Souq by Khurram Shabbir" },
+      { property: "og:title", content: "The Perfume Souq by Khurram Shabbir" },
+      { property: "og:description", content: "A maison of rare olfactive composition." },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:title", content: "Lovable App" },
-      { name: "twitter:description", content: "Lovable Generated Project" },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8da79d13-151d-4cdf-8cbe-854778dd81b3/id-preview-2e881e9c--3f43dd84-d5d0-4570-8c2e-b63737f15094.lovable.app-1780241134236.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8da79d13-151d-4cdf-8cbe-854778dd81b3/id-preview-2e881e9c--3f43dd84-d5d0-4570-8c2e-b63737f15094.lovable.app-1780241134236.png" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "The Perfume Souq by Khurram Shabbir" },
+      { name: "twitter:description", content: "A maison of rare olfactive composition." },
+      {
+        "script:ld+json": {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "The Perfume Souq by Khurram Shabbir",
+          url: "/",
+          sameAs: [INSTAGRAM_URL],
+        },
+      },
+      {
+        "script:ld+json": {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "The Perfume Souq by Khurram Shabbir",
+          url: "/",
+        },
+      },
     ],
     links: [
       {

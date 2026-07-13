@@ -75,7 +75,9 @@ function SlideInBanner({ offer, onDismiss }: { offer: Offer; onDismiss: () => vo
       >
         {offer.title}
       </p>
-      {offer.body && <p className="text-sm font-light leading-relaxed text-foreground/80">{offer.body}</p>}
+      {offer.body && (
+        <p className="text-sm font-light leading-relaxed text-foreground/80">{offer.body}</p>
+      )}
       <OfferCta
         offer={offer}
         className="mt-4 inline-block border px-4 py-2 text-[9px] uppercase tracking-[0.35em] transition hover:bg-white/5"
@@ -119,7 +121,9 @@ function PopupModal({ offer, onDismiss }: { offer: Offer; onDismiss: () => void 
           The Souq
         </p>
         <h3 className="font-display text-3xl italic">{offer.title}</h3>
-        {offer.body && <p className="mt-4 text-sm font-light leading-relaxed text-foreground/70">{offer.body}</p>}
+        {offer.body && (
+          <p className="mt-4 text-sm font-light leading-relaxed text-foreground/70">{offer.body}</p>
+        )}
         <OfferCta
           offer={offer}
           className="mt-8 inline-block border px-8 py-3 text-[10px] uppercase tracking-[0.4em] transition hover:bg-white/5"
@@ -132,17 +136,25 @@ function PopupModal({ offer, onDismiss }: { offer: Offer; onDismiss: () => void 
 const DISMISS_KEY = "tps_offers_dismissed_v1";
 function loadDismissed(): Record<string, number> {
   if (typeof window === "undefined") return {};
-  try { return JSON.parse(localStorage.getItem(DISMISS_KEY) || "{}"); } catch { return {}; }
+  try {
+    return JSON.parse(localStorage.getItem(DISMISS_KEY) || "{}");
+  } catch {
+    return {};
+  }
 }
 function saveDismissed(map: Record<string, number>) {
-  try { localStorage.setItem(DISMISS_KEY, JSON.stringify(map)); } catch {}
+  try {
+    localStorage.setItem(DISMISS_KEY, JSON.stringify(map));
+  } catch {}
 }
 
 export function OffersLayer() {
   const { data: offers = [] } = useOffers();
   const [dismissed, setDismissed] = useState<Record<string, number>>({});
   const [popupShown, setPopupShown] = useState(false);
-  useEffect(() => { setDismissed(loadDismissed()); }, []);
+  useEffect(() => {
+    setDismissed(loadDismissed());
+  }, []);
   useEffect(() => {
     if (popupShown) return;
     const t = setTimeout(() => setPopupShown(true), 1500);
@@ -188,10 +200,15 @@ export function InlineOffers() {
             style={{ borderColor: o.accent_color + "60", background: "oklch(0.14 0.01 0 / 0.65)" }}
           >
             <div>
-              <p className="text-[10px] uppercase tracking-[0.45em]" style={{ color: o.accent_color }}>
+              <p
+                className="text-[10px] uppercase tracking-[0.45em]"
+                style={{ color: o.accent_color }}
+              >
                 {o.title}
               </p>
-              {o.body && <p className="mt-2 font-display text-2xl italic text-foreground/90">{o.body}</p>}
+              {o.body && (
+                <p className="mt-2 font-display text-2xl italic text-foreground/90">{o.body}</p>
+              )}
             </div>
             <OfferCta
               offer={o}

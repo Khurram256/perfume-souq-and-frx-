@@ -37,7 +37,10 @@ export function Reviews() {
     try {
       await submit.mutateAsync({ name, rating, body });
       toast.success("Thank you. Your review awaits the maison's approval.");
-      setName(""); setBody(""); setRating(5); setOpen(false);
+      setName("");
+      setBody("");
+      setRating(5);
+      setOpen(false);
     } catch (err: any) {
       toast.error(err?.message || "Submission failed. Please try again.");
     }
@@ -101,7 +104,9 @@ export function Reviews() {
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
             onClick={() => setOpen(false)}
           >
@@ -115,22 +120,28 @@ export function Reviews() {
               className="w-full max-w-md space-y-5 rounded-sm border border-gold/40 bg-obsidian p-8"
             >
               <div>
-                <p className="mb-3 text-[10px] uppercase tracking-[0.5em] text-gold">Share Your Whisper</p>
+                <p className="mb-3 text-[10px] uppercase tracking-[0.5em] text-gold">
+                  Share Your Whisper
+                </p>
                 <h3 className="font-display text-2xl italic">Leave a Review</h3>
               </div>
               <input
-                required maxLength={80}
+                required
+                maxLength={80}
                 placeholder="Your name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full rounded-sm border border-border bg-transparent px-4 py-3 text-sm outline-none focus:border-gold"
               />
               <div>
-                <p className="mb-2 text-[9px] uppercase tracking-[0.4em] text-foreground/60">Rating</p>
+                <p className="mb-2 text-[9px] uppercase tracking-[0.4em] text-foreground/60">
+                  Rating
+                </p>
                 <Stars value={rating} onSet={setRating} />
               </div>
               <textarea
-                required maxLength={1000}
+                required
+                maxLength={1000}
                 placeholder="Your impression…"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
@@ -139,7 +150,8 @@ export function Reviews() {
               />
               <div className="flex justify-end gap-3 pt-2">
                 <button
-                  type="button" onClick={() => setOpen(false)}
+                  type="button"
+                  onClick={() => setOpen(false)}
                   className="px-5 py-2 text-[10px] uppercase tracking-[0.4em] text-foreground/60 hover:text-foreground"
                 >
                   Cancel

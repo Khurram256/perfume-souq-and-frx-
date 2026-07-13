@@ -1,14 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
-import { PERFUMES } from "@/lib/perfumes";
+import { usePerfumes, type Perfume } from "@/lib/api/queries";
 
-function Bar({ value, max = 10, label, perfumeId }: { value: number; max?: number; label: string; perfumeId: string }) {
+function Bar({
+  value,
+  max = 10,
+  label,
+  perfumeId,
+}: {
+  value: number;
+  max?: number;
+  label: string;
+  perfumeId: string;
+}) {
   return (
     <div>
       <div className="mb-1 flex justify-between text-[9px] uppercase tracking-[0.3em] text-foreground/50">
         <span>{label}</span>
-        <span>{value}/{max}</span>
+        <span>
+          {value}/{max}
+        </span>
       </div>
       <div className="h-[3px] w-full overflow-hidden bg-foreground/10">
         <motion.div
@@ -24,8 +36,17 @@ function Bar({ value, max = 10, label, perfumeId }: { value: number; max?: numbe
   );
 }
 
-function Side({ value, onChange }: { value: string; onChange: (id: string) => void }) {
-  const p = PERFUMES.find((x) => x.id === value) ?? PERFUMES[0];
+function Side({
+  perfumes,
+  value,
+  onChange,
+}: {
+  perfumes: Perfume[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const p = perfumes.find((x) => x.id === value) ?? perfumes[0];
+  if (!p) return null;
   return (
     <div className="glass-card rounded-sm p-8">
       <label className="mb-3 block text-[10px] uppercase tracking-[0.35em] text-gold/80">
@@ -33,11 +54,11 @@ function Side({ value, onChange }: { value: string; onChange: (id: string) => vo
       </label>
       <div className="relative mb-8">
         <select
-          value={value}
+          value={p.id}
           onChange={(e) => onChange(e.target.value)}
           className="w-full cursor-pointer appearance-none rounded-sm border border-gold/50 bg-obsidian/60 px-4 py-3 pr-10 text-[11px] uppercase tracking-[0.3em] text-gold transition hover:border-gold focus:border-gold focus:outline-none"
         >
-          {PERFUMES.map((opt) => (
+          {perfumes.map((opt) => (
             <option key={opt.id} value={opt.id} className="bg-obsidian text-foreground">
               {opt.name}
             </option>
@@ -47,25 +68,29 @@ function Side({ value, onChange }: { value: string; onChange: (id: string) => vo
       </div>
 
       <div className="flex items-start gap-6">
-        <img src={p.img} alt={p.name} className="h-32 w-24 flex-shrink-0 object-contain" />
+        {p.image_url && (
+          <img src={p.image_url} alt={p.name} className="h-32 w-24 flex-shrink-0 object-contain" />
+        )}
         <div className="flex-1">
           <p className="text-[9px] uppercase tracking-[0.4em] text-gold/70">{p.family}</p>
           <h3 className="font-display text-2xl italic">{p.name}</h3>
-          <p className="mt-2 text-xs text-foreground/60">{p.note}</p>
+          {p.tagline && <p className="mt-2 text-xs text-foreground/60">{p.tagline}</p>}
         </div>
       </div>
 
       <div className="mt-8 space-y-4">
-        <Bar perfumeId={p.id} label="Longevity" value={p.longevity} />
-        <Bar perfumeId={p.id} label="Sillage" value={p.sillage} />
+        <Bar perfumeId={p.id} label="Longevity" value={p.rating_longevity} />
+        <Bar perfumeId={p.id} label="Sillage" value={p.rating_sillage} />
+        <Bar perfumeId={p.id} label="Projection" value={p.rating_projection} />
+        <Bar perfumeId={p.id} label="Versatility" value={p.rating_versatility} />
         <div className="grid grid-cols-2 gap-4 pt-2 text-[10px] uppercase tracking-[0.3em]">
           <div>
             <p className="text-foreground/40">Season</p>
-            <p className="mt-1 text-gold">{p.season}</p>
+            <p className="mt-1 text-gold">{p.best_season || "—"}</p>
           </div>
           <div>
             <p className="text-foreground/40">Occasion</p>
-            <p className="mt-1 text-gold">{p.occasion}</p>
+            <p className="mt-1 text-gold">{p.occasion || "—"}</p>
           </div>
         </div>
       </div>
@@ -74,8 +99,17 @@ function Side({ value, onChange }: { value: string; onChange: (id: string) => vo
 }
 
 export function ComparisonTool() {
-  const [a, setA] = useState(PERFUMES[0].id);
-  const [b, setB] = useState(PERFUMES[Math.min(2, PERFUMES.length - 1)].id);
+  const { data: perfumes = [] } = usePerfumes();
+  const [a, setA] = useState<string>("");
+  const [b, setB] = useState<string>("");
+
+  useEffect(() => {
+    if (!perfumes.length) return;
+    if (!a || !perfumes.some((p) => p.id === a)) setA(perfumes[0].id);
+    if (!b || !perfumes.some((p) => p.id === b)) setB((perfumes[1] ?? perfumes[0]).id);
+  }, [perfumes, a, b]);
+
+  if (perfumes.length < 1) return null;
 
   return (
     <section className="relative px-6 py-32 lg:px-16">
@@ -91,8 +125,8 @@ export function ComparisonTool() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <Side value={a} onChange={setA} />
-          <Side value={b} onChange={setB} />
+          <Side perfumes={perfumes} value={a} onChange={setA} />
+          <Side perfumes={perfumes} value={b} onChange={setB} />
         </div>
       </div>
     </section>

@@ -140,9 +140,12 @@ export function useSubmitReview() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { name: string; rating: number; body: string }) => {
-      const { error } = await supabase
-        .from("reviews")
-        .insert({ name: input.name.trim(), rating: input.rating, body: input.body.trim(), approved: false });
+      const { error } = await supabase.from("reviews").insert({
+        name: input.name.trim(),
+        rating: input.rating,
+        body: input.body.trim(),
+        approved: false,
+      });
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["reviews"] }),
@@ -205,7 +208,11 @@ export function useAdminLock() {
         .eq("id", 1)
         .maybeSingle();
       if (error) throw error;
-      return data as { admin_email: string | null; admin_user_id: string | null; claimed_at: string | null } | null;
+      return data as {
+        admin_email: string | null;
+        admin_user_id: string | null;
+        claimed_at: string | null;
+      } | null;
     },
   });
 }

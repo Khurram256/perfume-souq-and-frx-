@@ -42,10 +42,22 @@ export function Hero() {
       <div className="pointer-events-none absolute inset-0 smoke-mist" />
       <div className="perspective-grid pointer-events-none" />
 
-      <div className="hud-corner hud-corner--tl" style={{ "--hud-delay": "0.5s" } as CSSProperties} />
-      <div className="hud-corner hud-corner--tr" style={{ "--hud-delay": "0.65s" } as CSSProperties} />
-      <div className="hud-corner hud-corner--bl" style={{ "--hud-delay": "0.8s" } as CSSProperties} />
-      <div className="hud-corner hud-corner--br" style={{ "--hud-delay": "0.95s" } as CSSProperties} />
+      <div
+        className="hud-corner hud-corner--tl"
+        style={{ "--hud-delay": "0.5s" } as CSSProperties}
+      />
+      <div
+        className="hud-corner hud-corner--tr"
+        style={{ "--hud-delay": "0.65s" } as CSSProperties}
+      />
+      <div
+        className="hud-corner hud-corner--bl"
+        style={{ "--hud-delay": "0.8s" } as CSSProperties}
+      />
+      <div
+        className="hud-corner hud-corner--br"
+        style={{ "--hud-delay": "0.95s" } as CSSProperties}
+      />
 
       <div className="relative z-10 mx-auto grid w-full max-w-[1500px] grid-cols-1 items-end gap-10 px-6 pt-40 pb-16 lg:grid-cols-[1.1fr_0.9fr] lg:px-16">
         <div className="order-2 lg:order-1">
@@ -84,11 +96,17 @@ export function Hero() {
             className="fade-in-blur flex flex-wrap items-center gap-6"
           >
             <Magnetic>
-              <a href="#signature" className="btn-gold inline-block px-10 py-4 text-[10px] uppercase tracking-[0.4em]">
+              <a
+                href="#signature"
+                className="btn-gold inline-block px-10 py-4 text-[10px] uppercase tracking-[0.4em]"
+              >
                 Discover the Maison
               </a>
             </Magnetic>
-            <a href="#quiz" className="inline-block px-2 py-4 text-[10px] uppercase tracking-[0.35em] text-foreground/70 hover-underline">
+            <a
+              href="#quiz"
+              className="inline-block px-2 py-4 text-[10px] uppercase tracking-[0.35em] text-foreground/70 hover-underline"
+            >
               Find Your Signature Scent
             </a>
           </div>
@@ -108,14 +126,21 @@ export function Hero() {
             >
               <div
                 className="h-full w-full"
-                style={{ background: "radial-gradient(circle, oklch(0.55 0.07 232 / 0.5), oklch(0.93 0.025 220 / 0.3) 40%, transparent 70%)" }}
+                style={{
+                  background:
+                    "radial-gradient(circle, oklch(0.55 0.07 232 / 0.5), oklch(0.93 0.025 220 / 0.3) 40%, transparent 70%)",
+                }}
               />
             </motion.div>
 
             <div className="halo-pulse" />
             <div className="halo-pulse halo-pulse--delay" />
 
-            <motion.div style={{ rotateY: bottleTiltY }} className="relative" transition={{ type: "spring" }}>
+            <motion.div
+              style={{ rotateY: bottleTiltY }}
+              className="relative"
+              transition={{ type: "spring" }}
+            >
               <div className="glint-sweep" />
               <img
                 src={bottle}
