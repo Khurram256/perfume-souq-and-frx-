@@ -16,7 +16,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { formatPKR } from "@/lib/format";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/admin/dashboard")({
+export const Route = createFileRoute("/admin_/dashboard")({
   head: () => ({
     meta: [
       { title: "Admin Dashboard — The Perfume Souq" },
