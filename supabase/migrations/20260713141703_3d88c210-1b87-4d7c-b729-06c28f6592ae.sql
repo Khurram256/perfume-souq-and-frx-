@@ -299,7 +299,7 @@ ON CONFLICT (key) DO NOTHING;
 -- =========================================================================
 CREATE TABLE public.settings (
   id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  whatsapp_number TEXT NOT NULL DEFAULT '03228408507',
+  whatsapp_number TEXT NOT NULL DEFAULT '923228408507', -- international format required by wa.me links
   instagram_handle TEXT NOT NULL DEFAULT 'theperfumesouq.pk',
   community_link TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

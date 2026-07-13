@@ -15,6 +15,9 @@ import { useAuthUser } from "@/lib/admin/session";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatPKR } from "@/lib/format";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
+import { PerfumeEditor } from "@/components/admin/PerfumeEditor";
+import type { Perfume } from "@/lib/api/queries";
 
 export const Route = createFileRoute("/admin_/dashboard")({
   head: () => ({
@@ -111,6 +114,9 @@ function PerfumesPanel() {
   const { data: perfumes = [], refetch } = usePerfumes();
   const { data: categories = [] } = useCategories();
   const qc = useQueryClient();
+  const [editing, setEditing] = useState<Perfume | null | "new">(null);
+  const [pendingDelete, setPendingDelete] = useState<Perfume | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const toggleStock = async (id: string, next: boolean) => {
     const { error } = await supabase.from("perfumes").update({ in_stock: next }).eq("id", id);
@@ -128,34 +134,15 @@ function PerfumesPanel() {
       qc.invalidateQueries({ queryKey: ["perfumes"] });
     }
   };
-  const del = async (id: string, name: string) => {
-    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    const { error } = await supabase.from("perfumes").delete().eq("id", id);
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    const { error } = await supabase.from("perfumes").delete().eq("id", pendingDelete.id);
+    setDeleting(false);
     if (error) toast.error(error.message);
     else {
       toast.success("Deleted");
-      refetch();
-    }
-  };
-  const addQuick = async () => {
-    const name = prompt("Perfume name?");
-    if (!name) return;
-    const slug = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-    const cat = categories[0];
-    const { error } = await supabase.from("perfumes").insert({
-      name,
-      slug,
-      category_id: cat?.id ?? null,
-      family: cat?.name ?? null,
-      price_pkr: 20000,
-      in_stock: true,
-    });
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Created. Edit price and details below.");
+      setPendingDelete(null);
       refetch();
     }
   };
@@ -165,7 +152,7 @@ function PerfumesPanel() {
       <div className="mb-6 flex items-center justify-between">
         <h2 className="font-display text-2xl italic">Perfumes ({perfumes.length})</h2>
         <button
-          onClick={addQuick}
+          onClick={() => setEditing("new")}
           className="btn-gold px-5 py-2 text-[10px] uppercase tracking-[0.4em]"
         >
           + Add Perfume
@@ -175,7 +162,7 @@ function PerfumesPanel() {
         {perfumes.map((p) => (
           <div
             key={p.id}
-            className="glass-card grid grid-cols-1 items-center gap-4 rounded-sm p-4 md:grid-cols-[80px_1fr_120px_140px_100px_100px]"
+            className="glass-card grid grid-cols-1 items-center gap-4 rounded-sm p-4 md:grid-cols-[80px_1fr_120px_140px_90px_90px_70px]"
           >
             <div className="h-16 w-16 overflow-hidden bg-obsidian">
               {p.image_url && (
@@ -200,10 +187,16 @@ function PerfumesPanel() {
               onClick={() => toggleStock(p.id, !p.in_stock)}
               className={`rounded-sm border px-3 py-2 text-[9px] uppercase tracking-[0.3em] ${p.in_stock ? "border-gold/40 text-gold" : "border-foreground/30 text-foreground/50"}`}
             >
-              {p.in_stock ? "In Stock" : "Out of Stock"}
+              {p.in_stock ? "In Stock" : "Out"}
             </button>
             <button
-              onClick={() => del(p.id, p.name)}
+              onClick={() => setEditing(p)}
+              className="text-[9px] uppercase tracking-[0.3em] text-gold/80 hover:text-gold"
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => setPendingDelete(p)}
               className="text-[9px] uppercase tracking-[0.3em] text-red-400/80 hover:text-red-400"
             >
               Delete
@@ -211,9 +204,29 @@ function PerfumesPanel() {
           </div>
         ))}
       </div>
-      <p className="mt-6 text-xs text-foreground/50">
-        Full editor with image upload, notes, comparison ratings, and quiz tags ships next.
-      </p>
+
+      {editing && (
+        <PerfumeEditor
+          perfume={editing === "new" ? null : editing}
+          categories={categories}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            refetch();
+            qc.invalidateQueries({ queryKey: ["perfumes"] });
+          }}
+        />
+      )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={`Delete "${pendingDelete?.name}"?`}
+        description="This permanently removes the perfume and cannot be undone. Consider marking it Out of Stock instead if you might restore it later."
+        confirmLabel="Delete Permanently"
+        danger
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
@@ -253,11 +266,15 @@ function OffersPanel() {
     if (error) toast.error(error.message);
     else refetch();
   };
-  const del = async (id: string) => {
-    if (!confirm("Delete offer?")) return;
-    const { error } = await supabase.from("offers").delete().eq("id", id);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; title: string } | null>(null);
+  const del = async () => {
+    if (!pendingDelete) return;
+    const { error } = await supabase.from("offers").delete().eq("id", pendingDelete.id);
     if (error) toast.error(error.message);
-    else refetch();
+    else {
+      setPendingDelete(null);
+      refetch();
+    }
   };
 
   return (
@@ -347,7 +364,7 @@ function OffersPanel() {
                   {o.active ? "Active" : "Inactive"}
                 </button>
                 <button
-                  onClick={() => del(o.id)}
+                  onClick={() => setPendingDelete({ id: o.id, title: o.title })}
                   className="text-[9px] uppercase tracking-[0.3em] text-red-400/80 hover:text-red-400"
                 >
                   Delete
@@ -360,6 +377,16 @@ function OffersPanel() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={`Delete "${pendingDelete?.title}"?`}
+        description="This offer will stop showing on the site immediately."
+        confirmLabel="Delete"
+        danger
+        onConfirm={del}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
@@ -443,11 +470,15 @@ function ReviewsPanel() {
       refetch();
     }
   };
-  const del = async (id: string) => {
-    if (!confirm("Delete review?")) return;
-    const { error } = await supabase.from("reviews").delete().eq("id", id);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+  const del = async () => {
+    if (!pendingDelete) return;
+    const { error } = await supabase.from("reviews").delete().eq("id", pendingDelete.id);
     if (error) toast.error(error.message);
-    else refetch();
+    else {
+      setPendingDelete(null);
+      refetch();
+    }
   };
   return (
     <div className="space-y-4">
@@ -470,7 +501,7 @@ function ReviewsPanel() {
                 {r.approved ? "Approved" : "Approve"}
               </button>
               <button
-                onClick={() => del(r.id)}
+                onClick={() => setPendingDelete({ id: r.id, name: r.name })}
                 className="text-[9px] uppercase tracking-[0.3em] text-red-400/80 hover:text-red-400"
               >
                 Delete
@@ -480,6 +511,15 @@ function ReviewsPanel() {
         </div>
       ))}
       {!reviews.length && <p className="text-sm text-foreground/50">No reviews yet.</p>}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={`Delete review from "${pendingDelete?.name}"?`}
+        confirmLabel="Delete"
+        danger
+        onConfirm={del}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
