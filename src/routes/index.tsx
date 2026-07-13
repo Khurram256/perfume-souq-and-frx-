@@ -18,6 +18,7 @@ import { CartDrawer } from "@/components/CartDrawer";
 import { ContactButton } from "@/components/ContactButton";
 import { FlyToCart } from "@/components/FlyToCart";
 import { OffersLayer, InlineOffers } from "@/components/OffersLayer";
+import { BoutiqueLoader } from "@/components/BoutiqueLoader";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -39,6 +40,7 @@ function Index() {
   return (
     <CartProvider>
       <main className="grain relative min-h-screen bg-background text-foreground">
+        <BoutiqueLoader />
         <Particles count={30} />
         <OffersLayer />
         <Navbar />

@@ -6,17 +6,19 @@ import { usePerfumes, useCategories, type Perfume } from "@/lib/api/queries";
 import { formatPKR } from "@/lib/format";
 import { SplitHeading } from "./SplitHeading";
 
-function ProductCard({ p, wide }: { p: Perfume; wide?: boolean }) {
+function ProductCard({ p }: { p: Perfume }) {
   const { add } = useCart();
   const imgRef = useRef<HTMLImageElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
+  // Luxury-subtle tilt — max ~3° per the design direction (nothing exaggerated).
   const rx = useMotionValue(0);
   const ry = useMotionValue(0);
-  const srx = useSpring(rx, { stiffness: 220, damping: 20 });
-  const sry = useSpring(ry, { stiffness: 220, damping: 20 });
-  const rotateX = useTransform(srx, [-0.5, 0.5], [8, -8]);
-  const rotateY = useTransform(sry, [-0.5, 0.5], [-8, 8]);
+  const srx = useSpring(rx, { stiffness: 260, damping: 24 });
+  const sry = useSpring(ry, { stiffness: 260, damping: 24 });
+  const rotateX = useTransform(srx, [-0.5, 0.5], [3, -3]);
+  const rotateY = useTransform(sry, [-0.5, 0.5], [-3, 3]);
+  const [hovering, setHovering] = useState(false);
 
   const onMove = (e: React.MouseEvent) => {
     const el = cardRef.current;
@@ -28,6 +30,7 @@ function ProductCard({ p, wide }: { p: Perfume; wide?: boolean }) {
   const onLeave = () => {
     rx.set(0);
     ry.set(0);
+    setHovering(false);
   };
 
   const handleAdd = (e: React.MouseEvent) => {
@@ -41,14 +44,17 @@ function ProductCard({ p, wide }: { p: Perfume; wide?: boolean }) {
     <motion.article
       ref={cardRef}
       onMouseMove={onMove}
+      onMouseEnter={() => setHovering(true)}
       onMouseLeave={onLeave}
-      style={{ rotateX, rotateY, perspective: 1000 }}
+      style={{ rotateX, rotateY, perspective: 1000, y: hovering ? -6 : 0 }}
       initial={{ opacity: 0, y: 40 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.8 }}
-      className={`tilt-card glass-card relative flex flex-col items-center rounded-sm p-8 text-center ${p.featured ? "spotlight-card" : ""} ${wide ? "sm:col-span-2" : ""}`}
+      className={`tilt-card glass-card relative flex flex-col items-center overflow-hidden rounded-sm p-8 text-center transition-[transform] duration-300 ${p.featured ? "spotlight-card" : ""}`}
     >
+      <span className="card-sheen pointer-events-none" style={{ opacity: hovering ? 1 : 0 }} />
+
       {!p.in_stock && (
         <span className="absolute left-4 top-4 z-[3] rounded-full border border-foreground/30 bg-black/60 px-3 py-1 text-[8px] uppercase tracking-[0.4em] text-foreground/70">
           Out of Stock
@@ -60,10 +66,7 @@ function ProductCard({ p, wide }: { p: Perfume; wide?: boolean }) {
         </span>
       )}
 
-      <div
-        className={`relative mb-6 w-full overflow-visible ${wide ? "h-72" : "h-64"}`}
-        style={{ transform: "translateZ(30px)" }}
-      >
+      <div className="relative mb-6 h-64 w-full overflow-visible" style={{ transform: "translateZ(30px)" }}>
         {p.image_url && (
           <img
             ref={imgRef}
@@ -163,8 +166,8 @@ export function Collection() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((p, i) => (
-            <ProductCard key={p.id} p={p} wide={i % 5 === 0} />
+          {filtered.map((p) => (
+            <ProductCard key={p.id} p={p} />
           ))}
         </div>
 

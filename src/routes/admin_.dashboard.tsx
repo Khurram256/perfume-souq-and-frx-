@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { PerfumeEditor } from "@/components/admin/PerfumeEditor";
 import type { Perfume } from "@/lib/api/queries";
+import { THEMES, applyTheme } from "@/components/ThemeEngine";
 
 export const Route = createFileRoute("/admin_/dashboard")({
   head: () => ({
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/admin_/dashboard")({
   component: Dashboard,
 });
 
-type Tab = "perfumes" | "offers" | "spotlight" | "reviews" | "content" | "settings";
+type Tab = "perfumes" | "offers" | "spotlight" | "reviews" | "content" | "theme" | "settings";
 
 function Dashboard() {
   const { user, loading } = useAuthUser();
@@ -60,7 +61,7 @@ function Dashboard() {
     );
   }
 
-  const tabs: Tab[] = ["perfumes", "offers", "spotlight", "reviews", "content", "settings"];
+  const tabs: Tab[] = ["perfumes", "offers", "spotlight", "reviews", "content", "theme", "settings"];
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -103,6 +104,7 @@ function Dashboard() {
         {tab === "spotlight" && <SpotlightPanel />}
         {tab === "reviews" && <ReviewsPanel />}
         {tab === "content" && <ContentPanel />}
+        {tab === "theme" && <ThemePanel />}
         {tab === "settings" && <SettingsPanel />}
       </section>
     </main>
@@ -567,6 +569,59 @@ function ContentPanel() {
           </button>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ---------------- Theme ---------------- */
+function ThemePanel() {
+  const { data: content = {}, refetch } = useSiteContent();
+  const active = content["theme.active"] || "obsidian-platinum";
+  const [saving, setSaving] = useState<string | null>(null);
+
+  const select = async (id: string) => {
+    setSaving(id);
+    applyTheme(id); // instant local preview
+    const { error } = await supabase.from("site_content").upsert({ key: "theme.active", value: id });
+    setSaving(null);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Theme applied site-wide");
+      refetch();
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-display text-2xl italic">Website Theme</h2>
+        <p className="mt-2 text-xs text-foreground/50">
+          Applied instantly across every page — no code changes, no redeploy.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {THEMES.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => select(t.id)}
+            disabled={saving === t.id}
+            className={`glass-card rounded-sm p-5 text-left transition ${active === t.id ? "border-gold" : ""}`}
+          >
+            <div className="mb-4 flex h-16 overflow-hidden rounded-sm border border-border">
+              <div className="flex-1" style={{ background: t.swatch[0] }} />
+              <div className="flex-1" style={{ background: t.swatch[1] }} />
+            </div>
+            <p className="font-display text-lg italic">{t.label}</p>
+            <p className="mt-1 text-[9px] uppercase tracking-[0.3em] text-gold/70">
+              {active === t.id ? "Active" : saving === t.id ? "Applying…" : "Set as Active"}
+            </p>
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-foreground/40">
+        3 of the planned 6 presets are live. Additional themes (Forest Emerald, Matte Charcoal, Sandstone
+        Beige) and a customer-facing light/dark toggle are not yet built.
+      </p>
     </div>
   );
 }

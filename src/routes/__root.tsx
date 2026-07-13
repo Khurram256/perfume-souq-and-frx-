@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { INSTAGRAM_URL } from "../lib/contact";
 import { Toaster } from "../components/ui/sonner";
+import { ThemeEngine, themeBootScript } from "../components/ThemeEngine";
 
 function NotFoundComponent() {
   return (
@@ -135,6 +136,8 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        {/* Applies the last-known theme before paint, avoiding a flash of the default theme. */}
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
       <body>
         {children}
@@ -151,6 +154,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <ThemeEngine />
       <Toaster richColors position="top-center" />
     </QueryClientProvider>
   );

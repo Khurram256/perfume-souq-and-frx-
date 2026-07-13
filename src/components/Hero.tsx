@@ -20,7 +20,8 @@ export function Hero() {
   const smy = useSpring(my, { stiffness: 60, damping: 20, mass: 0.6 });
   const bottleParX = useTransform(smx, [-0.5, 0.5], [-22, 22]);
   const bottleParY = useTransform(smy, [-0.5, 0.5], [-16, 16]);
-  const bottleTiltY = useTransform(smx, [-0.5, 0.5], [-6, 6]);
+  // Luxury restraint: max ~3.5° tilt, never more (per design direction).
+  const bottleTiltY = useTransform(smx, [-0.5, 0.5], [-3.5, 3.5]);
   const glowParX = useTransform(smx, [-0.5, 0.5], [14, -14]);
   const glowParY = useTransform(smy, [-0.5, 0.5], [10, -10]);
 
