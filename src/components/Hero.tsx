@@ -1,11 +1,13 @@
 import { motion, useMotionValue, useScroll, useSpring, useTransform } from "framer-motion";
-import { useRef, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import bottle from "@/assets/hero-bottle.png";
 import { Magnetic } from "./Magnetic";
 import { Marquee } from "./Marquee";
 import { useContent } from "@/lib/api/queries";
 
 const FALLBACK_HEADLINE = "A scent is the silence you leave behind";
+
+type Mote = { id: number; left: number; size: number; delay: number; duration: number; x: number; op: number };
 
 export function Hero() {
   const headline = useContent("hero.headline", FALLBACK_HEADLINE);
@@ -35,16 +37,77 @@ export function Hero() {
     my.set((e.clientY - r.top) / r.height - 0.5);
   };
 
+  // Floating light-catching dust — luminous, not smoke.
+  const [motes, setMotes] = useState<Mote[]>([]);
+  useEffect(() => {
+    const n = window.innerWidth < 768 ? 10 : 20;
+    setMotes(
+      Array.from({ length: n }).map((_, i) => ({
+        id: i,
+        left: 10 + Math.random() * 80,
+        size: Math.random() * 2.5 + 1,
+        delay: Math.random() * 10,
+        duration: Math.random() * 8 + 10,
+        x: (Math.random() - 0.5) * 60,
+        op: Math.random() * 0.35 + 0.25,
+      }))
+    );
+  }, []);
+
   return (
     <section
       id="top"
       ref={ref}
       onMouseMove={onMouseMove}
-      className="relative flex min-h-[110vh] items-center overflow-hidden hero-mesh"
+      className="relative flex min-h-[115vh] items-center overflow-hidden hero-mesh"
     >
       <div className="pointer-events-none absolute inset-0 hero-blue-wash" />
       <div className="pointer-events-none absolute inset-0 smoke-mist" />
       <div className="perspective-grid pointer-events-none" />
+
+      {/* Luminous atmosphere: drifting light rays + breathing glow orbs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-80">
+        <div className="light-ray absolute left-[-20%] top-[20%]" />
+        <div className="light-ray light-ray--2 absolute left-[-20%] top-[45%]" />
+        <div className="light-ray light-ray--3 absolute left-[-20%] top-[68%]" />
+        <div
+          className="glow-orb"
+          style={{ width: 420, height: 420, top: "-8%", left: "8%", background: "oklch(0.62 0.10 232 / 0.35)" }}
+        />
+        <div
+          className="glow-orb"
+          style={{
+            width: 500,
+            height: 500,
+            bottom: "-14%",
+            right: "6%",
+            background: "oklch(0.87 0.06 68 / 0.22)",
+            animationDelay: "-6s",
+          }}
+        />
+      </div>
+
+      {/* Floating gold dust */}
+      <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden">
+        {motes.map((m) => (
+          <span
+            key={m.id}
+            className="dust-mote absolute"
+            style={
+              {
+                left: `${m.left}%`,
+                bottom: "-10px",
+                width: m.size,
+                height: m.size,
+                animationDuration: `${m.duration}s`,
+                animationDelay: `${m.delay}s`,
+                "--dust-x": `${m.x}px`,
+                "--dust-op": m.op,
+              } as CSSProperties
+            }
+          />
+        ))}
+      </div>
 
       <div
         className="hud-corner hud-corner--tl"
@@ -118,21 +181,22 @@ export function Hero() {
 
         <motion.div
           style={{ y: scrollY, rotate: scrollRotate, opacity: fade }}
-          initial={{ opacity: 0, scale: 0.92 }}
+          initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2, duration: 1.6, ease: [0.2, 0.8, 0.2, 1] }}
+          transition={{ delay: 0.2, duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
           className="order-1 flex justify-center lg:order-2 lg:justify-end"
         >
           <motion.div style={{ x: bottleParX, y: bottleParY }} className="relative">
+            <div className="spotlight-cone" />
             <motion.div
               style={{ x: glowParX, y: glowParY }}
-              className="absolute inset-0 -z-10 blur-3xl opacity-70"
+              className="absolute inset-0 -z-10 blur-3xl opacity-90"
             >
               <div
                 className="h-full w-full"
                 style={{
                   background:
-                    "radial-gradient(circle, oklch(0.55 0.07 232 / 0.5), oklch(0.93 0.025 220 / 0.3) 40%, transparent 70%)",
+                    "radial-gradient(circle, oklch(0.70 0.10 70 / 0.55), oklch(0.93 0.05 75 / 0.35) 40%, transparent 72%)",
                 }}
               />
             </motion.div>
