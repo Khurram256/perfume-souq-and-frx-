@@ -112,13 +112,13 @@ export function ComparisonTool() {
   if (perfumes.length < 1) return null;
 
   return (
-    <section className="relative px-6 py-32 lg:px-16">
+    <section className="section-pad relative px-6 lg:px-16">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-14 grid grid-cols-1 items-end gap-6 lg:grid-cols-[auto_1fr]">
+        <div className="mb-16 grid grid-cols-1 items-end gap-6 lg:grid-cols-[auto_1fr]">
           <span className="section-index text-[14vw] leading-none md:text-[6vw]">06</span>
           <div>
-            <p className="mb-4 text-[10px] uppercase tracking-[0.5em] text-gold">Side by Side</p>
-            <h2 className="font-display text-4xl italic leading-none md:text-5xl">
+            <p className="label-eyebrow mb-5">Side by Side</p>
+            <h2 className="heading-section" style={{ fontSize: "clamp(2rem, 5vw, 4.5rem)" }}>
               Compare <span className="text-gradient-gold">Two Perfumes</span>
             </h2>
           </div>

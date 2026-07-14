@@ -47,19 +47,19 @@ export function Reviews() {
   };
 
   return (
-    <section id="reviews" className="relative px-6 py-32 lg:px-16">
+    <section id="reviews" className="section-pad relative px-6 lg:px-16">
       <div className="mx-auto max-w-6xl">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 1 }}
-          className="mb-16 grid grid-cols-1 items-end gap-6 lg:grid-cols-[auto_1fr]"
+          className="mb-20 grid grid-cols-1 items-end gap-6 lg:grid-cols-[auto_1fr]"
         >
           <span className="section-index text-[14vw] leading-none md:text-[6vw]">10</span>
           <div>
-            <p className="mb-4 text-[10px] uppercase tracking-[0.5em] text-gold">Whispers</p>
-            <h2 className="font-display text-4xl italic leading-none md:text-6xl">
+            <p className="label-eyebrow mb-5">Whispers</p>
+            <h2 className="heading-section">
               From <span className="text-gradient-gold">Those Who Wear Us</span>
             </h2>
           </div>

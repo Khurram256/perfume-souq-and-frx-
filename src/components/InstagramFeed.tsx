@@ -21,14 +21,14 @@ const posts = [
 
 export function InstagramFeed() {
   return (
-    <section className="relative border-y border-border px-6 py-32 lg:px-12">
+    <section className="section-pad relative border-y border-border px-6 lg:px-12">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-12 flex flex-col items-center justify-between gap-6 text-center md:flex-row md:text-left">
+        <div className="mb-16 flex flex-col items-center justify-between gap-6 text-center md:flex-row md:text-left">
           <div className="flex items-end gap-6">
             <span className="section-index hidden text-[6vw] leading-none md:block">09</span>
             <div>
-              <p className="mb-4 text-[10px] uppercase tracking-[0.5em] text-gold">Sur Instagram</p>
-              <h2 className="font-display text-4xl italic leading-none md:text-5xl">
+              <p className="label-eyebrow mb-5">Sur Instagram</p>
+              <h2 className="heading-section" style={{ fontSize: "clamp(2rem, 4.5vw, 4rem)" }}>
                 The <span className="text-gradient-gold">Souq</span> in motion
               </h2>
             </div>

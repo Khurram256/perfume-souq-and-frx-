@@ -19,7 +19,7 @@ export function About() {
   return (
     <section
       id="about"
-      className="relative overflow-hidden px-6 py-32 lg:px-16"
+      className="section-pad relative overflow-hidden px-6 lg:px-16"
       style={{
         background: "linear-gradient(160deg, var(--burgundy) 0%, var(--burgundy-deep) 100%)",
       }}
@@ -33,7 +33,7 @@ export function About() {
       />
 
       <div className="relative z-10 mx-auto max-w-7xl">
-        <div className="mb-16 grid grid-cols-1 items-end gap-8 lg:grid-cols-[auto_1fr]">
+        <div className="mb-20 grid grid-cols-1 items-end gap-8 lg:grid-cols-[auto_1fr]">
           <span
             className="section-index text-[18vw] leading-none md:text-[9vw]"
             style={{ WebkitTextStroke: "1px oklch(0.93 0.025 220 / 0.35)" }}
@@ -41,11 +41,11 @@ export function About() {
             02
           </span>
           <div>
-            <p className="mb-4 text-[10px] uppercase tracking-[0.5em] text-gold">The House</p>
+            <p className="label-eyebrow mb-5">The House</p>
             <SplitHeading
               text="About the Souq"
               accentWords={["Souq"]}
-              className="font-display text-4xl italic leading-none md:text-6xl"
+              className="heading-section"
             />
           </div>
         </div>

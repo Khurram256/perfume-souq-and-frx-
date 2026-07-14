@@ -75,7 +75,7 @@ export function Hero() {
             </span>
           </div>
 
-          <h1 className="font-display text-[13vw] italic leading-[0.98] tracking-tight text-foreground md:text-6xl lg:text-[4.6rem]">
+          <h1 className="heading-hero text-foreground">
             {words.map((w, i) => (
               <span
                 key={i}
@@ -92,24 +92,24 @@ export function Hero() {
             animate={{ scaleX: 1 }}
             transition={{ delay: 1.3, duration: 1.2, ease: "easeOut" }}
             style={{ transformOrigin: "left" }}
-            className="gold-line my-10 w-2/3 max-w-sm"
+            className="gold-line my-12 w-2/3 max-w-sm"
           />
 
           <div
             style={{ "--fib-delay": "1.5s" } as CSSProperties}
-            className="fade-in-blur flex flex-wrap items-center gap-6"
+            className="fade-in-blur flex flex-wrap items-center gap-8"
           >
             <Magnetic>
               <a
                 href="#signature"
-                className="btn-gold inline-block px-10 py-4 text-[10px] uppercase tracking-[0.4em]"
+                className="btn-gold inline-block px-12 py-5 text-[10px] uppercase tracking-[0.45em]"
               >
                 Discover the Maison
               </a>
             </Magnetic>
             <a
               href="#quiz"
-              className="inline-block px-2 py-4 text-[10px] uppercase tracking-[0.35em] text-foreground/70 hover-underline"
+              className="link-underline inline-block px-2 py-5 text-[10px] uppercase tracking-[0.4em] text-foreground/70"
             >
               Find Your Signature Scent
             </a>

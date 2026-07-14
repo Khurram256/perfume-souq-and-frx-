@@ -71,7 +71,7 @@ export function FragranceQuiz() {
   if (!steps.length) return null;
 
   return (
-    <section id="quiz" className="relative px-6 py-32 lg:px-16">
+    <section id="quiz" className="section-pad relative px-6 lg:px-16">
       <div className="mx-auto max-w-5xl">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -82,10 +82,8 @@ export function FragranceQuiz() {
         >
           <span className="section-index text-[16vw] leading-none md:text-[7vw]">05</span>
           <div>
-            <p className="mb-4 text-[10px] uppercase tracking-[0.5em] text-gold">
-              Not sure what to choose?
-            </p>
-            <h2 className="font-display text-4xl italic leading-none md:text-6xl">
+            <p className="label-eyebrow mb-5">Not sure what to choose?</p>
+            <h2 className="heading-section">
               Find your <span className="text-gradient-gold">Signature Scent</span>
             </h2>
             <p className="mt-8 max-w-xl text-sm font-light leading-relaxed text-foreground/60">

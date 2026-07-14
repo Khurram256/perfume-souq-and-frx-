@@ -19,7 +19,7 @@ export function ClosingSection() {
   const lines = [line0, line1, line2, line3];
 
   return (
-    <section className="relative overflow-hidden py-40">
+    <section className="section-pad relative overflow-hidden">
       <div
         className="pointer-events-none absolute inset-0 opacity-40"
         style={{
@@ -27,25 +27,30 @@ export function ClosingSection() {
             "radial-gradient(ellipse at center, oklch(0.78 0.09 228 / 0.08), transparent 65%)",
         }}
       />
-      <div className="relative mx-auto max-w-4xl px-6 text-center">
-        <div className="mx-auto mb-12 h-px w-24" style={{ background: "var(--gradient-gold)" }} />
+      <div className="relative mx-auto max-w-5xl px-6 text-center">
+        <div className="mx-auto mb-14 h-px w-24" style={{ background: "var(--gradient-gold)" }} />
         {lines.map((l, i) => (
           <motion.p
             key={l}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 24, filter: "blur(6px)" }}
+            whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             viewport={{ once: true, margin: "-80px" }}
-            transition={{ duration: 1.1, delay: i * 0.15, ease: [0.2, 0.8, 0.2, 1] }}
-            className={`font-display italic leading-[1.4] ${
+            transition={{ duration: 1.2, delay: i * 0.18, ease: [0.16, 1, 0.3, 1] }}
+            className={`font-display italic leading-[1.35] ${
               i === lines.length - 1
-                ? "mt-6 text-3xl text-gradient-gold md:text-5xl"
-                : "text-2xl text-foreground/80 md:text-4xl"
+                ? "mt-8 text-gradient-gold"
+                : "text-foreground/80"
             }`}
+            style={
+              i === lines.length - 1
+                ? { fontSize: "clamp(2rem, 5vw, 4rem)" }
+                : { fontSize: "clamp(1.4rem, 3.5vw, 2.75rem)" }
+            }
           >
             {l}
           </motion.p>
         ))}
-        <div className="mx-auto mt-12 h-px w-24" style={{ background: "var(--gradient-gold)" }} />
+        <div className="mx-auto mt-14 h-px w-24" style={{ background: "var(--gradient-gold)" }} />
       </div>
     </section>
   );

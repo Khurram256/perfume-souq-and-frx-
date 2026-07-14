@@ -9,7 +9,7 @@ export function CircleOfScent() {
   const igUrl = `https://instagram.com/${igHandle.replace(/^@/, "")}`;
 
   return (
-    <section id="discovery" className="relative overflow-hidden py-40">
+    <section id="discovery" className="section-pad relative overflow-hidden">
       <div
         className="pointer-events-none absolute inset-0 opacity-30"
         style={{
@@ -25,11 +25,11 @@ export function CircleOfScent() {
         transition={{ duration: 1.2 }}
         className="relative z-10 mx-auto max-w-3xl px-6 text-center"
       >
-        <span className="section-index mb-4 inline-block text-[14vw] leading-none md:text-[6vw]">
+        <span className="section-index mb-6 inline-block text-[14vw] leading-none md:text-[6vw]">
           07
         </span>
-        <p className="mb-6 text-[10px] uppercase tracking-[0.5em] text-gold">L'Invitation</p>
-        <h2 className="font-display text-5xl italic md:text-6xl">
+        <p className="label-eyebrow mb-6">L'Invitation</p>
+        <h2 className="heading-section" style={{ fontSize: "clamp(2.5rem, 6vw, 5rem)" }}>
           Join the <span className="text-gradient-gold">Circle of Scent</span>
         </h2>
         <p className="mx-auto mt-8 max-w-xl text-sm font-light leading-relaxed text-foreground/65">

@@ -51,7 +51,7 @@ function ProductCard({ p }: { p: Perfume }) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.8 }}
-      className={`tilt-card glass-card relative flex flex-col items-center overflow-hidden rounded-sm p-8 text-center transition-[transform] duration-300 ${p.featured ? "spotlight-card" : ""}`}
+      className={`img-reveal-trigger tilt-card glass-card relative flex flex-col items-center overflow-hidden rounded-sm p-6 text-center transition-[transform] duration-300 sm:p-8 ${p.featured ? "spotlight-card" : ""}`}
     >
       <span className="card-sheen pointer-events-none" style={{ opacity: hovering ? 1 : 0 }} />
 
@@ -66,7 +66,8 @@ function ProductCard({ p }: { p: Perfume }) {
         </span>
       )}
 
-      <div className="relative mb-6 h-64 w-full overflow-visible" style={{ transform: "translateZ(30px)" }}>
+      {/* Product photography is the hero here — much larger stage, quiet grayscale-to-color bloom on hover */}
+      <div className="relative mb-8 h-80 w-full overflow-visible" style={{ transform: "translateZ(30px)" }}>
         {p.image_url && (
           <img
             ref={imgRef}
@@ -75,21 +76,21 @@ function ProductCard({ p }: { p: Perfume }) {
             loading="lazy"
             width={400}
             height={400}
-            className={`relative mx-auto h-full w-auto object-contain transition-opacity ${p.in_stock ? "" : "opacity-50"}`}
+            className={`img-reveal relative mx-auto h-full w-auto object-contain ${p.in_stock ? "" : "opacity-50"}`}
           />
         )}
       </div>
 
-      <p className="mb-2 text-[9px] uppercase tracking-[0.45em] text-gold/70">{p.family}</p>
-      <h3 className="font-display text-2xl italic">{p.name}</h3>
+      <p className="label-eyebrow mb-3 text-[9px]">{p.family}</p>
+      <h3 className="font-display text-3xl italic">{p.name}</h3>
       {p.tagline && (
         <p className="mt-3 max-w-xs text-xs font-light leading-relaxed text-foreground/55">
           {p.tagline}
         </p>
       )}
 
-      <details className="mt-5 w-full text-left">
-        <summary className="cursor-pointer text-[9px] uppercase tracking-[0.4em] text-gold/80 hover-underline">
+      <details className="mt-6 w-full text-left">
+        <summary className="link-underline cursor-pointer text-[9px] uppercase tracking-[0.4em] text-gold/80">
           Fragrance Notes
         </summary>
         <div className="mt-4 space-y-2 border-l border-gold/20 pl-4">
@@ -108,12 +109,12 @@ function ProductCard({ p }: { p: Perfume }) {
         </div>
       </details>
 
-      <div className="mt-6 flex w-full items-center justify-between border-t border-border pt-5">
+      <div className="mt-7 flex w-full items-center justify-between border-t border-border pt-6">
         <span className="text-gradient-gold font-display text-xl">{formatPKR(p.price_pkr)}</span>
         <button
           onClick={handleAdd}
           disabled={!p.in_stock}
-          className="flex items-center gap-2 text-[10px] uppercase tracking-[0.35em] text-gold hover-underline disabled:cursor-not-allowed disabled:opacity-40"
+          className="link-underline flex items-center gap-2 text-[10px] uppercase tracking-[0.35em] text-gold disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Plus className="h-3 w-3" />
           {p.in_stock ? "Add to Cart" : "Sold Out"}
@@ -135,16 +136,16 @@ export function Collection() {
   }, [filter, perfumes, categories]);
 
   return (
-    <section id="collection" className="relative px-6 py-32 lg:px-16">
+    <section id="collection" className="section-pad relative px-6 lg:px-16">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-16 grid grid-cols-1 items-end gap-8 lg:grid-cols-[auto_1fr]">
+        <div className="mb-20 grid grid-cols-1 items-end gap-8 lg:grid-cols-[auto_1fr]">
           <span className="section-index text-[16vw] leading-none md:text-[8vw]">04</span>
           <div>
-            <p className="mb-4 text-[10px] uppercase tracking-[0.5em] text-gold">La Collection</p>
+            <p className="label-eyebrow mb-5">La Collection</p>
             <SplitHeading
               text="The Maison Collection"
               accentWords={["Maison"]}
-              className="font-display text-4xl italic leading-none md:text-6xl"
+              className="heading-section"
             />
           </div>
         </div>

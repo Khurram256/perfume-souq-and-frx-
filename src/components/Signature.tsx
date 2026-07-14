@@ -23,7 +23,7 @@ export function Signature() {
     <section
       id="signature"
       ref={ref}
-      className="relative overflow-hidden py-40"
+      className="section-pad relative overflow-hidden"
       style={{ background: "var(--obsidian)" }}
     >
       <div
@@ -70,7 +70,7 @@ export function Signature() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 1 }}
-            className="mb-4 text-[10px] uppercase tracking-[0.5em] text-gold"
+            className="label-eyebrow mb-5"
           >
             Maison Spotlight
           </motion.p>
@@ -79,7 +79,8 @@ export function Signature() {
             whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             viewport={{ once: true }}
             transition={{ duration: 1.2 }}
-            className="font-display text-6xl italic leading-[0.95] text-gradient-gold"
+            className="heading-section text-gradient-gold"
+            style={{ lineHeight: 0.95 }}
           >
             {p.name}
           </motion.h2>

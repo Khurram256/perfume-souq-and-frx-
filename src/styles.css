@@ -298,6 +298,71 @@
   .font-display-alt { font-family: var(--font-display-alt); }
   .font-body { font-family: var(--font-body); }
 
+  /* ═══ Editorial type scale — LV/Tom Ford register: oversized, confident, restrained ═══ */
+  .heading-hero {
+    font-family: var(--font-display);
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(3rem, 9vw, 7.5rem);
+    line-height: 0.94;
+    letter-spacing: -0.01em;
+  }
+  .heading-section {
+    font-family: var(--font-display);
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(2.5rem, 6vw, 5.5rem);
+    line-height: 0.98;
+    letter-spacing: -0.005em;
+  }
+  .label-eyebrow {
+    font-family: var(--font-body);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.55em;
+    color: var(--gold);
+  }
+
+  /* Generous editorial section rhythm — whitespace is the luxury cue */
+  .section-pad {
+    padding-top: clamp(6rem, 12vw, 10rem);
+    padding-bottom: clamp(6rem, 12vw, 10rem);
+  }
+
+  /* Premium product-image hover: quiet grayscale-to-color bloom, not a bounce */
+  .img-reveal {
+    filter: grayscale(0.55) contrast(1.02);
+    transform: scale(1);
+    transition: filter 1s cubic-bezier(0.16, 1, 0.3, 1), transform 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .img-reveal-trigger:hover .img-reveal {
+    filter: grayscale(0) contrast(1.05);
+    transform: scale(1.045);
+  }
+
+  /* Refined underline-expand link — replaces plain color-change hovers */
+  .link-underline {
+    position: relative;
+    display: inline-block;
+  }
+  .link-underline::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -0.3em;
+    width: 100%;
+    height: 1px;
+    background: currentColor;
+    transform: scaleX(0.35);
+    transform-origin: left;
+    opacity: 0.4;
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease;
+  }
+  .link-underline:hover::after {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+
   /* Oversized section index numeral (breaks the repeated centered-heading rhythm) */
   .section-index {
     font-family: var(--font-display-alt);
