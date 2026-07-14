@@ -94,7 +94,7 @@ export function Signature() {
             {p.name}
           </motion.h2>
           {p.family && (
-            <p className="mt-4 text-xs uppercase tracking-[0.4em] text-foreground/45">{p.family}</p>
+            <p className="mt-4 text-xs uppercase tracking-[0.4em]" style={{ color: "oklch(0.96 0.012 220 / 0.45)" }}>{p.family}</p>
           )}
 
           {description && (
@@ -103,7 +103,8 @@ export function Signature() {
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ delay: 0.3, duration: 1 }}
-              className="mt-8 max-w-md text-sm font-light leading-relaxed text-foreground/70"
+              className="mt-8 max-w-md text-sm font-light leading-relaxed"
+              style={{ color: "oklch(0.96 0.012 220 / 0.7)" }}
             >
               {description}
             </motion.p>

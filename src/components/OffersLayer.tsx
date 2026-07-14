@@ -27,7 +27,7 @@ function AnnouncementBar({ offer }: { offer: Offer }) {
       className="fixed left-0 right-0 top-0 z-[200] border-b backdrop-blur-md"
       style={{
         borderColor: offer.accent_color + "40",
-        background: "oklch(0.14 0.01 0 / 0.92)",
+        background: "var(--obsidian)",
       }}
     >
       <div className="mx-auto flex max-w-7xl items-center justify-center gap-4 px-6 py-2">
@@ -59,13 +59,14 @@ function SlideInBanner({ offer, onDismiss }: { offer: Offer; onDismiss: () => vo
       className="fixed bottom-6 right-6 z-[190] w-80 rounded-sm border p-5 shadow-2xl backdrop-blur-md"
       style={{
         borderColor: offer.accent_color + "60",
-        background: "oklch(0.14 0.01 0 / 0.94)",
+        background: "var(--obsidian)",
       }}
     >
       <button
         onClick={onDismiss}
         aria-label="Dismiss"
-        className="absolute right-3 top-3 text-foreground/40 hover:text-foreground"
+        className="absolute right-3 top-3 transition hover:opacity-100"
+        style={{ color: "oklch(0.96 0.012 220 / 0.5)" }}
       >
         <X className="h-3.5 w-3.5" />
       </button>
@@ -76,7 +77,9 @@ function SlideInBanner({ offer, onDismiss }: { offer: Offer; onDismiss: () => vo
         {offer.title}
       </p>
       {offer.body && (
-        <p className="text-sm font-light leading-relaxed text-foreground/80">{offer.body}</p>
+        <p className="text-sm font-light leading-relaxed" style={{ color: "oklch(0.96 0.012 220 / 0.8)" }}>
+          {offer.body}
+        </p>
       )}
       <OfferCta
         offer={offer}
@@ -104,13 +107,14 @@ function PopupModal({ offer, onDismiss }: { offer: Offer; onDismiss: () => void 
         className="relative w-full max-w-md rounded-sm border p-10 text-center"
         style={{
           borderColor: offer.accent_color + "60",
-          background: "oklch(0.14 0.01 0)",
+          background: "var(--obsidian)",
         }}
       >
         <button
           onClick={onDismiss}
           aria-label="Close"
-          className="absolute right-4 top-4 text-foreground/40 hover:text-foreground"
+          className="absolute right-4 top-4 transition hover:opacity-100"
+          style={{ color: "oklch(0.96 0.012 220 / 0.5)" }}
         >
           <X className="h-4 w-4" />
         </button>
@@ -120,9 +124,13 @@ function PopupModal({ offer, onDismiss }: { offer: Offer; onDismiss: () => void 
         >
           The Souq
         </p>
-        <h3 className="font-display text-3xl italic">{offer.title}</h3>
+        <h3 className="font-display text-3xl italic" style={{ color: "oklch(0.96 0.012 220)" }}>
+          {offer.title}
+        </h3>
         {offer.body && (
-          <p className="mt-4 text-sm font-light leading-relaxed text-foreground/70">{offer.body}</p>
+          <p className="mt-4 text-sm font-light leading-relaxed" style={{ color: "oklch(0.96 0.012 220 / 0.7)" }}>
+            {offer.body}
+          </p>
         )}
         <OfferCta
           offer={offer}
@@ -197,7 +205,7 @@ export function InlineOffers() {
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.9 }}
             className="flex flex-col items-center justify-between gap-6 rounded-sm border p-8 text-center md:flex-row md:text-left"
-            style={{ borderColor: o.accent_color + "60", background: "oklch(0.14 0.01 0 / 0.65)" }}
+            style={{ borderColor: o.accent_color + "60", background: "var(--obsidian)" }}
           >
             <div>
               <p
@@ -207,7 +215,9 @@ export function InlineOffers() {
                 {o.title}
               </p>
               {o.body && (
-                <p className="mt-2 font-display text-2xl italic text-foreground/90">{o.body}</p>
+                <p className="mt-2 font-display text-2xl italic" style={{ color: "oklch(0.96 0.012 220 / 0.9)" }}>
+                  {o.body}
+                </p>
               )}
             </div>
             <OfferCta

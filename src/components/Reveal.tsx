@@ -1,5 +1,5 @@
 import { motion, type Variants } from "framer-motion";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 // Single signature motion language used everywhere — the consistency itself
 // is the luxury cue (LV/Tom Ford never mix five different reveal styles on
@@ -32,6 +32,7 @@ export function Reveal({
   className,
   once = true,
   margin = "-80px",
+  style,
 }: {
   children: ReactNode;
   variant?: "up" | "mask" | "scale" | "blur";
@@ -39,6 +40,7 @@ export function Reveal({
   className?: string;
   once?: boolean;
   margin?: string;
+  style?: CSSProperties;
 }) {
   return (
     <motion.div
@@ -48,6 +50,7 @@ export function Reveal({
       variants={VARIANTS[variant]}
       transition={{ delay }}
       className={className}
+      style={style}
     >
       {children}
     </motion.div>

@@ -58,7 +58,7 @@ export function About() {
           >
             "
           </span>
-          <p className="relative font-display text-3xl italic leading-[1.25] text-foreground md:text-5xl">
+          <p className="relative font-display text-3xl italic leading-[1.25] md:text-5xl" style={{ color: "oklch(0.96 0.012 220)" }}>
             A fragrance is more than a scent — it is a{" "}
             <span className="text-gradient-gold">reflection of personality</span>, confidence, and
             style.
@@ -67,7 +67,7 @@ export function About() {
             <div className="h-px w-12" style={{ background: "var(--gradient-gold)" }} />
             <div>
               <p className="font-display text-lg italic text-gold">Khurram Shabbir</p>
-              <p className="text-[10px] uppercase tracking-[0.4em] text-foreground/50">
+              <p className="text-[10px] uppercase tracking-[0.4em]" style={{ color: "oklch(0.96 0.012 220 / 0.5)" }}>
                 Founder · The Perfume Souq
               </p>
             </div>
@@ -75,7 +75,7 @@ export function About() {
         </Reveal>
 
         <div className="grid grid-cols-1 gap-16 lg:grid-cols-5">
-          <Reveal variant="up" delay={0.1} className="space-y-6 text-sm font-light leading-relaxed text-foreground/75 lg:col-span-3">
+          <Reveal variant="up" delay={0.1} className="space-y-6 text-sm font-light leading-relaxed lg:col-span-3" style={{ color: "oklch(0.96 0.012 220 / 0.75)" }}>
             <p>{body}</p>
             <p>
               We carefully source original branded fragrances from some of the world's most
@@ -83,7 +83,7 @@ export function About() {
               essence of luxury at a more considered price. Every flacon in our collection is
               selected for performance, value, and presence.
             </p>
-            <p className="pt-2 text-foreground/80">
+            <p className="pt-2" style={{ color: "oklch(0.96 0.012 220 / 0.8)" }}>
               Whether you are searching for an iconic designer scent or a high-quality inspired
               alternative, we are here to help you find a fragrance that feels uniquely yours.
             </p>
@@ -104,7 +104,7 @@ export function About() {
                   transition={{ type: "spring", stiffness: 300, damping: 24 }}
                 >
                   <Check className="h-4 w-4 flex-shrink-0 text-gold" />
-                  <span className="text-sm text-foreground/90">{p}</span>
+                  <span className="text-sm" style={{ color: "oklch(0.96 0.012 220 / 0.9)" }}>{p}</span>
                 </motion.div>
               ))}
             </RevealGroup>
