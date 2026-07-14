@@ -44,18 +44,71 @@
 :root {
   --radius: 0.25rem;
 
-  /* Souq palette — deep navy/black, platinum-ice accent. High-end tech-luxury, not warm-gold cliché. */
+  /* Souq flagship — Signature Ivory. A premium light register: pearl paper,
+     refined bronze-gold, soft colored shadows instead of glows. --obsidian/
+     --navy-deep/--burgundy stay genuinely dark — several sections (About,
+     Signature, Footer) deliberately punch through with a full-bleed dark
+     editorial block for contrast, regardless of the overall theme. */
   --obsidian: oklch(0.11 0.018 252);
   --navy-deep: oklch(0.07 0.016 252);
   --navy: oklch(0.19 0.026 250);
-  --gold: oklch(0.78 0.09 228);
-  --gold-soft: oklch(0.62 0.08 232);
-  --champagne: oklch(0.93 0.025 220);
+  --gold: oklch(0.66 0.12 74);
+  --gold-soft: oklch(0.56 0.10 72);
+  --champagne: oklch(0.90 0.045 78);
   --rose-smoke: oklch(0.72 0.05 260);
   --burgundy: oklch(0.19 0.09 252);
   --burgundy-deep: oklch(0.11 0.07 252);
+  --clay: oklch(0.60 0.09 70);
+  --ivory: oklch(0.975 0.010 80);
+
+  --background: var(--ivory);
+  --foreground: oklch(0.19 0.006 260);
+  --card: oklch(0.995 0.006 85);
+  --card-foreground: oklch(0.19 0.006 260);
+  --popover: oklch(0.995 0.006 85);
+  --popover-foreground: oklch(0.19 0.006 260);
+  --primary: var(--gold);
+  --primary-foreground: oklch(0.99 0.004 85);
+  --secondary: oklch(0.94 0.014 78);
+  --secondary-foreground: oklch(0.19 0.006 260);
+  --muted: oklch(0.93 0.013 78);
+  --muted-foreground: oklch(0.44 0.008 260);
+  --accent: var(--gold);
+  --accent-foreground: oklch(0.99 0.004 85);
+  --destructive: oklch(0.58 0.19 25);
+  --destructive-foreground: oklch(0.96 0.012 85);
+  --border: oklch(0.66 0.12 74 / 0.22);
+  --input: oklch(0.91 0.014 78);
+  --ring: var(--gold);
+
+  /* Effects — soft warm-toned shadows/blooms rather than dark-mode glow */
+  --gradient-mesh: radial-gradient(at 15% 25%, oklch(0.90 0.04 78 / 0.55), transparent 55%),
+    radial-gradient(at 85% 75%, oklch(0.88 0.05 72 / 0.42), transparent 55%),
+    radial-gradient(at 50% 100%, oklch(0.94 0.02 78 / 0.5), transparent 60%);
+  --gradient-gold: linear-gradient(135deg, var(--clay) 0%, var(--champagne) 50%, var(--gold-soft) 100%);
+  --gradient-gold-line: linear-gradient(90deg, transparent, var(--gold), transparent);
+  --shadow-gold: 0 0 44px oklch(0.66 0.12 74 / 0.20);
+  --shadow-deep: 0 28px 70px -20px oklch(0.45 0.04 74 / 0.28);
+  --glass: oklch(0.99 0.006 85 / 0.62);
+}
+
+.dark {
+  /* base theme is light — .dark is reserved for future device-preference wiring */
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THEME ENGINE — admin-selectable presets, applied via [data-theme] on <html>.
+   Default (no attribute) = Signature Ivory (the flagship light theme above).
+   Every component reads only the semantic tokens above, so a theme swap
+   here recolors the entire site with zero component changes.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Obsidian & Platinum — the original dark theme, now an explicit alternate */
+[data-theme="obsidian-platinum"] {
+  --gold: oklch(0.78 0.09 228);
+  --gold-soft: oklch(0.62 0.08 232);
+  --champagne: oklch(0.93 0.025 220);
   --clay: oklch(0.55 0.07 232);
-  --ivory: oklch(0.95 0.015 220);
 
   --background: var(--obsidian);
   --foreground: oklch(0.96 0.012 220);
@@ -71,65 +124,16 @@
   --muted-foreground: oklch(0.70 0.02 235);
   --accent: var(--gold);
   --accent-foreground: oklch(0.10 0.02 250);
-  --destructive: oklch(0.58 0.19 25);
-  --destructive-foreground: oklch(0.96 0.012 85);
   --border: oklch(0.78 0.09 228 / 0.18);
   --input: oklch(0.22 0.03 250);
   --ring: var(--gold);
 
-  /* Effects */
   --gradient-mesh: radial-gradient(at 15% 25%, oklch(0.20 0.09 255 / 0.65), transparent 55%),
     radial-gradient(at 85% 75%, oklch(0.14 0.10 250 / 0.55), transparent 55%),
     radial-gradient(at 50% 100%, oklch(0.08 0.03 250 / 0.6), transparent 60%);
-  --gradient-gold: linear-gradient(135deg, var(--clay) 0%, var(--champagne) 50%, var(--gold-soft) 100%);
-  --gradient-gold-line: linear-gradient(90deg, transparent, var(--gold), transparent);
   --shadow-gold: 0 0 50px oklch(0.78 0.09 228 / 0.25);
   --shadow-deep: 0 30px 80px -20px oklch(0 0 0 / 0.9);
   --glass: oklch(0.17 0.025 250 / 0.55);
-}
-
-.dark {
-  /* same — site is always dark */
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   THEME ENGINE — admin-selectable presets, applied via [data-theme] on <html>.
-   Default (no attribute) = Theme 1: Obsidian & Platinum.
-   Every component reads only the semantic tokens above, so a theme swap
-   here recolors the entire site with zero component changes.
-   ═══════════════════════════════════════════════════════════════════════ */
-
-/* Theme 2 — Ivory White & Soft Gold (Dior-inspired boutique) */
-[data-theme="ivory-gold"] {
-  --gold: oklch(0.68 0.13 72);
-  --gold-soft: oklch(0.58 0.11 70);
-  --champagne: oklch(0.90 0.05 75);
-  --clay: oklch(0.60 0.10 65);
-
-  --background: oklch(0.97 0.012 75);
-  --foreground: oklch(0.20 0.006 260);
-  --card: oklch(0.995 0.006 75);
-  --card-foreground: oklch(0.20 0.006 260);
-  --popover: oklch(0.995 0.006 75);
-  --popover-foreground: oklch(0.20 0.006 260);
-  --primary: var(--gold);
-  --primary-foreground: oklch(0.99 0.005 75);
-  --secondary: oklch(0.93 0.015 75);
-  --secondary-foreground: oklch(0.20 0.006 260);
-  --muted: oklch(0.92 0.015 75);
-  --muted-foreground: oklch(0.42 0.008 260);
-  --accent: var(--gold);
-  --accent-foreground: oklch(0.99 0.005 75);
-  --border: oklch(0.68 0.13 72 / 0.25);
-  --input: oklch(0.90 0.015 75);
-  --ring: var(--gold);
-
-  --gradient-mesh: radial-gradient(at 15% 25%, oklch(0.90 0.04 75 / 0.55), transparent 55%),
-    radial-gradient(at 85% 75%, oklch(0.88 0.05 70 / 0.45), transparent 55%),
-    radial-gradient(at 50% 100%, oklch(0.94 0.02 75 / 0.5), transparent 60%);
-  --shadow-gold: 0 0 40px oklch(0.68 0.13 72 / 0.18);
-  --shadow-deep: 0 30px 70px -20px oklch(0.4 0.05 70 / 0.35);
-  --glass: oklch(0.97 0.01 75 / 0.65);
 }
 
 /* Theme 3 — Midnight Navy & Champagne (Rolex-boutique-inspired) */

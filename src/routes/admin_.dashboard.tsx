@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { PerfumeEditor } from "@/components/admin/PerfumeEditor";
 import type { Perfume } from "@/lib/api/queries";
-import { THEMES, applyTheme } from "@/components/ThemeEngine";
+import { THEMES, applyTheme, DEFAULT_THEME } from "@/components/ThemeEngine";
 
 export const Route = createFileRoute("/admin_/dashboard")({
   head: () => ({
@@ -576,7 +576,7 @@ function ContentPanel() {
 /* ---------------- Theme ---------------- */
 function ThemePanel() {
   const { data: content = {}, refetch } = useSiteContent();
-  const active = content["theme.active"] || "obsidian-platinum";
+  const active = content["theme.active"] || DEFAULT_THEME;
   const [saving, setSaving] = useState<string | null>(null);
 
   const select = async (id: string) => {
