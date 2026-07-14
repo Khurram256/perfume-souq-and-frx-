@@ -7,6 +7,9 @@ export const THEMES = [
   { id: "obsidian-platinum", label: "Obsidian & Platinum", swatch: ["oklch(0.11 0.018 252)", "oklch(0.78 0.09 228)"] },
   { id: "ivory-gold", label: "Ivory White & Soft Gold", swatch: ["oklch(0.97 0.012 75)", "oklch(0.68 0.13 72)"] },
   { id: "midnight-champagne", label: "Midnight Navy & Champagne", swatch: ["oklch(0.15 0.045 262)", "oklch(0.82 0.07 82)"] },
+  { id: "luxury-white", label: "Luxury White", swatch: ["oklch(0.99 0.003 90)", "oklch(0.72 0.12 80)"] },
+  { id: "pearl-light", label: "Pearl Light", swatch: ["oklch(0.97 0.008 30)", "oklch(0.75 0.09 25)"] },
+  { id: "minimal-platinum", label: "Minimal Platinum", swatch: ["oklch(0.98 0.002 260)", "oklch(0.70 0.01 260)"] },
 ] as const;
 
 export type ThemeId = (typeof THEMES)[number]["id"];

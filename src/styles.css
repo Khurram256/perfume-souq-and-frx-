@@ -169,6 +169,105 @@
   --glass: oklch(0.22 0.05 262 / 0.55);
 }
 
+/* Theme 4 — Luxury White (white + warm ivory + metallic gold) */
+[data-theme="luxury-white"] {
+  --gold: oklch(0.72 0.12 80);
+  --gold-soft: oklch(0.60 0.10 78);
+  --champagne: oklch(0.92 0.04 80);
+  --clay: oklch(0.64 0.09 78);
+
+  --background: oklch(0.99 0.003 90);
+  --foreground: oklch(0.20 0.015 70);
+  --card: oklch(0.97 0.01 85);
+  --card-foreground: oklch(0.20 0.015 70);
+  --popover: oklch(0.99 0.003 90);
+  --popover-foreground: oklch(0.20 0.015 70);
+  --primary: var(--gold);
+  --primary-foreground: oklch(0.99 0.003 90);
+  --secondary: oklch(0.95 0.015 85);
+  --secondary-foreground: oklch(0.20 0.015 70);
+  --muted: oklch(0.94 0.012 85);
+  --muted-foreground: oklch(0.48 0.015 70);
+  --accent: var(--gold);
+  --accent-foreground: oklch(0.99 0.003 90);
+  --border: oklch(0.72 0.12 80 / 0.3);
+  --input: oklch(0.93 0.012 85);
+  --ring: var(--gold);
+
+  --gradient-mesh: radial-gradient(at 15% 25%, oklch(0.94 0.03 85 / 0.5), transparent 55%),
+    radial-gradient(at 85% 75%, oklch(0.92 0.04 80 / 0.4), transparent 55%),
+    radial-gradient(at 50% 100%, oklch(0.96 0.015 85 / 0.5), transparent 60%);
+  --shadow-gold: 0 0 36px oklch(0.72 0.12 80 / 0.22);
+  --shadow-deep: 0 24px 60px -20px oklch(0.5 0.04 80 / 0.25);
+  --glass: oklch(0.99 0.005 90 / 0.55);
+}
+
+/* Theme 5 — Pearl Light (pearl white + rose gold + soft beige) */
+[data-theme="pearl-light"] {
+  --gold: oklch(0.75 0.09 28);
+  --gold-soft: oklch(0.65 0.08 26);
+  --champagne: oklch(0.90 0.04 30);
+  --clay: oklch(0.68 0.08 25);
+
+  --background: oklch(0.97 0.008 30);
+  --foreground: oklch(0.24 0.015 30);
+  --card: oklch(0.995 0.004 30);
+  --card-foreground: oklch(0.24 0.015 30);
+  --popover: oklch(0.995 0.004 30);
+  --popover-foreground: oklch(0.24 0.015 30);
+  --primary: var(--gold);
+  --primary-foreground: oklch(0.99 0.003 30);
+  --secondary: oklch(0.94 0.02 40);
+  --secondary-foreground: oklch(0.24 0.015 30);
+  --muted: oklch(0.93 0.015 35);
+  --muted-foreground: oklch(0.50 0.02 30);
+  --accent: var(--gold);
+  --accent-foreground: oklch(0.99 0.003 30);
+  --border: oklch(0.75 0.09 28 / 0.25);
+  --input: oklch(0.92 0.015 35);
+  --ring: var(--gold);
+
+  --gradient-mesh: radial-gradient(at 15% 25%, oklch(0.92 0.04 30 / 0.5), transparent 55%),
+    radial-gradient(at 85% 75%, oklch(0.90 0.05 25 / 0.4), transparent 55%),
+    radial-gradient(at 50% 100%, oklch(0.94 0.02 35 / 0.5), transparent 60%);
+  --shadow-gold: 0 0 36px oklch(0.75 0.09 28 / 0.20);
+  --shadow-deep: 0 24px 60px -20px oklch(0.55 0.05 30 / 0.22);
+  --glass: oklch(0.99 0.006 30 / 0.6);
+}
+
+/* Theme 6 — Minimal Platinum (white / light gray / silver — Apple-inspired) */
+[data-theme="minimal-platinum"] {
+  --gold: oklch(0.62 0.008 260);
+  --gold-soft: oklch(0.54 0.008 260);
+  --champagne: oklch(0.88 0.004 260);
+  --clay: oklch(0.58 0.006 260);
+
+  --background: oklch(0.985 0.001 260);
+  --foreground: oklch(0.18 0.005 260);
+  --card: oklch(0.97 0.002 260);
+  --card-foreground: oklch(0.18 0.005 260);
+  --popover: oklch(0.985 0.001 260);
+  --popover-foreground: oklch(0.18 0.005 260);
+  --primary: oklch(0.30 0.005 260);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.94 0.002 260);
+  --secondary-foreground: oklch(0.18 0.005 260);
+  --muted: oklch(0.93 0.002 260);
+  --muted-foreground: oklch(0.46 0.004 260);
+  --accent: oklch(0.62 0.008 260);
+  --accent-foreground: oklch(0.99 0 0);
+  --border: oklch(0.60 0.008 260 / 0.25);
+  --input: oklch(0.92 0.002 260);
+  --ring: oklch(0.55 0.008 260);
+
+  --gradient-mesh: radial-gradient(at 15% 25%, oklch(0.94 0.003 260 / 0.4), transparent 55%),
+    radial-gradient(at 85% 75%, oklch(0.92 0.004 260 / 0.35), transparent 55%),
+    radial-gradient(at 50% 100%, oklch(0.96 0.002 260 / 0.4), transparent 60%);
+  --shadow-gold: 0 0 24px oklch(0.55 0.008 260 / 0.12);
+  --shadow-deep: 0 24px 60px -20px oklch(0.3 0.005 260 / 0.18);
+  --glass: oklch(0.98 0.002 260 / 0.6);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

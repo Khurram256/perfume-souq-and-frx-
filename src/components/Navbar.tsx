@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
 import { CartButton } from "./CartDrawer";
+import { AccountMenu } from "./AccountMenu";
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -25,6 +26,7 @@ export function Navbar() {
           <span className="hidden text-[10px] uppercase tracking-[0.4em] text-foreground/50 md:inline">
             Est. 2026
           </span>
+          <AccountMenu />
           <CartButton />
         </div>
       </nav>
