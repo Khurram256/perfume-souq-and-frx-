@@ -3,10 +3,13 @@ import { useRef, type CSSProperties } from "react";
 import bottle from "@/assets/hero-bottle.png";
 import { Magnetic } from "./Magnetic";
 import { Marquee } from "./Marquee";
+import { useContent } from "@/lib/api/queries";
 
-const HEADLINE = ["A", "scent", "is", "the", "silence", "you", "leave", "behind"];
+const FALLBACK_HEADLINE = "A scent is the silence you leave behind";
 
 export function Hero() {
+  const headline = useContent("hero.headline", FALLBACK_HEADLINE);
+  const words = headline.split(" ");
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
   const scrollY = useTransform(scrollYProgress, [0, 1], [0, 140]);
@@ -73,11 +76,11 @@ export function Hero() {
           </div>
 
           <h1 className="font-display text-[13vw] italic leading-[0.98] tracking-tight text-foreground md:text-6xl lg:text-[4.6rem]">
-            {HEADLINE.map((w, i) => (
+            {words.map((w, i) => (
               <span
                 key={i}
                 style={{ "--fib-delay": `${0.5 + i * 0.07}s` } as CSSProperties}
-                className={`fade-in-blur mr-[0.28em] inline-block ${w === "silence" ? "text-shimmer" : ""}`}
+                className={`fade-in-blur mr-[0.28em] inline-block ${w.toLowerCase() === "silence" ? "text-shimmer" : ""}`}
               >
                 {w}
               </span>

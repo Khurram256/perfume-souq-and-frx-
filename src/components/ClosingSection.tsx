@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
+import { useContent } from "@/lib/api/queries";
 
-const lines = [
+const FALLBACK_LINES = [
   "Turn heads without saying a word.",
   "Command attention in silence.",
   "Dare to be remembered.",
@@ -8,6 +9,15 @@ const lines = [
 ];
 
 export function ClosingSection() {
+  // Reads live from the CMS (site_content) with the original copy as
+  // fallback — previously this text was fully hardcoded and ignored
+  // whatever the admin saved in the Content tab.
+  const line0 = useContent("closing.line0", FALLBACK_LINES[0]);
+  const line1 = useContent("closing.line1", FALLBACK_LINES[1]);
+  const line2 = useContent("closing.line2", FALLBACK_LINES[2]);
+  const line3 = useContent("closing.line3", FALLBACK_LINES[3]);
+  const lines = [line0, line1, line2, line3];
+
   return (
     <section className="relative overflow-hidden py-40">
       <div

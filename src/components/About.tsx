@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { SplitHeading } from "./SplitHeading";
+import { useContent } from "@/lib/api/queries";
 
 const promises = [
   "100% authentic branded perfumes",
@@ -10,7 +11,11 @@ const promises = [
   "A shopping experience built on trust",
 ];
 
+const FALLBACK_BODY =
+  "Our mission is simple: to make authentic, high-quality fragrances accessible to everyone. What began as a passion for fine perfumes grew into a house built on trust, quality, and quiet obsession with craft.";
+
 export function About() {
+  const body = useContent("about.body", FALLBACK_BODY);
   return (
     <section
       id="about"
@@ -81,11 +86,7 @@ export function About() {
             transition={{ duration: 1, delay: 0.15 }}
             className="space-y-6 text-sm font-light leading-relaxed text-foreground/75 lg:col-span-3"
           >
-            <p>
-              Our mission is simple: to make authentic, high-quality fragrances accessible to
-              everyone. What began as a passion for fine perfumes grew into a house built on trust,
-              quality, and quiet obsession with craft.
-            </p>
+            <p>{body}</p>
             <p>
               We carefully source original branded fragrances from some of the world's most
               recognised maisons, and offer premium-inspired renditions for those who seek the
