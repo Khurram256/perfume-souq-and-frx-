@@ -7,14 +7,30 @@ import { useAdminLock } from "@/lib/api/queries";
 import { useAuthUser } from "@/lib/admin/session";
 
 // The public storefront has no customer-account system yet — the only
-// account that can ever be signed in here is the single claimed admin.
-// This shows an always-visible way back into the dashboard once signed in,
-// rather than hiding it behind a URL only the admin happens to remember.
+// accounts that can ever sign in here are the Owner (admin_lock) or a
+// granted Admin/Editor/Analyst role. This shows a compact way back into the
+// dashboard once signed in, rather than hiding it behind a URL only the
+// admin happens to remember. Deliberately shows a short role label, never
+// the raw email — a full address in the nav pill was the exact bug this
+// replaces.
 export function AccountMenu() {
   const { user, loading } = useAuthUser();
   const { data: lock } = useAdminLock();
+  const [role, setRole] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  const isOwner = !!user && lock?.admin_user_id === user.id;
+
+  useEffect(() => {
+    if (!user || isOwner) return;
+    supabase
+      .from("admin_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => setRole(data?.role ?? null));
+  }, [user, isOwner]);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -24,9 +40,13 @@ export function AccountMenu() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  if (loading || !user || lock?.admin_user_id !== user.id) return null;
+  const isMember = isOwner || !!role;
+  if (loading || !user || !isMember) return null;
+
+  const label = isOwner ? "Owner" : role ? role[0].toUpperCase() + role.slice(1) : "Admin";
 
   const signOut = async () => {
+    if (isOwner) await supabase.rpc("release_admin_lock");
     await supabase.auth.signOut();
     window.location.href = "/";
   };
@@ -38,7 +58,7 @@ export function AccountMenu() {
         className="flex items-center gap-2 rounded-full border border-gold/40 px-3 py-1.5 text-[10px] uppercase tracking-[0.3em] text-gold transition hover:bg-gold/10"
       >
         <Shield className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">{user.email}</span>
+        <span className="hidden sm:inline">{label}</span>
         <ChevronDown className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 

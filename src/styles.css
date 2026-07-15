@@ -307,9 +307,10 @@
     font-family: var(--font-display);
     font-weight: 300;
     font-style: italic;
-    font-size: clamp(3rem, 9vw, 7.5rem);
-    line-height: 0.94;
+    font-size: clamp(2.25rem, 5.2vw, 4.75rem);
+    line-height: 1.05;
     letter-spacing: -0.01em;
+    max-width: 16ch;
   }
   .heading-section {
     font-family: var(--font-display);
@@ -971,3 +972,22 @@
   50%      { opacity: 1; }
 }
 
+
+/* =========================================================================
+   Reduced motion: disable all decorative CSS keyframe loops (dust motes,
+   halos, glints, light rays, glow orbs, spotlight breathing, marquees,
+   float/drift animations) and cut lingering transitions down to a fast
+   fade. Framer Motion's useReducedMotion() is handled per-component for
+   JS-driven parallax/entrance motion; this covers every plain CSS
+   @keyframes animation sitewide in one place.
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.15s !important;
+    scroll-behavior: auto !important;
+  }
+}

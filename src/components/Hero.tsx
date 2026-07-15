@@ -1,22 +1,50 @@
-import { motion, useMotionValue, useScroll, useSpring, useTransform } from "framer-motion";
+import { motion, useMotionValue, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import bottle from "@/assets/hero-bottle.png";
 import { Magnetic } from "./Magnetic";
 import { Marquee } from "./Marquee";
-import { useContent } from "@/lib/api/queries";
+import { useContent, usePerfumes, useAllVariants, usePromotions } from "@/lib/api/queries";
+import { resolveVariantPrice } from "@/lib/pricing";
+import { formatPKR } from "@/lib/format";
 
 const FALLBACK_HEADLINE = "A scent is the silence you leave behind";
 
 type Mote = { id: number; left: number; size: number; delay: number; duration: number; x: number; op: number };
 
 export function Hero() {
+  const visible = useContent("hero.visible", "true");
+  const ribbon = useContent("hero.promo_ribbon", "");
+  const eyebrow = useContent("hero.eyebrow", "The Souq — Est. 2026");
   const headline = useContent("hero.headline", FALLBACK_HEADLINE);
+  const description = useContent("hero.description", "");
+  const ctaPrimaryLabel = useContent("hero.cta_primary_label", "Shop Now");
+  const ctaPrimaryHref = useContent("hero.cta_primary_href", "/shop");
+  const ctaSecondaryLabel = useContent("hero.cta_secondary_label", "Find Your Signature Scent");
+  const ctaSecondaryHref = useContent("hero.cta_secondary_href", "#quiz");
+  const featuredPerfumeId = useContent("hero.featured_perfume_id", "");
   const words = headline.split(" ");
+
+  const { data: perfumes = [] } = usePerfumes();
+  const { data: variants = [] } = useAllVariants();
+  const { data: promotions = [] } = usePromotions();
+
+  const featured = useMemo(() => {
+    const p = perfumes.find((x) => x.id === featuredPerfumeId);
+    if (!p) return null;
+    const pv = variants.filter((v) => v.perfume_id === p.id);
+    const dv = pv.find((v) => v.is_default) ?? pv[0];
+    const inStock = pv.length ? pv.some((v) => v.in_stock) : p.in_stock;
+    const price = dv
+      ? resolveVariantPrice(dv.price_pkr, promotions, { perfumeId: p.id, variantId: dv.id, brandId: p.brand_id, categoryId: p.category_id })
+      : { originalPrice: p.price_pkr, finalPrice: p.price_pkr, discountAmount: 0, appliedPromotions: [] };
+    return { perfume: p, inStock, price };
+  }, [perfumes, variants, promotions, featuredPerfumeId]);
+  const reduceMotion = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
-  const scrollY = useTransform(scrollYProgress, [0, 1], [0, 140]);
-  const scrollRotate = useTransform(scrollYProgress, [0, 1], [0, 10]);
+  const scrollY = useTransform(scrollYProgress, [0, 1], [0, reduceMotion ? 0 : 140]);
+  const scrollRotate = useTransform(scrollYProgress, [0, 1], [0, reduceMotion ? 0 : 10]);
   const fade = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
   // Mouse-parallax: bottle + glow drift opposite the cursor across the whole hero.
@@ -32,15 +60,18 @@ export function Hero() {
   const glowParY = useTransform(smy, [-0.5, 0.5], [10, -10]);
 
   const onMouseMove = (e: React.MouseEvent) => {
+    if (reduceMotion) return;
     const r = ref.current?.getBoundingClientRect();
     if (!r) return;
     mx.set((e.clientX - r.left) / r.width - 0.5);
     my.set((e.clientY - r.top) / r.height - 0.5);
   };
 
-  // Floating light-catching dust — luminous, not smoke.
+  // Floating light-catching dust — luminous, not smoke. Skipped entirely
+  // under prefers-reduced-motion (each mote is its own looping CSS animation).
   const [motes, setMotes] = useState<Mote[]>([]);
   useEffect(() => {
+    if (reduceMotion) return;
     const n = window.innerWidth < 768 ? 10 : 20;
     setMotes(
       Array.from({ length: n }).map((_, i) => ({
@@ -53,7 +84,9 @@ export function Hero() {
         op: Math.random() * 0.35 + 0.25,
       }))
     );
-  }, []);
+  }, [reduceMotion]);
+
+  if (visible === "false") return null;
 
   return (
     <section
@@ -129,13 +162,21 @@ export function Hero() {
 
       <div className="relative z-10 mx-auto grid w-full max-w-[1500px] grid-cols-1 items-end gap-10 px-6 pt-40 pb-16 lg:grid-cols-[1.1fr_0.9fr] lg:px-16">
         <div className="order-2 lg:order-1">
+          {ribbon && (
+            <p
+              style={{ "--fib-delay": "0.15s" } as CSSProperties}
+              className="fade-in-blur mb-4 inline-block rounded-full border border-gold/40 px-4 py-1.5 text-[9px] uppercase tracking-[0.35em] text-gold"
+            >
+              {ribbon}
+            </p>
+          )}
           <div className="mb-6 flex items-baseline gap-6">
             <span className="section-index text-[9vw] leading-none md:text-[6vw]">01</span>
             <span
               style={{ "--fib-delay": "0.35s" } as CSSProperties}
               className="fade-in-blur mb-2 text-[10px] uppercase tracking-[0.5em] text-gold"
             >
-              The Souq — Est. 2026
+              {eyebrow}
             </span>
           </div>
 
@@ -151,6 +192,15 @@ export function Hero() {
             ))}
           </h1>
 
+          {description && (
+            <p
+              style={{ "--fib-delay": "1.1s" } as CSSProperties}
+              className="fade-in-blur mt-6 max-w-md text-sm font-light leading-relaxed text-foreground/65"
+            >
+              {description}
+            </p>
+          )}
+
           <motion.div
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
@@ -164,26 +214,41 @@ export function Hero() {
             className="fade-in-blur flex flex-wrap items-center gap-8"
           >
             <Magnetic>
-              <Link
-                to="/shop"
-                className="btn-gold inline-block px-12 py-5 text-[10px] uppercase tracking-[0.45em]"
-              >
-                Shop Now
-              </Link>
+              {ctaPrimaryHref.startsWith("/") ? (
+                <Link to={ctaPrimaryHref} className="btn-gold inline-block px-12 py-5 text-[10px] uppercase tracking-[0.45em]">
+                  {ctaPrimaryLabel}
+                </Link>
+              ) : (
+                <a href={ctaPrimaryHref} className="btn-gold inline-block px-12 py-5 text-[10px] uppercase tracking-[0.45em]">
+                  {ctaPrimaryLabel}
+                </a>
+              )}
             </Magnetic>
-            <a
-              href="#signature"
-              className="link-underline inline-block px-2 py-5 text-[10px] uppercase tracking-[0.4em] text-foreground/70"
-            >
-              Discover the Maison
-            </a>
-            <a
-              href="#quiz"
-              className="link-underline inline-block px-2 py-5 text-[10px] uppercase tracking-[0.4em] text-foreground/70"
-            >
-              Find Your Signature Scent
-            </a>
+            {ctaSecondaryLabel && (
+              ctaSecondaryHref.startsWith("/") ? (
+                <Link to={ctaSecondaryHref} className="link-underline inline-block px-2 py-5 text-[10px] uppercase tracking-[0.4em] text-foreground/70">
+                  {ctaSecondaryLabel}
+                </Link>
+              ) : (
+                <a href={ctaSecondaryHref} className="link-underline inline-block px-2 py-5 text-[10px] uppercase tracking-[0.4em] text-foreground/70">
+                  {ctaSecondaryLabel}
+                </a>
+              )
+            )}
           </div>
+
+          {featured && (
+            <Link
+              to="/product/$slug"
+              params={{ slug: featured.perfume.slug }}
+              style={{ "--fib-delay": "1.7s" } as CSSProperties}
+              className="fade-in-blur mt-8 inline-flex items-center gap-3 text-xs text-foreground/60 hover:text-gold"
+            >
+              <span className="font-display italic">{featured.perfume.name}</span>
+              <span className="text-gold">{formatPKR(featured.price.finalPrice)}</span>
+              {!featured.inStock && <span className="text-[9px] uppercase tracking-[0.3em] text-foreground/40">Out of Stock</span>}
+            </Link>
+          )}
         </div>
 
         <motion.div
@@ -218,8 +283,8 @@ export function Hero() {
             >
               <div className="glint-sweep" />
               <img
-                src={bottle}
-                alt="The Perfume Souq signature flacon"
+                src={featured?.perfume.image_url || bottle}
+                alt={featured ? featured.perfume.name : "The Perfume Souq signature flacon"}
                 width={520}
                 height={780}
                 className="float-bottle relative max-h-[72vh] w-auto"

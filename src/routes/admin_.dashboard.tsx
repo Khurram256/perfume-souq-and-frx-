@@ -38,7 +38,7 @@ export const Route = createFileRoute("/admin_/dashboard")({
   component: Dashboard,
 });
 
-type Tab = "perfumes" | "offers" | "promotions" | "bundles" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "requests" | "administrators";
+type Tab = "perfumes" | "offers" | "promotions" | "bundles" | "hero" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "requests" | "administrators";
 type AdminRole = "owner" | "admin" | "editor" | "analyst" | null;
 
 function useMyAdminRole(userId: string | undefined, isOwner: boolean) {
@@ -106,6 +106,7 @@ function Dashboard() {
     "offers",
     "promotions",
     "bundles",
+    "hero",
     "spotlight",
     "reviews",
     "content",
@@ -158,6 +159,7 @@ function Dashboard() {
         {tab === "bundles" && <BundlesPanel />}
         {tab === "spotlight" && <SpotlightPanel />}
         {tab === "reviews" && <ReviewsPanel />}
+        {tab === "hero" && <HeroPanel />}
         {tab === "content" && <ContentPanel />}
         {tab === "theme" && <ThemePanel />}
         {tab === "settings" && <SettingsPanel />}
@@ -1038,6 +1040,171 @@ function ReviewsPanel() {
         onConfirm={del}
         onCancel={() => setPendingDelete(null)}
       />
+    </div>
+  );
+}
+
+/* ---------------- Hero ---------------- */
+const HERO_KEYS = [
+  "hero.eyebrow",
+  "hero.headline",
+  "hero.description",
+  "hero.cta_primary_label",
+  "hero.cta_primary_href",
+  "hero.cta_secondary_label",
+  "hero.cta_secondary_href",
+  "hero.featured_perfume_id",
+  "hero.promo_ribbon",
+  "hero.visible",
+] as const;
+
+function HeroPanel() {
+  const { data: content = {}, refetch } = useSiteContent();
+  const { data: perfumes = [] } = usePerfumes();
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    for (const k of HERO_KEYS) next[k] = content[k] ?? "";
+    setDrafts(next);
+  }, [content]);
+
+  const set = (key: string, value: string) => setDrafts((d) => ({ ...d, [key]: value }));
+
+  const saveAll = async () => {
+    setSaving(true);
+    const rows = HERO_KEYS.map((key) => ({ key, value: drafts[key] ?? "" }));
+    const { error } = await supabase.from("site_content").upsert(rows, { onConflict: "key" });
+    setSaving(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Hero saved — live immediately");
+      refetch();
+    }
+  };
+
+  const featuredPerfume = perfumes.find((p) => p.id === drafts["hero.featured_perfume_id"]);
+
+  return (
+    <div className="space-y-4">
+      <h2 className="font-display text-2xl italic">Hero Section</h2>
+      <p className="text-xs text-foreground/50">
+        Controls the homepage's first screen. Selecting a Featured Perfume automatically pulls its name, price, image, and stock status — no code changes needed.
+      </p>
+
+      <div className="glass-card space-y-4 rounded-sm p-6">
+        <div>
+          <label className="mb-1 block text-[10px] uppercase tracking-[0.4em] text-gold/70">Eyebrow (small label above headline)</label>
+          <input
+            value={drafts["hero.eyebrow"] ?? ""}
+            onChange={(e) => set("hero.eyebrow", e.target.value)}
+            placeholder="The Souq — Est. 2026"
+            className="w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[10px] uppercase tracking-[0.4em] text-gold/70">Headline</label>
+          <textarea
+            rows={2}
+            value={drafts["hero.headline"] ?? ""}
+            onChange={(e) => set("hero.headline", e.target.value)}
+            placeholder="A scent is the silence you leave behind"
+            className="w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[10px] uppercase tracking-[0.4em] text-gold/70">Supporting Description (optional)</label>
+          <textarea
+            rows={2}
+            value={drafts["hero.description"] ?? ""}
+            onChange={(e) => set("hero.description", e.target.value)}
+            placeholder="Rare, hand-composed fragrances for those who leave a mark."
+            className="w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[10px] uppercase tracking-[0.4em] text-gold/70">Promotional Ribbon (optional, shown above eyebrow)</label>
+          <input
+            value={drafts["hero.promo_ribbon"] ?? ""}
+            onChange={(e) => set("hero.promo_ribbon", e.target.value)}
+            placeholder="Leave blank to hide"
+            className="w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-[10px] uppercase tracking-[0.4em] text-gold/70">Primary CTA Label</label>
+            <input
+              value={drafts["hero.cta_primary_label"] ?? ""}
+              onChange={(e) => set("hero.cta_primary_label", e.target.value)}
+              placeholder="Shop Now"
+              className="w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[10px] uppercase tracking-[0.4em] text-gold/70">Primary CTA Destination</label>
+            <input
+              value={drafts["hero.cta_primary_href"] ?? ""}
+              onChange={(e) => set("hero.cta_primary_href", e.target.value)}
+              placeholder="/shop"
+              className="w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[10px] uppercase tracking-[0.4em] text-gold/70">Secondary CTA Label</label>
+            <input
+              value={drafts["hero.cta_secondary_label"] ?? ""}
+              onChange={(e) => set("hero.cta_secondary_label", e.target.value)}
+              placeholder="Find Your Signature Scent"
+              className="w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[10px] uppercase tracking-[0.4em] text-gold/70">Secondary CTA Destination</label>
+            <input
+              value={drafts["hero.cta_secondary_href"] ?? ""}
+              onChange={(e) => set("hero.cta_secondary_href", e.target.value)}
+              placeholder="#quiz"
+              className="w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[10px] uppercase tracking-[0.4em] text-gold/70">Featured Perfume</label>
+          <select
+            value={drafts["hero.featured_perfume_id"] ?? ""}
+            onChange={(e) => set("hero.featured_perfume_id", e.target.value)}
+            className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="">None — use fallback artwork</option>
+            {perfumes.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}{p.in_stock ? "" : " (out of stock)"}</option>
+            ))}
+          </select>
+          {featuredPerfume && (
+            <p className="mt-2 text-[10px] text-foreground/50">
+              Will show: {featuredPerfume.name} — {formatPKR(featuredPerfume.price_pkr)} — links to /product/{featuredPerfume.slug}
+              {!featuredPerfume.in_stock && " — currently out of stock"}
+            </p>
+          )}
+        </div>
+
+        <label className="flex items-center gap-2 text-xs text-foreground/70">
+          <input
+            type="checkbox"
+            checked={drafts["hero.visible"] !== "false"}
+            onChange={(e) => set("hero.visible", e.target.checked ? "true" : "false")}
+          />
+          Hero section visible
+        </label>
+
+        <button onClick={saveAll} disabled={saving} className="btn-gold px-6 py-2 text-[10px] uppercase tracking-[0.4em] disabled:opacity-40">
+          {saving ? "Saving…" : "Save Hero"}
+        </button>
+      </div>
     </div>
   );
 }
