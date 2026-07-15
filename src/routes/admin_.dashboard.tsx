@@ -10,6 +10,7 @@ import {
   useSettings,
   useSiteContent,
   useCategories,
+  useAnalyticsEvents,
 } from "@/lib/api/queries";
 import { useAuthUser } from "@/lib/admin/session";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,6 +20,7 @@ import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { PerfumeEditor } from "@/components/admin/PerfumeEditor";
 import type { Perfume } from "@/lib/api/queries";
 import { THEMES, applyTheme, DEFAULT_THEME } from "@/components/ThemeEngine";
+import { listAdminRoles, addAdminRole, removeAdminRole } from "@/lib/api/admin.functions";
 
 export const Route = createFileRoute("/admin_/dashboard")({
   head: () => ({
@@ -30,7 +32,34 @@ export const Route = createFileRoute("/admin_/dashboard")({
   component: Dashboard,
 });
 
-type Tab = "perfumes" | "offers" | "spotlight" | "reviews" | "content" | "theme" | "settings";
+type Tab = "perfumes" | "offers" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "administrators";
+type AdminRole = "owner" | "admin" | "editor" | "analyst" | null;
+
+function useMyAdminRole(userId: string | undefined, isOwner: boolean) {
+  const [role, setRole] = useState<AdminRole>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+    if (isOwner) {
+      setRole("owner");
+      setLoading(false);
+      return;
+    }
+    supabase
+      .from("admin_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setRole((data?.role as AdminRole) ?? null);
+        setLoading(false);
+      });
+  }, [userId, isOwner]);
+  return { role, loading };
+}
 
 function Dashboard() {
   const { user, loading } = useAuthUser();
@@ -38,22 +67,27 @@ function Dashboard() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("perfumes");
 
+  const isOwner = !!user && lock?.admin_user_id === user.id;
+  const { role, loading: roleLoading } = useMyAdminRole(user?.id, isOwner);
+  const isMember = isOwner || !!role;
+  const canWrite = isOwner || role === "admin" || role === "editor";
+
   useEffect(() => {
-    if (loading || lockLoading) return;
-    if (!user || lock?.admin_user_id !== user.id) {
+    if (loading || lockLoading || roleLoading) return;
+    if (!user || !isMember) {
       navigate({ to: "/admin" as any });
     }
-  }, [user, lock, loading, lockLoading, navigate]);
+  }, [user, isMember, loading, lockLoading, roleLoading, navigate]);
 
   const signOut = async () => {
-    await supabase.rpc("release_admin_lock");
+    if (isOwner) await supabase.rpc("release_admin_lock");
     await supabase.auth.signOut();
     await refetchLock();
-    toast.success("Signed out. Dashboard is unlocked.");
+    toast.success("Signed out.");
     navigate({ to: "/admin" as any });
   };
 
-  if (loading || lockLoading || !user) {
+  if (loading || lockLoading || roleLoading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-obsidian text-gold text-[10px] uppercase tracking-[0.5em]">
         Loading…
@@ -61,7 +95,17 @@ function Dashboard() {
     );
   }
 
-  const tabs: Tab[] = ["perfumes", "offers", "spotlight", "reviews", "content", "theme", "settings"];
+  const tabs: Tab[] = [
+    "perfumes",
+    "offers",
+    "spotlight",
+    "reviews",
+    "content",
+    "theme",
+    "settings",
+    "analytics",
+    ...(isOwner ? (["administrators"] as Tab[]) : []),
+  ];
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -106,6 +150,8 @@ function Dashboard() {
         {tab === "content" && <ContentPanel />}
         {tab === "theme" && <ThemePanel />}
         {tab === "settings" && <SettingsPanel />}
+        {tab === "analytics" && <AnalyticsPanel />}
+        {tab === "administrators" && <AdministratorsPanel />}
       </section>
     </main>
   );
@@ -693,6 +739,258 @@ function SettingsPanel() {
         >
           Save Settings
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Analytics ---------------- */
+const RANGE_OPTIONS = [
+  { label: "Today", days: 1 },
+  { label: "Last 5 Days", days: 5 },
+  { label: "Last 10 Days", days: 10 },
+  { label: "Last 30 Days", days: 30 },
+];
+
+function AnalyticsPanel() {
+  const [days, setDays] = useState(5);
+  const { data: events = [], isLoading } = useAnalyticsEvents(days);
+  const { data: perfumes = [] } = usePerfumes();
+
+  const perfumeName = (id: string | null) => perfumes.find((p) => p.id === id)?.name ?? "Unknown";
+
+  const uniqueSessions = new Set(events.map((e) => e.session_id)).size;
+  const pageViews = events.filter((e) => e.event_type === "page_view").length;
+  const productViews = events.filter((e) => e.event_type === "product_view");
+  const whatsappClicks = events.filter((e) => e.event_type === "whatsapp_click");
+  const quizStarts = events.filter((e) => e.event_type === "quiz_start").length;
+  const quizCompletes = events.filter((e) => e.event_type === "quiz_complete").length;
+  const compareAdds = events.filter((e) => e.event_type === "compare_add").length;
+
+  const countBy = (rows: typeof events) => {
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      if (!r.perfume_id) continue;
+      map.set(r.perfume_id, (map.get(r.perfume_id) ?? 0) + 1);
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  };
+
+  const topViewed = countBy(productViews);
+  const topWhatsapp = countBy(whatsappClicks);
+
+  const viewToClickRate = productViews.length ? Math.round((whatsappClicks.length / productViews.length) * 100) : 0;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h2 className="font-display text-2xl italic">Analytics</h2>
+        <div className="flex gap-2">
+          {RANGE_OPTIONS.map((r) => (
+            <button
+              key={r.days}
+              onClick={() => setDays(r.days)}
+              className={`rounded-sm px-3 py-1.5 text-[9px] uppercase tracking-[0.3em] ${days === r.days ? "bg-gold text-obsidian" : "border border-gold/25 text-foreground/60"}`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-foreground/50">Loading…</p>
+      ) : !events.length ? (
+        <p className="text-sm text-foreground/50">No activity recorded yet for this range.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            {[
+              { label: "Page Views", value: pageViews },
+              { label: "Unique Visitors", value: uniqueSessions },
+              { label: "Product Views", value: productViews.length },
+              { label: "WhatsApp Clicks", value: whatsappClicks.length },
+            ].map((s) => (
+              <div key={s.label} className="glass-card rounded-sm p-5 text-center">
+                <p className="font-display text-3xl italic text-gradient-gold">{s.value}</p>
+                <p className="mt-2 text-[9px] uppercase tracking-[0.3em] text-foreground/50">{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="glass-card rounded-sm p-5 text-center">
+              <p className="font-display text-2xl italic text-gradient-gold">{viewToClickRate}%</p>
+              <p className="mt-2 text-[9px] uppercase tracking-[0.3em] text-foreground/50">View → WhatsApp Rate</p>
+            </div>
+            <div className="glass-card rounded-sm p-5 text-center">
+              <p className="font-display text-2xl italic text-gradient-gold">
+                {quizStarts ? Math.round((quizCompletes / quizStarts) * 100) : 0}%
+              </p>
+              <p className="mt-2 text-[9px] uppercase tracking-[0.3em] text-foreground/50">
+                Quiz Completion ({quizCompletes}/{quizStarts})
+              </p>
+            </div>
+            <div className="glass-card rounded-sm p-5 text-center">
+              <p className="font-display text-2xl italic text-gradient-gold">{compareAdds}</p>
+              <p className="mt-2 text-[9px] uppercase tracking-[0.3em] text-foreground/50">Products Compared</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="glass-card rounded-sm p-6">
+              <p className="mb-4 text-[10px] uppercase tracking-[0.4em] text-gold/70">Most Viewed Perfumes</p>
+              {topViewed.length ? (
+                <ul className="space-y-2">
+                  {topViewed.map(([id, count]) => (
+                    <li key={id} className="flex items-center justify-between text-sm">
+                      <span>{perfumeName(id)}</span>
+                      <span className="text-foreground/50">{count}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-foreground/40">No product views yet.</p>
+              )}
+            </div>
+            <div className="glass-card rounded-sm p-6">
+              <p className="mb-4 text-[10px] uppercase tracking-[0.4em] text-gold/70">Most Ordered via WhatsApp</p>
+              {topWhatsapp.length ? (
+                <ul className="space-y-2">
+                  {topWhatsapp.map(([id, count]) => (
+                    <li key={id} className="flex items-center justify-between text-sm">
+                      <span>{perfumeName(id)}</span>
+                      <span className="text-foreground/50">{count}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-foreground/40">No WhatsApp clicks yet.</p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Administrators (Owner only) ---------------- */
+type AdminRoleRow = { id: string; user_id: string; email: string; role: string; created_at: string };
+
+function AdministratorsPanel() {
+  const [rows, setRows] = useState<AdminRoleRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"admin" | "editor" | "analyst">("editor");
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await listAdminRoles();
+      setRows(data as AdminRoleRow[]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load administrators");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const handleAdd = async () => {
+    if (!email.trim()) return;
+    setSaving(true);
+    try {
+      await addAdminRole({ data: { email: email.trim(), role } });
+      toast.success(`${email.trim()} granted ${role} access`);
+      setEmail("");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to add administrator");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemove = async (userId: string) => {
+    try {
+      await removeAdminRole({ data: { userId } });
+      toast.success("Access revoked");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to revoke access");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <h2 className="font-display text-2xl italic">Administrators</h2>
+      <p className="text-xs text-foreground/50">
+        Grant staff access without sharing the Owner login. Admin and Editor can manage the catalogue; Analyst is read-only (analytics access only).
+      </p>
+
+      <div className="glass-card space-y-4 rounded-sm p-6">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex-1">
+            <label className="mb-1 block text-[10px] uppercase tracking-[0.4em] text-gold/70">
+              Email (must already have an account)
+            </label>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+              placeholder="staff@example.com"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[10px] uppercase tracking-[0.4em] text-gold/70">Role</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as typeof role)}
+              className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="admin">Admin</option>
+              <option value="editor">Editor</option>
+              <option value="analyst">Analyst</option>
+            </select>
+          </div>
+          <button
+            onClick={handleAdd}
+            disabled={saving || !email.trim()}
+            className="btn-gold px-6 py-2 text-[10px] uppercase tracking-[0.4em] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {saving ? "Adding…" : "Grant Access"}
+          </button>
+        </div>
+      </div>
+
+      <div className="glass-card rounded-sm p-6">
+        {loading ? (
+          <p className="text-sm text-foreground/50">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-foreground/50">No additional administrators yet — only the Owner account has access.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {rows.map((r) => (
+              <li key={r.id} className="flex items-center justify-between py-3">
+                <div>
+                  <p className="text-sm">{r.email}</p>
+                  <p className="text-[9px] uppercase tracking-[0.3em] text-gold/70">{r.role}</p>
+                </div>
+                <button
+                  onClick={() => handleRemove(r.user_id)}
+                  className="text-[10px] uppercase tracking-[0.3em] text-foreground/50 hover:text-destructive"
+                >
+                  Revoke
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

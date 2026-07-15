@@ -4,10 +4,12 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { trackEvent } from "../lib/api/queries";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -147,6 +149,14 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function PageViewTracker() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  useEffect(() => {
+    trackEvent("page_view", { sourcePath: pathname });
+  }, [pathname]);
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -155,6 +165,7 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <ThemeEngine />
+      <PageViewTracker />
       <Toaster richColors position="top-center" />
     </QueryClientProvider>
   );

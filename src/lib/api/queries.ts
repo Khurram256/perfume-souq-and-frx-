@@ -275,6 +275,33 @@ export function trackEvent(
     });
 }
 
+export type AnalyticsEventRow = {
+  event_type: AnalyticsEventType;
+  perfume_id: string | null;
+  variant_id: string | null;
+  promotion_id: string | null;
+  bundle_id: string | null;
+  session_id: string;
+  created_at: string;
+};
+
+export function useAnalyticsEvents(days: number) {
+  return useQuery({
+    queryKey: ["analytics_events", days],
+    queryFn: async () => {
+      const since = new Date(Date.now() - days * 86400000).toISOString();
+      const { data, error } = await supabase
+        .from("analytics_events")
+        .select("event_type,perfume_id,variant_id,promotion_id,bundle_id,session_id,created_at")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(5000);
+      if (error) throw error;
+      return (data ?? []) as AnalyticsEventRow[];
+    },
+  });
+}
+
 /* ---------------- spotlight ---------------- */
 export function useSpotlight() {
   return useQuery({
