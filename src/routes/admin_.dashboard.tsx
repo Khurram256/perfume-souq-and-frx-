@@ -13,6 +13,10 @@ import {
   useAnalyticsEvents,
   useBackInStockRequests,
   useUpdateBackInStockStatus,
+  useBrands,
+  useAllVariants,
+  usePromotions,
+  useBundles,
 } from "@/lib/api/queries";
 import { useAuthUser } from "@/lib/admin/session";
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,7 +38,7 @@ export const Route = createFileRoute("/admin_/dashboard")({
   component: Dashboard,
 });
 
-type Tab = "perfumes" | "offers" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "requests" | "administrators";
+type Tab = "perfumes" | "offers" | "promotions" | "bundles" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "requests" | "administrators";
 type AdminRole = "owner" | "admin" | "editor" | "analyst" | null;
 
 function useMyAdminRole(userId: string | undefined, isOwner: boolean) {
@@ -100,6 +104,8 @@ function Dashboard() {
   const tabs: Tab[] = [
     "perfumes",
     "offers",
+    "promotions",
+    "bundles",
     "spotlight",
     "reviews",
     "content",
@@ -148,6 +154,8 @@ function Dashboard() {
       <section className="mx-auto max-w-6xl px-6 py-10">
         {tab === "perfumes" && <PerfumesPanel />}
         {tab === "offers" && <OffersPanel />}
+        {tab === "promotions" && <PromotionsPanel />}
+        {tab === "bundles" && <BundlesPanel />}
         {tab === "spotlight" && <SpotlightPanel />}
         {tab === "reviews" && <ReviewsPanel />}
         {tab === "content" && <ContentPanel />}
@@ -434,6 +442,464 @@ function OffersPanel() {
         open={!!pendingDelete}
         title={`Delete "${pendingDelete?.title}"?`}
         description="This offer will stop showing on the site immediately."
+        confirmLabel="Delete"
+        danger
+        onConfirm={del}
+        onCancel={() => setPendingDelete(null)}
+      />
+    </div>
+  );
+}
+
+/* ---------------- Promotions (discount engine) ---------------- */
+type TargetType = "all" | "product" | "brand" | "category";
+
+function PromotionsPanel() {
+  const { data: promotions = [], refetch } = usePromotions({ includeInactive: true });
+  const { data: perfumes = [] } = usePerfumes();
+  const { data: brands = [] } = useBrands();
+  const { data: categories = [] } = useCategories();
+
+  const [form, setForm] = useState({
+    name: "",
+    customer_description: "",
+    discount_type: "percentage" as "percentage" | "fixed",
+    discount_value: 10,
+    badge_text: "",
+    terms: "",
+    stackable: false,
+    priority: 0,
+    starts_at: "",
+    ends_at: "",
+    targetType: "all" as TargetType,
+    targetId: "",
+    productIds: [] as string[],
+  });
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+
+  const create = async () => {
+    if (!form.name.trim()) return;
+    const { data: promo, error } = await supabase
+      .from("promotions")
+      .insert({
+        name: form.name.trim(),
+        customer_description: form.customer_description || null,
+        discount_type: form.discount_type,
+        discount_value: form.discount_value,
+        badge_text: form.badge_text || null,
+        terms: form.terms || null,
+        stackable: form.stackable,
+        priority: form.priority,
+        starts_at: form.starts_at ? new Date(form.starts_at).toISOString() : null,
+        ends_at: form.ends_at ? new Date(form.ends_at).toISOString() : null,
+        active: true,
+      })
+      .select("id")
+      .single();
+    if (error || !promo) {
+      toast.error(error?.message ?? "Failed to create promotion");
+      return;
+    }
+
+    const targets: { promotion_id: string; target_type: string; target_id: string | null }[] =
+      form.targetType === "product"
+        ? form.productIds.map((id) => ({ promotion_id: promo.id, target_type: "product", target_id: id }))
+        : form.targetType === "all"
+          ? [{ promotion_id: promo.id, target_type: "all", target_id: null }]
+          : [{ promotion_id: promo.id, target_type: form.targetType, target_id: form.targetId || null }];
+
+    if (form.targetType !== "all" && !targets.length) {
+      toast.error("Select at least one target");
+      return;
+    }
+
+    const { error: targetError } = await supabase.from("promotion_targets").insert(targets);
+    if (targetError) {
+      toast.error(targetError.message);
+      return;
+    }
+    toast.success("Promotion created");
+    setForm({ ...form, name: "", customer_description: "", badge_text: "", terms: "", productIds: [] });
+    refetch();
+  };
+
+  const toggleActive = async (id: string, active: boolean) => {
+    const { error } = await supabase.from("promotions").update({ active: !active }).eq("id", id);
+    if (error) toast.error(error.message);
+    else refetch();
+  };
+
+  const del = async () => {
+    if (!pendingDelete) return;
+    const { error } = await supabase.from("promotions").delete().eq("id", pendingDelete.id);
+    if (error) toast.error(error.message);
+    else {
+      setPendingDelete(null);
+      refetch();
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="glass-card rounded-sm p-6">
+        <h3 className="mb-4 font-display text-xl italic">Create Promotion</h3>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <input
+            placeholder="Name (e.g. Father's Day 10%)"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            className="rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+          />
+          <input
+            placeholder="Customer-facing description (optional)"
+            value={form.customer_description}
+            onChange={(e) => setForm({ ...form, customer_description: e.target.value })}
+            className="rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+          />
+          <select
+            value={form.discount_type}
+            onChange={(e) => setForm({ ...form, discount_type: e.target.value as "percentage" | "fixed" })}
+            className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="percentage">Percentage Off</option>
+            <option value="fixed">Fixed Amount Off (PKR)</option>
+          </select>
+          <input
+            type="number"
+            min={0}
+            placeholder="Discount value"
+            value={form.discount_value}
+            onChange={(e) => setForm({ ...form, discount_value: Number(e.target.value) })}
+            className="rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+          />
+          <input
+            placeholder="Badge text (e.g. 10% OFF)"
+            value={form.badge_text}
+            onChange={(e) => setForm({ ...form, badge_text: e.target.value })}
+            className="rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+          />
+          <input
+            placeholder="Terms (optional)"
+            value={form.terms}
+            onChange={(e) => setForm({ ...form, terms: e.target.value })}
+            className="rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+          />
+          <div>
+            <label className="mb-1 block text-[9px] uppercase tracking-[0.3em] text-foreground/50">Starts (optional)</label>
+            <input
+              type="datetime-local"
+              value={form.starts_at}
+              onChange={(e) => setForm({ ...form, starts_at: e.target.value })}
+              className="w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[9px] uppercase tracking-[0.3em] text-foreground/50">Ends (optional)</label>
+            <input
+              type="datetime-local"
+              value={form.ends_at}
+              onChange={(e) => setForm({ ...form, ends_at: e.target.value })}
+              className="w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-xs text-foreground/70">
+            <input type="checkbox" checked={form.stackable} onChange={(e) => setForm({ ...form, stackable: e.target.checked })} />
+            Stackable with other promotions
+          </label>
+          <div>
+            <label className="mb-1 block text-[9px] uppercase tracking-[0.3em] text-foreground/50">Priority (higher wins if not stackable)</label>
+            <input
+              type="number"
+              value={form.priority}
+              onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}
+              className="w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="mb-2 block text-[9px] uppercase tracking-[0.3em] text-foreground/50">Applies To</label>
+          <div className="flex flex-wrap gap-2">
+            {(["all", "product", "brand", "category"] as TargetType[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => setForm({ ...form, targetType: t, targetId: "", productIds: [] })}
+                className={`rounded-sm px-3 py-1.5 text-[9px] uppercase tracking-[0.3em] ${form.targetType === t ? "bg-gold text-obsidian" : "border border-gold/25 text-foreground/60"}`}
+              >
+                {t === "all" ? "Sitewide" : t}
+              </button>
+            ))}
+          </div>
+
+          {form.targetType === "brand" && (
+            <select
+              value={form.targetId}
+              onChange={(e) => setForm({ ...form, targetId: e.target.value })}
+              className="mt-3 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Select a brand…</option>
+              {brands.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          )}
+          {form.targetType === "category" && (
+            <select
+              value={form.targetId}
+              onChange={(e) => setForm({ ...form, targetId: e.target.value })}
+              className="mt-3 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Select a category…</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          )}
+          {form.targetType === "product" && (
+            <div className="mt-3 max-h-40 space-y-1 overflow-y-auto rounded-sm border border-border p-3">
+              {perfumes.map((p) => (
+                <label key={p.id} className="flex items-center gap-2 text-xs text-foreground/70">
+                  <input
+                    type="checkbox"
+                    checked={form.productIds.includes(p.id)}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        productIds: e.target.checked ? [...form.productIds, p.id] : form.productIds.filter((id) => id !== p.id),
+                      })
+                    }
+                  />
+                  {p.name}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <button onClick={create} className="btn-gold mt-4 px-6 py-2 text-[10px] uppercase tracking-[0.4em]">
+          Create Promotion
+        </button>
+      </div>
+
+      <div>
+        <h3 className="mb-3 font-display text-xl italic">All Promotions ({promotions.length})</h3>
+        <div className="space-y-2">
+          {promotions.map((p: any) => (
+            <div key={p.id} className="glass-card flex flex-wrap items-center justify-between gap-3 rounded-sm p-4">
+              <div>
+                <p className="font-display italic">{p.name}</p>
+                <p className="text-[10px] text-foreground/50">
+                  {p.discount_type === "percentage" ? `${p.discount_value}% off` : `${formatPKR(p.discount_value)} off`}
+                  {p.stackable ? " · stackable" : ""}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => toggleActive(p.id, p.active)}
+                  className={`rounded-sm border px-3 py-1.5 text-[9px] uppercase tracking-[0.3em] ${p.active ? "border-gold/40 text-gold" : "border-foreground/30 text-foreground/50"}`}
+                >
+                  {p.active ? "Active" : "Inactive"}
+                </button>
+                <button
+                  onClick={() => setPendingDelete({ id: p.id, name: p.name })}
+                  className="text-[9px] uppercase tracking-[0.3em] text-red-400/80 hover:text-red-400"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+          {!promotions.length && <p className="text-sm text-foreground/50">No promotions yet.</p>}
+        </div>
+      </div>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={`Delete "${pendingDelete?.name}"?`}
+        description="This promotion stops applying immediately."
+        confirmLabel="Delete"
+        danger
+        onConfirm={del}
+        onCancel={() => setPendingDelete(null)}
+      />
+    </div>
+  );
+}
+
+/* ---------------- Bundles ---------------- */
+function BundlesPanel() {
+  const { data: bundles = [], refetch } = useBundles();
+  const { data: perfumes = [] } = usePerfumes();
+  const { data: variants = [] } = useAllVariants();
+
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    bundle_price_pkr: 0,
+    items: [] as { variantId: string; quantity: number }[],
+  });
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+
+  const addItem = () => {
+    const firstVariant = variants[0];
+    if (!firstVariant) return;
+    setForm({ ...form, items: [...form.items, { variantId: firstVariant.id, quantity: 1 }] });
+  };
+
+  const create = async () => {
+    if (!form.name.trim() || !form.items.length) {
+      toast.error("Add a name and at least one item");
+      return;
+    }
+    const { data: bundle, error } = await supabase
+      .from("bundles")
+      .insert({ name: form.name.trim(), description: form.description || null, bundle_price_pkr: form.bundle_price_pkr, active: true })
+      .select("id")
+      .single();
+    if (error || !bundle) {
+      toast.error(error?.message ?? "Failed to create bundle");
+      return;
+    }
+    const { error: itemError } = await supabase.from("bundle_items").insert(
+      form.items.map((i) => ({ bundle_id: bundle.id, variant_id: i.variantId, quantity: i.quantity }))
+    );
+    if (itemError) {
+      toast.error(itemError.message);
+      return;
+    }
+    toast.success("Bundle created");
+    setForm({ name: "", description: "", bundle_price_pkr: 0, items: [] });
+    refetch();
+  };
+
+  const toggleActive = async (id: string, active: boolean) => {
+    const { error } = await supabase.from("bundles").update({ active: !active }).eq("id", id);
+    if (error) toast.error(error.message);
+    else refetch();
+  };
+
+  const del = async () => {
+    if (!pendingDelete) return;
+    const { error } = await supabase.from("bundles").delete().eq("id", pendingDelete.id);
+    if (error) toast.error(error.message);
+    else {
+      setPendingDelete(null);
+      refetch();
+    }
+  };
+
+  const variantLabel = (id: string) => {
+    const v = variants.find((x) => x.id === id);
+    const p = perfumes.find((x) => x.id === v?.perfume_id);
+    return v ? `${p?.name ?? "?"} (${v.size_label})` : id;
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="glass-card rounded-sm p-6">
+        <h3 className="mb-4 font-display text-xl italic">Create Bundle</h3>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <input
+            placeholder="Bundle name"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            className="rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+          />
+          <input
+            placeholder="Description (optional)"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            className="rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+          />
+          <input
+            type="number"
+            min={0}
+            placeholder="Bundle price (PKR)"
+            value={form.bundle_price_pkr}
+            onChange={(e) => setForm({ ...form, bundle_price_pkr: Number(e.target.value) })}
+            className="rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div className="mt-4">
+          <label className="mb-2 block text-[9px] uppercase tracking-[0.3em] text-foreground/50">Items</label>
+          {form.items.map((item, idx) => (
+            <div key={idx} className="mb-2 flex items-center gap-2">
+              <select
+                value={item.variantId}
+                onChange={(e) => {
+                  const next = [...form.items];
+                  next[idx] = { ...next[idx], variantId: e.target.value };
+                  setForm({ ...form, items: next });
+                }}
+                className="flex-1 rounded-sm border border-border bg-background px-3 py-2 text-sm"
+              >
+                {variants.map((v) => (
+                  <option key={v.id} value={v.id}>{variantLabel(v.id)}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min={1}
+                value={item.quantity}
+                onChange={(e) => {
+                  const next = [...form.items];
+                  next[idx] = { ...next[idx], quantity: Number(e.target.value) };
+                  setForm({ ...form, items: next });
+                }}
+                className="w-20 rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+              />
+              <button
+                onClick={() => setForm({ ...form, items: form.items.filter((_, i) => i !== idx) })}
+                className="text-[9px] uppercase tracking-[0.3em] text-red-400/80"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <button onClick={addItem} className="text-[10px] uppercase tracking-[0.3em] text-gold/80 hover:text-gold">
+            + Add Item
+          </button>
+        </div>
+
+        <button onClick={create} className="btn-gold mt-4 px-6 py-2 text-[10px] uppercase tracking-[0.4em]">
+          Create Bundle
+        </button>
+      </div>
+
+      <div>
+        <h3 className="mb-3 font-display text-xl italic">All Bundles ({bundles.length})</h3>
+        <div className="space-y-2">
+          {bundles.map((b) => (
+            <div key={b.id} className="glass-card flex flex-wrap items-center justify-between gap-3 rounded-sm p-4">
+              <div>
+                <p className="font-display italic">{b.name}</p>
+                <p className="text-[10px] text-foreground/50">{formatPKR(b.bundle_price_pkr)} · {b.items.length} item(s)</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => toggleActive(b.id, b.active)}
+                  className={`rounded-sm border px-3 py-1.5 text-[9px] uppercase tracking-[0.3em] ${b.active ? "border-gold/40 text-gold" : "border-foreground/30 text-foreground/50"}`}
+                >
+                  {b.active ? "Active" : "Inactive"}
+                </button>
+                <button
+                  onClick={() => setPendingDelete({ id: b.id, name: b.name })}
+                  className="text-[9px] uppercase tracking-[0.3em] text-red-400/80 hover:text-red-400"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+          {!bundles.length && <p className="text-sm text-foreground/50">No bundles yet.</p>}
+        </div>
+      </div>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={`Delete "${pendingDelete?.name}"?`}
+        description="This bundle stops showing immediately."
         confirmLabel="Delete"
         danger
         onConfirm={del}
