@@ -1,13 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { usePerfumes, type Perfume } from "@/lib/api/queries";
+import { usePerfumes, useAllVariants, usePromotions, trackEvent, type Perfume } from "@/lib/api/queries";
+import { resolveVariantPrice } from "@/lib/pricing";
 import { useCart } from "@/contexts/CartContext";
 import { formatPKR } from "@/lib/format";
+import { Slider } from "./ui/slider";
 import { Magnetic } from "./Magnetic";
 
 type TagKey = "tag_gender" | "tag_family" | "tag_occasion";
-type Answers = Partial<Record<TagKey, string>>;
+type Answers = Partial<Record<TagKey, string>> & { budget?: [number, number] };
 
 const STEP_META: { key: TagKey; question: string }[] = [
   { key: "tag_gender", question: "Who is this scent for?" },
@@ -19,17 +21,42 @@ function titleCase(s: string) {
   return s.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function score(p: Perfume, a: Answers) {
+function scoreMatch(p: Perfume, a: Answers, priceForBudget?: number) {
+  const matched: string[] = [];
   let s = 0;
-  if (a.tag_gender && (p.tag_gender === a.tag_gender || p.tag_gender === "unisex")) s += 3;
-  if (a.tag_family && p.tag_family === a.tag_family) s += 4;
-  if (a.tag_occasion && p.tag_occasion === a.tag_occasion) s += 2;
-  return s;
+  if (a.tag_gender && (p.tag_gender === a.tag_gender || p.tag_gender === "unisex")) {
+    s += 3;
+    matched.push(titleCase(a.tag_gender));
+  }
+  if (a.tag_family && p.tag_family === a.tag_family) {
+    s += 4;
+    matched.push(titleCase(a.tag_family));
+  }
+  if (a.tag_occasion && p.tag_occasion === a.tag_occasion) {
+    s += 2;
+    matched.push(titleCase(a.tag_occasion));
+  }
+  if (a.budget && priceForBudget !== undefined) {
+    const [lo, hi] = a.budget;
+    if (priceForBudget >= lo && priceForBudget <= hi) {
+      s += 3;
+      matched.push("Within Budget");
+    }
+  }
+  return { score: s, matched };
 }
 
 export function FragranceQuiz() {
   const { data: perfumes = [] } = usePerfumes();
+  const { data: variants = [] } = useAllVariants();
+  const { data: promotions = [] } = usePromotions();
   const inStock = useMemo(() => perfumes.filter((p) => p.in_stock), [perfumes]);
+
+  const priceBounds = useMemo(() => {
+    const prices = variants.map((v) => v.price_pkr).filter((p) => p > 0);
+    if (!prices.length) return { min: 0, max: 100000 };
+    return { min: Math.min(...prices), max: Math.max(...prices) };
+  }, [variants]);
 
   const steps = useMemo(
     () =>
@@ -48,27 +75,64 @@ export function FragranceQuiz() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [ans, setAns] = useState<Answers>({});
+  const [budgetDraft, setBudgetDraft] = useState<[number, number] | null>(null);
   const { add } = useCart();
 
-  const done = step >= steps.length;
+  const totalSteps = steps.length + 1; // + budget step
+  const done = step >= totalSteps;
+
+  useEffect(() => {
+    if (open) trackEvent("quiz_start");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useEffect(() => {
+    if (done) trackEvent("quiz_complete", { metadata: ans as Record<string, unknown> });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done]);
+
+  const priceByPerfumeId = useMemo(() => {
+    const map = new Map<string, { originalPrice: number; finalPrice: number; discountAmount: number; appliedPromotions: { name: string; badge_text: string | null }[] }>();
+    for (const p of perfumes) {
+      const pv = variants.filter((v) => v.perfume_id === p.id);
+      const dv = pv.find((v) => v.is_default) ?? pv[0];
+      const basePrice = dv?.price_pkr ?? p.price_pkr;
+      const resolved = dv
+        ? resolveVariantPrice(basePrice, promotions, { perfumeId: p.id, variantId: dv.id, brandId: p.brand_id, categoryId: p.category_id })
+        : { originalPrice: basePrice, finalPrice: basePrice, discountAmount: 0, appliedPromotions: [] };
+      map.set(p.id, resolved);
+    }
+    return map;
+  }, [perfumes, variants, promotions]);
+
   const results = useMemo(() => {
     if (!done || !inStock.length) return [];
     return [...inStock]
-      .map((p) => ({ p, s: score(p, ans) }))
-      .sort((a, b) => b.s - a.s)
-      .slice(0, 3)
-      .map((x) => x.p);
-  }, [done, ans, inStock]);
+      .map((p) => {
+        const price = priceByPerfumeId.get(p.id);
+        const { score, matched } = scoreMatch(p, ans, price?.finalPrice);
+        return { p, score, matched, price };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+  }, [done, ans, inStock, priceByPerfumeId]);
 
   const reset = () => {
     setOpen(false);
     setTimeout(() => {
       setStep(0);
       setAns({});
+      setBudgetDraft(null);
     }, 400);
   };
 
   if (!steps.length) return null;
+
+  const onBudgetNext = () => {
+    const range = budgetDraft ?? [priceBounds.min, priceBounds.max];
+    setAns((prev) => ({ ...prev, budget: range }));
+    setStep((s) => s + 1);
+  };
 
   return (
     <section id="quiz" className="section-pad relative px-6 lg:px-16">
@@ -121,29 +185,58 @@ export function FragranceQuiz() {
               style={{ boxShadow: "var(--shadow-deep), var(--shadow-gold)" }}
             >
               {!done ? (
-                <>
-                  <p className="mb-2 text-[10px] uppercase tracking-[0.5em] text-gold">
-                    Step {step + 1} of {steps.length}
-                  </p>
-                  <h3 className="mb-10 font-display text-3xl italic md:text-4xl">
-                    {steps[step].question}
-                  </h3>
-                  <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                    {steps[step].options.map((o) => (
-                      <button
-                        key={o.label}
-                        data-magnetic
-                        onClick={() => {
-                          setAns((prev) => ({ ...prev, [steps[step].key]: o.value }));
-                          setStep((s) => s + 1);
-                        }}
-                        className="rounded-sm border border-gold/30 px-4 py-5 text-[11px] uppercase tracking-[0.3em] text-foreground/80 transition-all hover:border-gold hover:bg-gold/10 hover:text-gold"
-                      >
-                        {o.label}
-                      </button>
-                    ))}
-                  </div>
-                </>
+                step < steps.length ? (
+                  <>
+                    <p className="mb-2 text-[10px] uppercase tracking-[0.5em] text-gold">
+                      Step {step + 1} of {totalSteps}
+                    </p>
+                    <h3 className="mb-10 font-display text-3xl italic md:text-4xl">
+                      {steps[step].question}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                      {steps[step].options.map((o) => (
+                        <button
+                          key={o.label}
+                          data-magnetic
+                          onClick={() => {
+                            setAns((prev) => ({ ...prev, [steps[step].key]: o.value }));
+                            setStep((s) => s + 1);
+                          }}
+                          className="rounded-sm border border-gold/30 px-4 py-5 text-[11px] uppercase tracking-[0.3em] text-foreground/80 transition-all hover:border-gold hover:bg-gold/10 hover:text-gold"
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="mb-2 text-[10px] uppercase tracking-[0.5em] text-gold">
+                      Step {totalSteps} of {totalSteps}
+                    </p>
+                    <h3 className="mb-10 font-display text-3xl italic md:text-4xl">
+                      What is your budget?
+                    </h3>
+                    <Slider
+                      min={priceBounds.min}
+                      max={priceBounds.max}
+                      step={500}
+                      value={budgetDraft ?? [priceBounds.min, priceBounds.max]}
+                      onValueChange={(v) => setBudgetDraft(v as [number, number])}
+                      className="mb-6"
+                    />
+                    <div className="mb-8 flex items-center justify-between text-xs text-foreground/60">
+                      <span>{formatPKR((budgetDraft ?? [priceBounds.min, priceBounds.max])[0])}</span>
+                      <span>{formatPKR((budgetDraft ?? [priceBounds.min, priceBounds.max])[1])}</span>
+                    </div>
+                    <button
+                      onClick={onBudgetNext}
+                      className="btn-gold w-full py-4 text-[10px] uppercase tracking-[0.4em]"
+                    >
+                      See My Recommendations
+                    </button>
+                  </>
+                )
               ) : (
                 <>
                   <p className="mb-2 text-[10px] uppercase tracking-[0.5em] text-gold">
@@ -153,7 +246,7 @@ export function FragranceQuiz() {
                     Your Signature Selection
                   </h3>
                   <div className="space-y-4">
-                    {results.map((p) => (
+                    {results.map(({ p, matched, price }) => (
                       <div
                         key={p.id}
                         className="flex items-center gap-4 border-b border-border pb-4 last:border-b-0"
@@ -170,24 +263,34 @@ export function FragranceQuiz() {
                             {p.family}
                           </p>
                           <h4 className="font-display text-xl italic">{p.name}</h4>
-                          {p.tagline && (
-                            <p className="mt-1 text-xs text-foreground/55">{p.tagline}</p>
+                          {matched.length > 0 && (
+                            <p className="mt-1 text-[10px] text-foreground/45">
+                              Matched: {matched.join(" · ")}
+                            </p>
                           )}
                         </div>
                         <div className="text-right">
+                          {price && price.discountAmount > 0 && (
+                            <p className="text-[10px] text-foreground/40 line-through">{formatPKR(price.originalPrice)}</p>
+                          )}
                           <p className="text-gradient-gold font-display text-lg">
-                            {formatPKR(p.price_pkr)}
+                            {formatPKR(price?.finalPrice ?? p.price_pkr)}
                           </p>
                           <button
-                            onClick={() =>
+                            onClick={() => {
+                              const pv = variants.find((v) => v.perfume_id === p.id && v.is_default) ?? variants.find((v) => v.perfume_id === p.id);
                               add({
-                                id: p.id,
+                                id: pv?.id ?? p.id,
                                 perfumeId: p.id,
+                                variantId: pv?.id,
+                                sizeLabel: pv?.size_label,
                                 name: p.name,
-                                price: p.price_pkr,
+                                price: price?.finalPrice ?? p.price_pkr,
+                                originalPrice: price && price.discountAmount > 0 ? price.originalPrice : undefined,
                                 img: p.image_url || "",
-                              })
-                            }
+                              });
+                              trackEvent("whatsapp_click", { perfumeId: p.id, variantId: pv?.id, sourcePath: "/quiz" });
+                            }}
                             disabled={!p.in_stock}
                             data-magnetic
                             className="mt-2 text-[9px] uppercase tracking-[0.35em] text-gold hover-underline disabled:opacity-40"

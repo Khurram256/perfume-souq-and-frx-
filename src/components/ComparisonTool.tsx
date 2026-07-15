@@ -1,52 +1,50 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
-import { usePerfumes, type Perfume } from "@/lib/api/queries";
+import { usePerfumes, useBrands, useAllVariants, usePromotions, trackEvent, type Perfume } from "@/lib/api/queries";
+import { resolveVariantPrice } from "@/lib/pricing";
+import { formatPKR } from "@/lib/format";
 
-function Bar({
-  value,
-  max = 10,
-  label,
-  perfumeId,
-}: {
-  value: number;
-  max?: number;
-  label: string;
-  perfumeId: string;
-}) {
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div>
-      <div className="mb-1 flex justify-between text-[9px] uppercase tracking-[0.3em] text-foreground/50">
-        <span>{label}</span>
-        <span>
-          {value}/{max}
-        </span>
-      </div>
-      <div className="h-[3px] w-full overflow-hidden bg-foreground/10">
-        <motion.div
-          key={`${perfumeId}-${label}`}
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: value / max }}
-          transition={{ duration: 1, ease: [0.2, 0.8, 0.2, 1] }}
-          style={{ background: "var(--gradient-gold)", transformOrigin: "left" }}
-          className="h-full w-full"
-        />
-      </div>
+    <div className="flex items-start justify-between gap-4 border-b border-border py-3 text-left last:border-b-0">
+      <span className="text-[9px] uppercase tracking-[0.3em] text-foreground/40">{label}</span>
+      <span className="max-w-[60%] text-right text-xs text-foreground/80">{value}</span>
     </div>
   );
 }
 
 function Side({
   perfumes,
+  brands,
+  variants,
+  promotions,
   value,
   onChange,
 }: {
   perfumes: Perfume[];
+  brands: ReturnType<typeof useBrands>["data"];
+  variants: ReturnType<typeof useAllVariants>["data"];
+  promotions: ReturnType<typeof usePromotions>["data"];
   value: string;
   onChange: (id: string) => void;
 }) {
   const p = perfumes.find((x) => x.id === value) ?? perfumes[0];
   if (!p) return null;
+
+  const brand = brands?.find((b) => b.id === p.brand_id);
+  const pv = (variants ?? []).filter((v) => v.perfume_id === p.id);
+  const defaultVariant = pv.find((v) => v.is_default) ?? pv[0];
+  const price = defaultVariant
+    ? resolveVariantPrice(defaultVariant.price_pkr, promotions ?? [], {
+        perfumeId: p.id,
+        variantId: defaultVariant.id,
+        brandId: p.brand_id,
+        categoryId: p.category_id,
+      })
+    : { originalPrice: p.price_pkr, finalPrice: p.price_pkr, discountAmount: 0, appliedPromotions: [] };
+  const inStock = pv.length ? pv.some((v) => v.in_stock) : p.in_stock;
+  const sizeRange = pv.length ? `${pv.map((v) => v.size_label).join(", ")}` : "—";
+
   return (
     <div className="glass-card rounded-sm p-8">
       <label className="mb-3 block text-[10px] uppercase tracking-[0.35em] text-gold/80">
@@ -72,27 +70,29 @@ function Side({
           <img src={p.image_url} alt={p.name} className="h-32 w-24 flex-shrink-0 object-contain" />
         )}
         <div className="flex-1">
-          <p className="text-[9px] uppercase tracking-[0.4em] text-gold/70">{p.family}</p>
+          {brand && <p className="text-[9px] uppercase tracking-[0.4em] text-gold/70">{brand.name}</p>}
           <h3 className="font-display text-2xl italic">{p.name}</h3>
-          {p.tagline && <p className="mt-2 text-xs text-foreground/60">{p.tagline}</p>}
+          <div className="mt-2 flex items-center gap-2">
+            {price.discountAmount > 0 && <span className="text-[10px] text-foreground/40 line-through">{formatPKR(price.originalPrice)}</span>}
+            <span className="text-gradient-gold font-display text-lg">{formatPKR(price.finalPrice)}</span>
+          </div>
         </div>
       </div>
 
-      <div className="mt-8 space-y-4">
-        <Bar perfumeId={p.id} label="Longevity" value={p.rating_longevity} />
-        <Bar perfumeId={p.id} label="Sillage" value={p.rating_sillage} />
-        <Bar perfumeId={p.id} label="Projection" value={p.rating_projection} />
-        <Bar perfumeId={p.id} label="Versatility" value={p.rating_versatility} />
-        <div className="grid grid-cols-2 gap-4 pt-2 text-[10px] uppercase tracking-[0.3em]">
-          <div>
-            <p className="text-foreground/40">Season</p>
-            <p className="mt-1 text-gold">{p.best_season || "—"}</p>
-          </div>
-          <div>
-            <p className="text-foreground/40">Occasion</p>
-            <p className="mt-1 text-gold">{p.occasion || "—"}</p>
-          </div>
-        </div>
+      <div className="mt-6">
+        <Row label="Availability" value={inStock ? <span className="text-gold">In Stock</span> : "Out of Stock"} />
+        <Row label="Offer" value={price.appliedPromotions[0]?.badge_text ?? price.appliedPromotions[0]?.name ?? "None active"} />
+        <Row label="Gender" value={p.gender ? p.gender[0].toUpperCase() + p.gender.slice(1) : "—"} />
+        <Row label="Concentration" value={p.concentration || "—"} />
+        <Row label="Fragrance Family" value={p.family || "—"} />
+        <Row label="Available Sizes" value={sizeRange} />
+        <Row label="Top Notes" value={p.top_notes.join(", ") || "—"} />
+        <Row label="Heart Notes" value={p.heart_notes.join(", ") || "—"} />
+        <Row label="Base Notes" value={p.base_notes.join(", ") || "—"} />
+        <Row label="Sillage" value={`${p.rating_sillage}/10`} />
+        <Row label="Longevity" value={`${p.rating_longevity}/10`} />
+        <Row label="Best Season" value={p.best_season || "—"} />
+        <Row label="Best Occasion" value={p.occasion || "—"} />
       </div>
     </div>
   );
@@ -100,6 +100,9 @@ function Side({
 
 export function ComparisonTool() {
   const { data: perfumes = [] } = usePerfumes();
+  const { data: brands = [] } = useBrands();
+  const { data: variants = [] } = useAllVariants();
+  const { data: promotions = [] } = usePromotions();
   const [a, setA] = useState<string>("");
   const [b, setB] = useState<string>("");
 
@@ -108,6 +111,15 @@ export function ComparisonTool() {
     if (!a || !perfumes.some((p) => p.id === a)) setA(perfumes[0].id);
     if (!b || !perfumes.some((p) => p.id === b)) setB((perfumes[1] ?? perfumes[0]).id);
   }, [perfumes, a, b]);
+
+  const selectA = (id: string) => {
+    setA(id);
+    trackEvent("compare_add", { perfumeId: id });
+  };
+  const selectB = (id: string) => {
+    setB(id);
+    trackEvent("compare_add", { perfumeId: id });
+  };
 
   if (perfumes.length < 1) return null;
 
@@ -125,8 +137,8 @@ export function ComparisonTool() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <Side perfumes={perfumes} value={a} onChange={setA} />
-          <Side perfumes={perfumes} value={b} onChange={setB} />
+          <Side perfumes={perfumes} brands={brands} variants={variants} promotions={promotions} value={a} onChange={selectA} />
+          <Side perfumes={perfumes} brands={brands} variants={variants} promotions={promotions} value={b} onChange={selectB} />
         </div>
       </div>
     </section>
