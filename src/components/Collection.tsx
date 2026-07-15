@@ -2,14 +2,25 @@ import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { Plus } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
-import { usePerfumes, useCategories, type Perfume } from "@/lib/api/queries";
+import { usePerfumes, useCategories, useAllVariants, usePromotions, type Perfume, type ProductVariant } from "@/lib/api/queries";
+import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
 import { SplitHeading } from "./SplitHeading";
 
-function ProductCard({ p }: { p: Perfume }) {
+function ProductCard({ p, variant, promotions }: { p: Perfume; variant?: ProductVariant; promotions: ReturnType<typeof usePromotions>["data"] }) {
   const { add } = useCart();
   const imgRef = useRef<HTMLImageElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  const price = variant
+    ? resolveVariantPrice(variant.price_pkr, promotions ?? [], {
+        perfumeId: p.id,
+        variantId: variant.id,
+        brandId: p.brand_id,
+        categoryId: p.category_id,
+      })
+    : { originalPrice: p.price_pkr, finalPrice: p.price_pkr, discountAmount: 0, appliedPromotions: [] };
+  const inStock = variant ? variant.in_stock : p.in_stock;
 
   // Luxury-subtle tilt — max ~3° per the design direction (nothing exaggerated).
   const rx = useMotionValue(0);
@@ -35,9 +46,22 @@ function ProductCard({ p }: { p: Perfume }) {
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!p.in_stock) return;
+    if (!inStock) return;
     const rect = imgRef.current?.getBoundingClientRect() ?? null;
-    add({ id: p.id, name: p.name, price: p.price_pkr, img: p.image_url || "" }, rect);
+    add(
+      {
+        id: variant?.id ?? p.id,
+        perfumeId: p.id,
+        variantId: variant?.id,
+        sizeLabel: variant?.size_label,
+        name: p.name,
+        price: price.finalPrice,
+        originalPrice: price.discountAmount > 0 ? price.originalPrice : undefined,
+        promotionName: price.appliedPromotions[0]?.name,
+        img: p.image_url || "",
+      },
+      rect
+    );
   };
 
   return (
@@ -55,12 +79,12 @@ function ProductCard({ p }: { p: Perfume }) {
     >
       <span className="card-sheen pointer-events-none" style={{ opacity: hovering ? 1 : 0 }} />
 
-      {!p.in_stock && (
+      {!inStock && (
         <span className="absolute left-4 top-4 z-[3] rounded-full border border-foreground/30 bg-black/60 px-3 py-1 text-[8px] uppercase tracking-[0.4em] text-foreground/70">
           Out of Stock
         </span>
       )}
-      {p.featured && p.in_stock && (
+      {p.featured && inStock && (
         <span className="absolute right-4 top-4 z-[3] rounded-full border border-gold/50 px-3 py-1 text-[8px] uppercase tracking-[0.4em] text-gold">
           Featured
         </span>
@@ -76,7 +100,7 @@ function ProductCard({ p }: { p: Perfume }) {
             loading="lazy"
             width={400}
             height={400}
-            className={`img-reveal relative mx-auto h-full w-auto object-contain ${p.in_stock ? "" : "opacity-50"}`}
+            className={`img-reveal relative mx-auto h-full w-auto object-contain ${inStock ? "" : "opacity-50"}`}
           />
         )}
       </div>
@@ -110,14 +134,17 @@ function ProductCard({ p }: { p: Perfume }) {
       </details>
 
       <div className="mt-7 flex w-full items-center justify-between border-t border-border pt-6">
-        <span className="text-gradient-gold font-display text-xl">{formatPKR(p.price_pkr)}</span>
+        <span className="flex items-baseline gap-2">
+          {price.discountAmount > 0 && <span className="text-xs text-foreground/40 line-through">{formatPKR(price.originalPrice)}</span>}
+          <span className="text-gradient-gold font-display text-xl">{formatPKR(price.finalPrice)}</span>
+        </span>
         <button
           onClick={handleAdd}
-          disabled={!p.in_stock}
+          disabled={!inStock}
           className="link-underline flex items-center gap-2 text-[10px] uppercase tracking-[0.35em] text-gold disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Plus className="h-3 w-3" />
-          {p.in_stock ? "Add to Cart" : "Sold Out"}
+          {inStock ? "Add to Cart" : "Sold Out"}
         </button>
       </div>
     </motion.article>
@@ -127,6 +154,8 @@ function ProductCard({ p }: { p: Perfume }) {
 export function Collection() {
   const { data: perfumes = [] } = usePerfumes();
   const { data: categories = [] } = useCategories();
+  const { data: variants = [] } = useAllVariants();
+  const promotions = usePromotions();
   const [filter, setFilter] = useState<string>("All");
 
   const filtered = useMemo(() => {
@@ -167,9 +196,11 @@ export function Collection() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((p) => (
-            <ProductCard key={p.id} p={p} />
-          ))}
+          {filtered.map((p) => {
+            const pv = variants.filter((v) => v.perfume_id === p.id);
+            const defaultVariant = pv.find((v) => v.is_default) ?? pv[0];
+            return <ProductCard key={p.id} p={p} variant={defaultVariant} promotions={promotions.data} />;
+          })}
         </div>
 
         {!perfumes.length && (

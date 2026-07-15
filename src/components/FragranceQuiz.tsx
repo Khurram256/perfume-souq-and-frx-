@@ -182,6 +182,7 @@ export function FragranceQuiz() {
                             onClick={() =>
                               add({
                                 id: p.id,
+                                perfumeId: p.id,
                                 name: p.name,
                                 price: p.price_pkr,
                                 img: p.image_url || "",

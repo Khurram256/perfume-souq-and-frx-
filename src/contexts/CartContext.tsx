@@ -9,9 +9,14 @@ import {
 } from "react";
 
 export type CartItem = {
-  id: string;
+  id: string; // variant id when available, otherwise perfume id
+  perfumeId: string;
+  variantId?: string;
+  sizeLabel?: string;
   name: string;
-  price: number;
+  price: number; // resolved final (discounted) unit price
+  originalPrice?: number;
+  promotionName?: string;
   img: string;
   qty: number;
 };

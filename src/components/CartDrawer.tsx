@@ -1,17 +1,19 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Minus, MessageCircle, Phone, Plus, ShoppingBag, Trash2, X } from "lucide-react";
-import { useCart } from "@/contexts/CartContext";
+import { useCart, type CartItem } from "@/contexts/CartContext";
 import { CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL, waLink } from "@/lib/contact";
-import { useSettings } from "@/lib/api/queries";
+import { useSettings, trackEvent } from "@/lib/api/queries";
 import { formatPKR } from "@/lib/format";
 
-function buildInvoice(items: { name: string; qty: number; price: number }[], total: number) {
+function buildInvoice(items: CartItem[], total: number) {
   const date = new Date().toLocaleDateString("en-PK", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
   const orderId = "TPS-" + Date.now().toString(36).toUpperCase();
+  const originalTotal = items.reduce((s, i) => s + (i.originalPrice ?? i.price) * i.qty, 0);
+  const discountTotal = originalTotal - total;
   const lines = [
     "*THE PERFUME SOUQ*",
     "_By Khurram Shabbir_",
@@ -20,11 +22,16 @@ function buildInvoice(items: { name: string; qty: number; price: number }[], tot
     `Date: ${date}`,
     "",
     "*Items*",
-    ...items.map(
-      (i, idx) =>
-        `${idx + 1}. ${i.name}\n    Qty ${i.qty} × ${formatPKR(i.price)} = ${formatPKR(i.qty * i.price)}`,
-    ),
+    ...items.map((i, idx) => {
+      const size = i.sizeLabel ? ` (${i.sizeLabel})` : "";
+      const discounted = i.originalPrice && i.originalPrice > i.price;
+      const priceLine = discounted
+        ? `Qty ${i.qty} × ${formatPKR(i.price)} (was ${formatPKR(i.originalPrice!)}${i.promotionName ? `, ${i.promotionName}` : ""}) = ${formatPKR(i.qty * i.price)}`
+        : `Qty ${i.qty} × ${formatPKR(i.price)} = ${formatPKR(i.qty * i.price)}`;
+      return `${idx + 1}. ${i.name}${size}\n    ${priceLine}`;
+    }),
     "",
+    ...(discountTotal > 0 ? [`Subtotal: ${formatPKR(originalTotal)}`, `Discount: -${formatPKR(discountTotal)}`] : []),
     `*Total: ${formatPKR(total)}*`,
     "",
     "Kindly confirm this order. Thank you.",
@@ -66,6 +73,9 @@ export function CartDrawer() {
   const handleCheckout = () => {
     if (!items.length) return;
     const msg = buildInvoice(items, total);
+    for (const it of items) {
+      trackEvent("whatsapp_click", { perfumeId: it.perfumeId, variantId: it.variantId, sourcePath: "/cart" });
+    }
     window.open(waLink(waNumber, msg), "_blank");
   };
 
@@ -127,7 +137,10 @@ export function CartDrawer() {
                       </div>
                       <div className="flex flex-1 flex-col justify-between">
                         <div className="flex items-start justify-between gap-2">
-                          <h4 className="font-display text-lg italic leading-tight">{it.name}</h4>
+                          <div>
+                            <h4 className="font-display text-lg italic leading-tight">{it.name}</h4>
+                            {it.sizeLabel && <p className="mt-1 text-[10px] uppercase tracking-[0.3em] text-foreground/40">{it.sizeLabel}</p>}
+                          </div>
                           <button
                             onClick={() => remove(it.id)}
                             aria-label="Remove"
@@ -154,8 +167,13 @@ export function CartDrawer() {
                               <Plus className="h-3 w-3" />
                             </button>
                           </div>
-                          <span className="text-gradient-gold font-display text-lg">
-                            {formatPKR(it.price * it.qty)}
+                          <span className="flex items-baseline gap-2">
+                            {it.originalPrice && it.originalPrice > it.price && (
+                              <span className="text-xs text-foreground/40 line-through">{formatPKR(it.originalPrice * it.qty)}</span>
+                            )}
+                            <span className="text-gradient-gold font-display text-lg">
+                              {formatPKR(it.price * it.qty)}
+                            </span>
                           </span>
                         </div>
                       </div>
