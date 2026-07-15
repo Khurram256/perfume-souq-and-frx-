@@ -59,6 +59,269 @@ export type Database = {
         };
         Relationships: [];
       };
+      admin_roles: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          email: string;
+          id: string;
+          role: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          email: string;
+          id?: string;
+          role: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          email?: string;
+          id?: string;
+          role?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      analytics_events: {
+        Row: {
+          bundle_id: string | null;
+          created_at: string;
+          event_type: string;
+          id: number;
+          metadata: Json;
+          perfume_id: string | null;
+          promotion_id: string | null;
+          session_id: string;
+          source_path: string | null;
+          variant_id: string | null;
+        };
+        Insert: {
+          bundle_id?: string | null;
+          created_at?: string;
+          event_type: string;
+          id?: number;
+          metadata?: Json;
+          perfume_id?: string | null;
+          promotion_id?: string | null;
+          session_id: string;
+          source_path?: string | null;
+          variant_id?: string | null;
+        };
+        Update: {
+          bundle_id?: string | null;
+          created_at?: string;
+          event_type?: string;
+          id?: number;
+          metadata?: Json;
+          perfume_id?: string | null;
+          promotion_id?: string | null;
+          session_id?: string;
+          source_path?: string | null;
+          variant_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "analytics_events_bundle_id_fkey";
+            columns: ["bundle_id"];
+            isOneToOne: false;
+            referencedRelation: "bundles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "analytics_events_perfume_id_fkey";
+            columns: ["perfume_id"];
+            isOneToOne: false;
+            referencedRelation: "perfumes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "analytics_events_promotion_id_fkey";
+            columns: ["promotion_id"];
+            isOneToOne: false;
+            referencedRelation: "promotions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "analytics_events_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      back_in_stock_requests: {
+        Row: {
+          contact_email: string | null;
+          contact_phone: string | null;
+          created_at: string;
+          id: string;
+          perfume_id: string;
+          status: string;
+          updated_at: string;
+          variant_id: string | null;
+        };
+        Insert: {
+          contact_email?: string | null;
+          contact_phone?: string | null;
+          created_at?: string;
+          id?: string;
+          perfume_id: string;
+          status?: string;
+          updated_at?: string;
+          variant_id?: string | null;
+        };
+        Update: {
+          contact_email?: string | null;
+          contact_phone?: string | null;
+          created_at?: string;
+          id?: string;
+          perfume_id?: string;
+          status?: string;
+          updated_at?: string;
+          variant_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "back_in_stock_requests_perfume_id_fkey";
+            columns: ["perfume_id"];
+            isOneToOne: false;
+            referencedRelation: "perfumes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "back_in_stock_requests_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      brands: {
+        Row: {
+          created_at: string;
+          hero_image_url: string | null;
+          id: string;
+          logo_url: string | null;
+          meta_description: string | null;
+          meta_title: string | null;
+          name: string;
+          origin_country: string | null;
+          slug: string;
+          sort_order: number;
+          story: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          hero_image_url?: string | null;
+          id?: string;
+          logo_url?: string | null;
+          meta_description?: string | null;
+          meta_title?: string | null;
+          name: string;
+          origin_country?: string | null;
+          slug: string;
+          sort_order?: number;
+          story?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          hero_image_url?: string | null;
+          id?: string;
+          logo_url?: string | null;
+          meta_description?: string | null;
+          meta_title?: string | null;
+          name?: string;
+          origin_country?: string | null;
+          slug?: string;
+          sort_order?: number;
+          story?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      bundles: {
+        Row: {
+          active: boolean;
+          bundle_price_pkr: number;
+          created_at: string;
+          description: string | null;
+          ends_at: string | null;
+          id: string;
+          image_url: string | null;
+          name: string;
+          starts_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          active?: boolean;
+          bundle_price_pkr: number;
+          created_at?: string;
+          description?: string | null;
+          ends_at?: string | null;
+          id?: string;
+          image_url?: string | null;
+          name: string;
+          starts_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          active?: boolean;
+          bundle_price_pkr?: number;
+          created_at?: string;
+          description?: string | null;
+          ends_at?: string | null;
+          id?: string;
+          image_url?: string | null;
+          name?: string;
+          starts_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      bundle_items: {
+        Row: {
+          bundle_id: string;
+          id: string;
+          quantity: number;
+          variant_id: string;
+        };
+        Insert: {
+          bundle_id: string;
+          id?: string;
+          quantity?: number;
+          variant_id: string;
+        };
+        Update: {
+          bundle_id?: string;
+          id?: string;
+          quantity?: number;
+          variant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "bundle_items_bundle_id_fkey";
+            columns: ["bundle_id"];
+            isOneToOne: false;
+            referencedRelation: "bundles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bundle_items_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       media: {
         Row: {
           caption: string | null;
@@ -138,17 +401,24 @@ export type Database = {
         Row: {
           base_notes: string[];
           best_season: string | null;
+          brand_id: string | null;
           category_id: string | null;
+          concentration: string | null;
           created_at: string;
           description: string | null;
           family: string | null;
           featured: boolean;
+          gender: string | null;
           heart_notes: string[];
           id: string;
           image_url: string | null;
           in_stock: boolean;
+          meta_description: string | null;
+          meta_title: string | null;
           name: string;
+          new_arrival: boolean;
           occasion: string | null;
+          og_image_url: string | null;
           price_pkr: number;
           rating_compliment: number;
           rating_longevity: number;
@@ -156,9 +426,11 @@ export type Database = {
           rating_sillage: number;
           rating_uniqueness: number;
           rating_versatility: number;
+          sku: string | null;
           slug: string;
           sort_order: number;
           spotlight_eligible: boolean;
+          status: string;
           tag_family: string | null;
           tag_gender: string | null;
           tag_intensity: string | null;
@@ -172,17 +444,24 @@ export type Database = {
         Insert: {
           base_notes?: string[];
           best_season?: string | null;
+          brand_id?: string | null;
           category_id?: string | null;
+          concentration?: string | null;
           created_at?: string;
           description?: string | null;
           family?: string | null;
           featured?: boolean;
+          gender?: string | null;
           heart_notes?: string[];
           id?: string;
           image_url?: string | null;
           in_stock?: boolean;
+          meta_description?: string | null;
+          meta_title?: string | null;
           name: string;
+          new_arrival?: boolean;
           occasion?: string | null;
+          og_image_url?: string | null;
           price_pkr?: number;
           rating_compliment?: number;
           rating_longevity?: number;
@@ -190,9 +469,11 @@ export type Database = {
           rating_sillage?: number;
           rating_uniqueness?: number;
           rating_versatility?: number;
+          sku?: string | null;
           slug: string;
           sort_order?: number;
           spotlight_eligible?: boolean;
+          status?: string;
           tag_family?: string | null;
           tag_gender?: string | null;
           tag_intensity?: string | null;
@@ -206,17 +487,24 @@ export type Database = {
         Update: {
           base_notes?: string[];
           best_season?: string | null;
+          brand_id?: string | null;
           category_id?: string | null;
+          concentration?: string | null;
           created_at?: string;
           description?: string | null;
           family?: string | null;
           featured?: boolean;
+          gender?: string | null;
           heart_notes?: string[];
           id?: string;
           image_url?: string | null;
           in_stock?: boolean;
+          meta_description?: string | null;
+          meta_title?: string | null;
           name?: string;
+          new_arrival?: boolean;
           occasion?: string | null;
+          og_image_url?: string | null;
           price_pkr?: number;
           rating_compliment?: number;
           rating_longevity?: number;
@@ -224,9 +512,11 @@ export type Database = {
           rating_sillage?: number;
           rating_uniqueness?: number;
           rating_versatility?: number;
+          sku?: string | null;
           slug?: string;
           sort_order?: number;
           spotlight_eligible?: boolean;
+          status?: string;
           tag_family?: string | null;
           tag_gender?: string | null;
           tag_intensity?: string | null;
@@ -239,10 +529,150 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "perfumes_brand_id_fkey";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "perfumes_category_id_fkey";
             columns: ["category_id"];
             isOneToOne: false;
             referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      product_variants: {
+        Row: {
+          created_at: string;
+          id: string;
+          in_stock: boolean;
+          is_default: boolean;
+          perfume_id: string;
+          price_pkr: number;
+          size_label: string;
+          sku: string | null;
+          sort_order: number;
+          stock_quantity: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          in_stock?: boolean;
+          is_default?: boolean;
+          perfume_id: string;
+          price_pkr: number;
+          size_label: string;
+          sku?: string | null;
+          sort_order?: number;
+          stock_quantity?: number | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          in_stock?: boolean;
+          is_default?: boolean;
+          perfume_id?: string;
+          price_pkr?: number;
+          size_label?: string;
+          sku?: string | null;
+          sort_order?: number;
+          stock_quantity?: number | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_variants_perfume_id_fkey";
+            columns: ["perfume_id"];
+            isOneToOne: false;
+            referencedRelation: "perfumes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      promotions: {
+        Row: {
+          active: boolean;
+          badge_text: string | null;
+          created_at: string;
+          customer_description: string | null;
+          discount_type: string;
+          discount_value: number;
+          ends_at: string | null;
+          id: string;
+          internal_description: string | null;
+          name: string;
+          priority: number;
+          stackable: boolean;
+          starts_at: string | null;
+          terms: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          active?: boolean;
+          badge_text?: string | null;
+          created_at?: string;
+          customer_description?: string | null;
+          discount_type: string;
+          discount_value?: number;
+          ends_at?: string | null;
+          id?: string;
+          internal_description?: string | null;
+          name: string;
+          priority?: number;
+          stackable?: boolean;
+          starts_at?: string | null;
+          terms?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          active?: boolean;
+          badge_text?: string | null;
+          created_at?: string;
+          customer_description?: string | null;
+          discount_type?: string;
+          discount_value?: number;
+          ends_at?: string | null;
+          id?: string;
+          internal_description?: string | null;
+          name?: string;
+          priority?: number;
+          stackable?: boolean;
+          starts_at?: string | null;
+          terms?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      promotion_targets: {
+        Row: {
+          id: string;
+          promotion_id: string;
+          target_id: string | null;
+          target_type: string;
+        };
+        Insert: {
+          id?: string;
+          promotion_id: string;
+          target_id?: string | null;
+          target_type: string;
+        };
+        Update: {
+          id?: string;
+          promotion_id?: string;
+          target_id?: string | null;
+          target_type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "promotion_targets_promotion_id_fkey";
+            columns: ["promotion_id"];
+            isOneToOne: false;
+            referencedRelation: "promotions";
             referencedColumns: ["id"];
           },
         ];
@@ -354,6 +784,7 @@ export type Database = {
     };
     Functions: {
       claim_admin_lock: { Args: never; Returns: boolean };
+      get_current_admin_role: { Args: never; Returns: string };
       is_current_admin: { Args: never; Returns: boolean };
       release_admin_lock: { Args: never; Returns: boolean };
     };

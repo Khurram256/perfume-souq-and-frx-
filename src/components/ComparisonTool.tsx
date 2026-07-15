@@ -112,7 +112,7 @@ export function ComparisonTool() {
   if (perfumes.length < 1) return null;
 
   return (
-    <section className="section-pad relative px-6 lg:px-16">
+    <section id="comparison" className="section-pad relative px-6 lg:px-16">
       <div className="mx-auto max-w-6xl">
         <div className="mb-16 grid grid-cols-1 items-end gap-6 lg:grid-cols-[auto_1fr]">
           <span className="section-index text-[14vw] leading-none md:text-[6vw]">06</span>

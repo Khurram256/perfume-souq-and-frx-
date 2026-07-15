@@ -50,6 +50,15 @@ export type Perfume = {
   tag_occasion: string | null;
   tag_gender: string | null;
   sort_order: number;
+  brand_id: string | null;
+  gender: "men" | "women" | "unisex" | null;
+  concentration: string | null;
+  status: "draft" | "published" | "archived";
+  new_arrival: boolean;
+  sku: string | null;
+  meta_title: string | null;
+  meta_description: string | null;
+  og_image_url: string | null;
 };
 
 export function usePerfumes() {
@@ -65,6 +74,205 @@ export function usePerfumes() {
       return (data ?? []) as Perfume[];
     },
   });
+}
+
+export function usePerfumeBySlug(slug: string | undefined) {
+  return useQuery({
+    queryKey: ["perfume", slug],
+    enabled: !!slug,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("perfumes").select("*").eq("slug", slug as string).maybeSingle();
+      if (error) throw error;
+      return data as Perfume | null;
+    },
+  });
+}
+
+/* ---------------- brands ---------------- */
+export type Brand = {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
+  hero_image_url: string | null;
+  origin_country: string | null;
+  story: string | null;
+  meta_title: string | null;
+  meta_description: string | null;
+  sort_order: number;
+};
+
+export function useBrands() {
+  return useQuery({
+    queryKey: ["brands"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("brands").select("*").order("sort_order").order("name");
+      if (error) throw error;
+      return (data ?? []) as Brand[];
+    },
+  });
+}
+
+export function useBrandBySlug(slug: string | undefined) {
+  return useQuery({
+    queryKey: ["brand", slug],
+    enabled: !!slug,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("brands").select("*").eq("slug", slug as string).maybeSingle();
+      if (error) throw error;
+      return data as Brand | null;
+    },
+  });
+}
+
+/* ---------------- product variants ---------------- */
+export type ProductVariant = {
+  id: string;
+  perfume_id: string;
+  size_label: string;
+  price_pkr: number;
+  sku: string | null;
+  in_stock: boolean;
+  stock_quantity: number | null;
+  is_default: boolean;
+  sort_order: number;
+};
+
+export function useVariants(perfumeId: string | undefined) {
+  return useQuery({
+    queryKey: ["variants", perfumeId],
+    enabled: !!perfumeId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_variants")
+        .select("*")
+        .eq("perfume_id", perfumeId as string)
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as ProductVariant[];
+    },
+  });
+}
+
+export function useAllVariants() {
+  return useQuery({
+    queryKey: ["variants", "all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("product_variants").select("*").order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as ProductVariant[];
+    },
+  });
+}
+
+/* ---------------- promotions (discount engine) ---------------- */
+export function usePromotions(opts?: { includeInactive?: boolean }) {
+  return useQuery({
+    queryKey: ["promotions", opts?.includeInactive ? "all" : "active"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("promotions")
+        .select("*, targets:promotion_targets(target_type,target_id)");
+      if (error) throw error;
+      return (data ?? []) as import("@/lib/pricing").Promotion[];
+    },
+  });
+}
+
+/* ---------------- bundles ---------------- */
+export type BundleItem = { id: string; bundle_id: string; variant_id: string; quantity: number };
+export type BundleRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  bundle_price_pkr: number;
+  image_url: string | null;
+  active: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  items: BundleItem[];
+};
+
+export function useBundles() {
+  return useQuery({
+    queryKey: ["bundles"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("bundles").select("*, items:bundle_items(*)");
+      if (error) throw error;
+      return (data ?? []) as BundleRow[];
+    },
+  });
+}
+
+/* ---------------- back-in-stock requests ---------------- */
+export function useSubmitBackInStock() {
+  return useMutation({
+    mutationFn: async (input: { perfumeId: string; variantId?: string; email?: string; phone?: string }) => {
+      const { error } = await supabase.from("back_in_stock_requests").insert({
+        perfume_id: input.perfumeId,
+        variant_id: input.variantId ?? null,
+        contact_email: input.email?.trim() || null,
+        contact_phone: input.phone?.trim() || null,
+      });
+      if (error) throw error;
+    },
+  });
+}
+
+/* ---------------- analytics events ---------------- */
+const SESSION_KEY = "tps_session_v1";
+export function getSessionId(): string {
+  if (typeof window === "undefined") return crypto.randomUUID();
+  try {
+    let id = localStorage.getItem(SESSION_KEY);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(SESSION_KEY, id);
+    }
+    return id;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+export type AnalyticsEventType =
+  | "page_view"
+  | "product_view"
+  | "whatsapp_click"
+  | "quiz_start"
+  | "quiz_complete"
+  | "compare_add"
+  | "offer_view"
+  | "offer_click"
+  | "bundle_view";
+
+export function trackEvent(
+  eventType: AnalyticsEventType,
+  fields?: {
+    perfumeId?: string;
+    variantId?: string;
+    promotionId?: string;
+    bundleId?: string;
+    sourcePath?: string;
+    metadata?: Record<string, unknown>;
+  }
+) {
+  // Fire-and-forget — never block or throw into the calling UI flow.
+  supabase
+    .from("analytics_events")
+    .insert({
+      event_type: eventType,
+      session_id: getSessionId(),
+      perfume_id: fields?.perfumeId ?? null,
+      variant_id: fields?.variantId ?? null,
+      promotion_id: fields?.promotionId ?? null,
+      bundle_id: fields?.bundleId ?? null,
+      source_path: fields?.sourcePath ?? (typeof window !== "undefined" ? window.location.pathname : null),
+      metadata: (fields?.metadata ?? {}) as import("@/integrations/supabase/types").Json,
+    })
+    .then(({ error }) => {
+      if (error) console.warn("trackEvent failed", error.message);
+    });
 }
 
 /* ---------------- spotlight ---------------- */

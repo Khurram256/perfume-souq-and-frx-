@@ -1,4 +1,5 @@
 import { motion, useMotionValue, useScroll, useSpring, useTransform } from "framer-motion";
+import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import bottle from "@/assets/hero-bottle.png";
 import { Magnetic } from "./Magnetic";
@@ -163,13 +164,19 @@ export function Hero() {
             className="fade-in-blur flex flex-wrap items-center gap-8"
           >
             <Magnetic>
-              <a
-                href="#signature"
+              <Link
+                to="/shop"
                 className="btn-gold inline-block px-12 py-5 text-[10px] uppercase tracking-[0.45em]"
               >
-                Discover the Maison
-              </a>
+                Shop Now
+              </Link>
             </Magnetic>
+            <a
+              href="#signature"
+              className="link-underline inline-block px-2 py-5 text-[10px] uppercase tracking-[0.4em] text-foreground/70"
+            >
+              Discover the Maison
+            </a>
             <a
               href="#quiz"
               className="link-underline inline-block px-2 py-5 text-[10px] uppercase tracking-[0.4em] text-foreground/70"

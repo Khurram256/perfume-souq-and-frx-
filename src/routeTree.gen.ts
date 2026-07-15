@@ -10,9 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as ShopRouteImport } from './routes/shop'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
+import { Route as OffersRouteImport } from './routes/offers'
+import { Route as BrandsRouteImport } from './routes/brands'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProductSlugRouteImport } from './routes/product.$slug'
+import { Route as BrandSlugRouteImport } from './routes/brand.$slug'
 import { Route as AdminDashboardRouteImport } from './routes/admin_.dashboard'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -20,9 +25,24 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShopRoute = ShopRouteImport.update({
+  id: '/shop',
+  path: '/shop',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
   id: '/robots.txt',
   path: '/robots.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OffersRoute = OffersRouteImport.update({
+  id: '/offers',
+  path: '/offers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BrandsRoute = BrandsRouteImport.update({
+  id: '/brands',
+  path: '/brands',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -35,6 +55,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProductSlugRoute = ProductSlugRouteImport.update({
+  id: '/product/$slug',
+  path: '/product/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BrandSlugRoute = BrandSlugRouteImport.update({
+  id: '/brand/$slug',
+  path: '/brand/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
   id: '/admin_/dashboard',
   path: '/admin/dashboard',
@@ -44,46 +74,90 @@ const AdminDashboardRoute = AdminDashboardRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/brands': typeof BrandsRoute
+  '/offers': typeof OffersRoute
   '/robots.txt': typeof RobotsDottxtRoute
+  '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/brand/$slug': typeof BrandSlugRoute
+  '/product/$slug': typeof ProductSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/brands': typeof BrandsRoute
+  '/offers': typeof OffersRoute
   '/robots.txt': typeof RobotsDottxtRoute
+  '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/brand/$slug': typeof BrandSlugRoute
+  '/product/$slug': typeof ProductSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/brands': typeof BrandsRoute
+  '/offers': typeof OffersRoute
   '/robots.txt': typeof RobotsDottxtRoute
+  '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin_/dashboard': typeof AdminDashboardRoute
+  '/brand/$slug': typeof BrandSlugRoute
+  '/product/$slug': typeof ProductSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/admin' | '/robots.txt' | '/sitemap.xml' | '/admin/dashboard'
+    | '/'
+    | '/admin'
+    | '/brands'
+    | '/offers'
+    | '/robots.txt'
+    | '/shop'
+    | '/sitemap.xml'
+    | '/admin/dashboard'
+    | '/brand/$slug'
+    | '/product/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/robots.txt' | '/sitemap.xml' | '/admin/dashboard'
+  to:
+    | '/'
+    | '/admin'
+    | '/brands'
+    | '/offers'
+    | '/robots.txt'
+    | '/shop'
+    | '/sitemap.xml'
+    | '/admin/dashboard'
+    | '/brand/$slug'
+    | '/product/$slug'
   id:
     | '__root__'
     | '/'
     | '/admin'
+    | '/brands'
+    | '/offers'
     | '/robots.txt'
+    | '/shop'
     | '/sitemap.xml'
     | '/admin_/dashboard'
+    | '/brand/$slug'
+    | '/product/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  BrandsRoute: typeof BrandsRoute
+  OffersRoute: typeof OffersRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
+  ShopRoute: typeof ShopRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
+  BrandSlugRoute: typeof BrandSlugRoute
+  ProductSlugRoute: typeof ProductSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -95,11 +169,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/shop': {
+      id: '/shop'
+      path: '/shop'
+      fullPath: '/shop'
+      preLoaderRoute: typeof ShopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/robots.txt': {
       id: '/robots.txt'
       path: '/robots.txt'
       fullPath: '/robots.txt'
       preLoaderRoute: typeof RobotsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/offers': {
+      id: '/offers'
+      path: '/offers'
+      fullPath: '/offers'
+      preLoaderRoute: typeof OffersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/brands': {
+      id: '/brands'
+      path: '/brands'
+      fullPath: '/brands'
+      preLoaderRoute: typeof BrandsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -116,6 +211,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/product/$slug': {
+      id: '/product/$slug'
+      path: '/product/$slug'
+      fullPath: '/product/$slug'
+      preLoaderRoute: typeof ProductSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/brand/$slug': {
+      id: '/brand/$slug'
+      path: '/brand/$slug'
+      fullPath: '/brand/$slug'
+      preLoaderRoute: typeof BrandSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin_/dashboard': {
       id: '/admin_/dashboard'
       path: '/admin/dashboard'
@@ -129,9 +238,14 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  BrandsRoute: BrandsRoute,
+  OffersRoute: OffersRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
+  ShopRoute: ShopRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   AdminDashboardRoute: AdminDashboardRoute,
+  BrandSlugRoute: BrandSlugRoute,
+  ProductSlugRoute: ProductSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
