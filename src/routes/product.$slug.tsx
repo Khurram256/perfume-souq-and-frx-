@@ -1,5 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { CartProvider } from "@/contexts/CartContext";
@@ -22,6 +23,35 @@ import { waLink } from "@/lib/contact";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/product/$slug")({
+  loader: async ({ params }) => {
+    const { data } = await supabase
+      .from("perfumes")
+      .select("name,tagline,description,meta_title,meta_description,og_image_url,image_url,price_pkr")
+      .eq("slug", params.slug)
+      .maybeSingle();
+    return data;
+  },
+  head: ({ loaderData, params }) => {
+    if (!loaderData) {
+      return { meta: [{ title: "Product Not Found — The Perfume Souq" }] };
+    }
+    const title = loaderData.meta_title || `${loaderData.name} — The Perfume Souq by Khurram Shabbir`;
+    const description =
+      loaderData.meta_description || loaderData.tagline || loaderData.description || `Shop ${loaderData.name} at The Perfume Souq.`;
+    const image = loaderData.og_image_url || loaderData.image_url || undefined;
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        ...(image ? [{ property: "og:image", content: image }] : []),
+        { property: "og:type", content: "product" },
+        { name: "twitter:card", content: "summary_large_image" },
+      ],
+      links: [{ rel: "canonical", href: `https://theperfumesouq.pk/product/${params.slug}` }],
+    };
+  },
   component: ProductPage,
 });
 

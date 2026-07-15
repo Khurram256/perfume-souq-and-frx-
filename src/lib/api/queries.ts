@@ -219,6 +219,41 @@ export function useSubmitBackInStock() {
   });
 }
 
+export type BackInStockRequest = {
+  id: string;
+  perfume_id: string;
+  variant_id: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  status: "pending" | "contacted" | "resolved";
+  created_at: string;
+};
+
+export function useBackInStockRequests() {
+  return useQuery({
+    queryKey: ["back_in_stock_requests"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("back_in_stock_requests")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as BackInStockRequest[];
+    },
+  });
+}
+
+export function useUpdateBackInStockStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; status: BackInStockRequest["status"] }) => {
+      const { error } = await supabase.from("back_in_stock_requests").update({ status: input.status }).eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["back_in_stock_requests"] }),
+  });
+}
+
 /* ---------------- analytics events ---------------- */
 const SESSION_KEY = "tps_session_v1";
 export function getSessionId(): string {

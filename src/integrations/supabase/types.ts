@@ -399,6 +399,8 @@ export type Database = {
       };
       perfumes: {
         Row: {
+          archived: boolean;
+          archived_at: string | null;
           base_notes: string[];
           best_season: string | null;
           brand_id: string | null;
@@ -442,6 +444,8 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          archived?: boolean;
+          archived_at?: string | null;
           base_notes?: string[];
           best_season?: string | null;
           brand_id?: string | null;
@@ -485,6 +489,8 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          archived?: boolean;
+          archived_at?: string | null;
           base_notes?: string[];
           best_season?: string | null;
           brand_id?: string | null;

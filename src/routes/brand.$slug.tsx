@@ -1,5 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { CartProvider } from "@/contexts/CartContext";
@@ -11,6 +12,30 @@ import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
 
 export const Route = createFileRoute("/brand/$slug")({
+  loader: async ({ params }) => {
+    const { data } = await supabase
+      .from("brands")
+      .select("name,story,meta_title,meta_description,hero_image_url,logo_url")
+      .eq("slug", params.slug)
+      .maybeSingle();
+    return data;
+  },
+  head: ({ loaderData, params }) => {
+    if (!loaderData) return { meta: [{ title: "Maison Not Found — The Perfume Souq" }] };
+    const title = loaderData.meta_title || `${loaderData.name} — The Perfume Souq by Khurram Shabbir`;
+    const description = loaderData.meta_description || loaderData.story || `Shop ${loaderData.name} at The Perfume Souq.`;
+    const image = loaderData.hero_image_url || loaderData.logo_url || undefined;
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        ...(image ? [{ property: "og:image", content: image }] : []),
+      ],
+      links: [{ rel: "canonical", href: `https://theperfumesouq.pk/brand/${params.slug}` }],
+    };
+  },
   component: BrandPage,
 });
 

@@ -11,6 +11,8 @@ import {
   useSiteContent,
   useCategories,
   useAnalyticsEvents,
+  useBackInStockRequests,
+  useUpdateBackInStockStatus,
 } from "@/lib/api/queries";
 import { useAuthUser } from "@/lib/admin/session";
 import { useQueryClient } from "@tanstack/react-query";
@@ -32,7 +34,7 @@ export const Route = createFileRoute("/admin_/dashboard")({
   component: Dashboard,
 });
 
-type Tab = "perfumes" | "offers" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "administrators";
+type Tab = "perfumes" | "offers" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "requests" | "administrators";
 type AdminRole = "owner" | "admin" | "editor" | "analyst" | null;
 
 function useMyAdminRole(userId: string | undefined, isOwner: boolean) {
@@ -104,6 +106,7 @@ function Dashboard() {
     "theme",
     "settings",
     "analytics",
+    "requests",
     ...(isOwner ? (["administrators"] as Tab[]) : []),
   ];
 
@@ -151,6 +154,7 @@ function Dashboard() {
         {tab === "theme" && <ThemePanel />}
         {tab === "settings" && <SettingsPanel />}
         {tab === "analytics" && <AnalyticsPanel />}
+        {tab === "requests" && <BackInStockPanel />}
         {tab === "administrators" && <AdministratorsPanel />}
       </section>
     </main>
@@ -870,6 +874,61 @@ function AnalyticsPanel() {
             </div>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Back-in-Stock Requests ---------------- */
+function BackInStockPanel() {
+  const { data: requests = [], isLoading } = useBackInStockRequests();
+  const { data: perfumes = [] } = usePerfumes();
+  const updateStatus = useUpdateBackInStockStatus();
+
+  const perfumeName = (id: string) => perfumes.find((p) => p.id === id)?.name ?? "Unknown Product";
+
+  const setStatus = async (id: string, status: "pending" | "contacted" | "resolved") => {
+    try {
+      await updateStatus.mutateAsync({ id, status });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <h2 className="font-display text-2xl italic">Back-in-Stock Requests</h2>
+      <p className="text-xs text-foreground/50">Customers waiting to be notified when an out-of-stock perfume returns.</p>
+
+      {isLoading ? (
+        <p className="text-sm text-foreground/50">Loading…</p>
+      ) : !requests.length ? (
+        <p className="text-sm text-foreground/50">No requests yet.</p>
+      ) : (
+        <div className="glass-card divide-y divide-border rounded-sm">
+          {requests.map((r) => (
+            <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 p-5">
+              <div>
+                <p className="font-display text-lg italic">{perfumeName(r.perfume_id)}</p>
+                <p className="text-xs text-foreground/60">{r.contact_email || r.contact_phone}</p>
+                <p className="text-[9px] uppercase tracking-[0.3em] text-foreground/40">
+                  {new Date(r.created_at).toLocaleDateString()}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {(["pending", "contacted", "resolved"] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setStatus(r.id, s)}
+                    className={`rounded-sm px-3 py-1.5 text-[9px] uppercase tracking-[0.3em] ${r.status === s ? "bg-gold text-obsidian" : "border border-gold/25 text-foreground/60"}`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
