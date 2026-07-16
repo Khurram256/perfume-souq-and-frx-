@@ -24,7 +24,7 @@ export function ClosingSection() {
         className="pointer-events-none absolute inset-0 opacity-40"
         style={{
           background:
-            "radial-gradient(ellipse at center, oklch(0.78 0.09 228 / 0.08), transparent 65%)",
+            "radial-gradient(ellipse at center, oklch(0.78 0.09 78 / 0.08), transparent 65%)",
         }}
       />
       <div className="relative mx-auto max-w-5xl px-6 text-center">

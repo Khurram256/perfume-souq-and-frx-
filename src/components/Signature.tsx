@@ -34,7 +34,7 @@ export function Signature() {
             "radial-gradient(ellipse at center, oklch(0.70 0.10 70 / 0.20), transparent 62%)",
         }}
       />
-      <div className="glow-orb pointer-events-none" style={{ width: 460, height: 460, top: "10%", left: "-8%", background: "oklch(0.62 0.08 232 / 0.30)" }} />
+      <div className="glow-orb pointer-events-none" style={{ width: 460, height: 460, top: "10%", left: "-8%", background: "oklch(0.62 0.08 76 / 0.30)" }} />
       <div className="glow-orb pointer-events-none" style={{ width: 380, height: 380, bottom: "0%", right: "-4%", background: "oklch(0.87 0.06 68 / 0.24)", animationDelay: "-9s" }} />
 
       <div className="relative z-10 mx-auto grid max-w-7xl grid-cols-1 items-center gap-4 px-6 lg:grid-cols-[auto_1fr_1fr] lg:px-16">
@@ -53,13 +53,13 @@ export function Signature() {
             <div
               className="absolute inset-0 -z-10 blur-3xl"
               style={{
-                background: "radial-gradient(circle, oklch(0.78 0.09 228 / 0.45), oklch(0.87 0.06 68 / 0.2) 45%, transparent 68%)",
+                background: "radial-gradient(circle, oklch(0.78 0.09 78 / 0.45), oklch(0.87 0.06 68 / 0.2) 45%, transparent 68%)",
               }}
             />
             {/* Soft reflection pooling beneath the bottle */}
             <div
               className="absolute -bottom-6 left-1/2 h-16 w-2/3 -translate-x-1/2 rounded-[50%] blur-2xl"
-              style={{ background: "oklch(0.78 0.09 228 / 0.25)" }}
+              style={{ background: "oklch(0.78 0.09 78 / 0.25)" }}
             />
             {p.image_url && (
               <img

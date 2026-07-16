@@ -42,10 +42,10 @@ export function BoutiqueLoader() {
             alt=""
             width={64}
             height={64}
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={stage >= 1 ? { opacity: 1, scale: 1 } : {}}
-            transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }}
-            style={{ filter: "drop-shadow(0 0 20px oklch(0.78 0.09 228 / 0.5))" }}
+            initial={{ opacity: 0, scale: 0.85, rotate: -12 }}
+            animate={stage >= 1 ? { opacity: 1, scale: 1, rotate: 0 } : {}}
+            transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
+            style={{ filter: "drop-shadow(0 0 20px oklch(0.66 0.12 74 / 0.5))" }}
           />
           <motion.div
             initial={{ scaleX: 0 }}
@@ -61,6 +61,14 @@ export function BoutiqueLoader() {
             className="mt-6 text-center font-display text-xl italic tracking-[0.2em] text-gradient-gold"
           >
             The Perfume Souq
+          </motion.p>
+          <motion.p
+            initial={{ opacity: 0, y: 6 }}
+            animate={stage >= 3 ? { opacity: 1, y: 0 } : {}}
+            transition={{ duration: 0.7, delay: 0.15 }}
+            className="mt-2 text-center text-[10px] uppercase tracking-[0.4em] text-foreground/50"
+          >
+            by Khurram Shabbir
           </motion.p>
         </motion.div>
       )}

@@ -243,7 +243,7 @@
     font-weight: 300;
     font-variation-settings: "opsz" 144;
     color: transparent;
-    -webkit-text-stroke: 1px oklch(0.78 0.09 228 / 0.35);
+    -webkit-text-stroke: 1px oklch(0.78 0.09 78 / 0.35);
     line-height: 0.8;
   }
 
@@ -308,11 +308,11 @@
     background: var(--glass);
     backdrop-filter: blur(20px) saturate(140%);
     -webkit-backdrop-filter: blur(20px) saturate(140%);
-    border: 1px solid oklch(0.78 0.09 228 / 0.15);
+    border: 1px solid oklch(0.78 0.09 78 / 0.15);
     transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .glass-card:hover {
-    border-color: oklch(0.78 0.09 228 / 0.5);
+    border-color: oklch(0.78 0.09 78 / 0.5);
     box-shadow: var(--shadow-gold), var(--shadow-deep);
     transform: translateY(-12px);
   }
@@ -374,7 +374,7 @@
 
   .float-bottle {
     animation: float-y 8s ease-in-out infinite;
-    filter: drop-shadow(0 0 80px oklch(0.78 0.09 228 / 0.35));
+    filter: drop-shadow(0 0 80px oklch(0.78 0.09 78 / 0.35));
   }
 
   .smoke-mist::before,
@@ -404,7 +404,7 @@
   /* Maison Spotlight highlight on featured product card */
   .spotlight-card {
     position: relative;
-    box-shadow: 0 0 0 1px oklch(0.78 0.09 228 / 0.35), 0 20px 60px -20px oklch(0.78 0.09 228 / 0.25);
+    box-shadow: 0 0 0 1px oklch(0.78 0.09 78 / 0.35), 0 20px 60px -20px oklch(0.78 0.09 78 / 0.25);
   }
   .spotlight-card::before {
     content: "";
@@ -412,7 +412,7 @@
     inset: -1px;
     border-radius: inherit;
     padding: 1px;
-    background: linear-gradient(135deg, oklch(0.78 0.09 228 / 0.6), transparent 40%, oklch(0.78 0.09 228 / 0.6));
+    background: linear-gradient(135deg, oklch(0.78 0.09 78 / 0.6), transparent 40%, oklch(0.78 0.09 78 / 0.6));
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
             mask-composite: exclude;
@@ -430,7 +430,7 @@
     color: var(--obsidian);
     background: var(--gradient-gold);
     border-radius: 999px;
-    box-shadow: 0 0 24px oklch(0.78 0.09 228 / 0.5);
+    box-shadow: 0 0 24px oklch(0.78 0.09 78 / 0.5);
     z-index: 5;
     white-space: nowrap;
   }
@@ -485,8 +485,8 @@
   position: absolute;
   inset: -20% -20% -40% -20%;
   background-image:
-    linear-gradient(oklch(0.78 0.09 228 / 0.14) 1px, transparent 1px),
-    linear-gradient(90deg, oklch(0.78 0.09 228 / 0.14) 1px, transparent 1px);
+    linear-gradient(oklch(0.78 0.09 78 / 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.78 0.09 78 / 0.14) 1px, transparent 1px);
   background-size: 64px 64px;
   transform: perspective(600px) rotateX(62deg);
   transform-origin: center top;
@@ -505,7 +505,7 @@
   position: absolute;
   width: 40px;
   height: 40px;
-  border: 1.5px solid oklch(0.78 0.09 228 / 0.55);
+  border: 1.5px solid oklch(0.78 0.09 78 / 0.55);
   opacity: 0;
   animation: hud-draw 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
   animation-delay: var(--hud-delay, 0.6s);
@@ -568,7 +568,7 @@
   position: absolute;
   inset: -15%;
   border-radius: 50%;
-  border: 1px solid oklch(0.78 0.09 228 / 0.25);
+  border: 1px solid oklch(0.78 0.09 78 / 0.25);
   animation: halo-pulse 4s ease-in-out infinite;
 }
 .halo-pulse--delay {
@@ -648,7 +648,7 @@
     linear-gradient(160deg, oklch(0.20 0.08 252 / 0.85), oklch(0.05 0.02 250 / 0.95) 70%),
     linear-gradient(135deg, transparent 49%, oklch(0.93 0.025 220 / 0.25) 50%, transparent 51%);
   border-radius: 10px 10px 22px 22px;
-  border: 1.5px solid oklch(0.78 0.09 228 / 0.55);
+  border: 1.5px solid oklch(0.78 0.09 78 / 0.55);
   box-shadow:
     inset 6px 0 18px oklch(0 0 0 / 0.6),
     inset -6px 0 18px oklch(0.93 0.025 220 / 0.18),
@@ -679,7 +679,7 @@
   transform: translateX(-50%);
   width: 38px;
   height: 24px;
-  background: linear-gradient(180deg, oklch(0.85 0.05 222), oklch(0.62 0.08 232));
+  background: linear-gradient(180deg, oklch(0.85 0.05 74), oklch(0.62 0.08 76));
   border-radius: 3px;
   box-shadow: 0 2px 8px oklch(0 0 0 / 0.6);
   z-index: 2;
@@ -693,12 +693,12 @@
   transform: translateX(-50%) translateY(0) rotate(0deg);
   width: 50px;
   height: 38px;
-  background: linear-gradient(160deg, oklch(0.85 0.05 222), oklch(0.62 0.08 232) 80%);
+  background: linear-gradient(160deg, oklch(0.85 0.05 74), oklch(0.62 0.08 76) 80%);
   border-radius: 6px 6px 4px 4px;
   box-shadow:
     inset 0 -3px 6px oklch(0 0 0 / 0.3),
     0 6px 12px oklch(0 0 0 / 0.5),
-    0 0 22px oklch(0.78 0.09 228 / 0.35);
+    0 0 22px oklch(0.78 0.09 78 / 0.35);
   z-index: 3;
   animation: cos-cap 6s ease-in-out infinite;
 }

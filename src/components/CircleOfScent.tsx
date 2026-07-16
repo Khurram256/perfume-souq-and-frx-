@@ -14,7 +14,7 @@ export function CircleOfScent() {
         className="pointer-events-none absolute inset-0 opacity-30"
         style={{
           background:
-            "radial-gradient(ellipse at center, oklch(0.78 0.09 228 / 0.10), transparent 60%)",
+            "radial-gradient(ellipse at center, oklch(0.78 0.09 78 / 0.10), transparent 60%)",
         }}
       />
 

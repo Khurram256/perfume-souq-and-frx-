@@ -11,14 +11,14 @@ export function Logo({ size = 56, withText = true }: { size?: number; withText?:
         alt=""
         width={size}
         height={size}
-        style={{ filter: "drop-shadow(0 0 14px oklch(0.78 0.09 228 / 0.55))" }}
+        style={{ filter: "drop-shadow(0 0 14px oklch(0.78 0.09 78 / 0.55))" }}
         whileHover={
           reduceMotion
             ? undefined
             : {
                 rotate: 180,
                 scale: 1.08,
-                filter: "drop-shadow(0 0 22px oklch(0.78 0.09 228 / 0.85))",
+                filter: "drop-shadow(0 0 22px oklch(0.78 0.09 78 / 0.85))",
               }
         }
         whileTap={reduceMotion ? undefined : { rotate: 180, scale: 0.96 }}

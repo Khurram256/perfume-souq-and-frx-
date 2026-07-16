@@ -39,7 +39,13 @@ export const Route = createFileRoute("/admin_/dashboard")({
   component: Dashboard,
 });
 
-type Tab = "perfumes" | "offers" | "promotions" | "bundles" | "hero" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "requests" | "administrators";
+// "requests" (back-in-stock) is intentionally not in the primary nav array
+// below — it's still a fully working panel, reachable via a small link in
+// the header, per the spec's "remove from navigation... unless data is
+// required internally" instruction (data/functionality is kept, just not a
+// top-level tab). Promotions and Bundles are folded into the Offers tab
+// (OffersHub) as internal segments rather than separate tabs.
+type Tab = "perfumes" | "offers" | "hero" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "requests" | "administrators";
 type AdminRole = "owner" | "admin" | "editor" | "analyst" | null;
 
 function useMyAdminRole(userId: string | undefined, isOwner: boolean) {
@@ -105,8 +111,6 @@ function Dashboard() {
   const tabs: Tab[] = [
     "perfumes",
     "offers",
-    "promotions",
-    "bundles",
     "hero",
     "spotlight",
     "reviews",
@@ -114,7 +118,6 @@ function Dashboard() {
     "theme",
     "settings",
     "analytics",
-    "requests",
     ...(isOwner ? (["administrators"] as Tab[]) : []),
   ];
 
@@ -132,6 +135,12 @@ function Dashboard() {
           >
             View Site
           </Link>
+          <button
+            onClick={() => setTab("requests")}
+            className={`text-[10px] uppercase tracking-[0.35em] transition ${tab === "requests" ? "text-gold" : "text-gold/50 hover:text-gold"}`}
+          >
+            Back-in-Stock Requests
+          </button>
           <button
             onClick={signOut}
             className="rounded-sm border border-gold/40 px-4 py-2 text-[10px] uppercase tracking-[0.35em] text-gold hover:bg-gold hover:text-obsidian"
@@ -155,9 +164,7 @@ function Dashboard() {
 
       <section className="mx-auto max-w-6xl px-6 py-10">
         {tab === "perfumes" && <PerfumesPanel />}
-        {tab === "offers" && <OffersPanel />}
-        {tab === "promotions" && <PromotionsPanel />}
-        {tab === "bundles" && <BundlesPanel />}
+        {tab === "offers" && <OffersHub />}
         {tab === "spotlight" && <SpotlightPanel />}
         {tab === "reviews" && <ReviewsPanel />}
         {tab === "hero" && <HeroPanel />}
@@ -294,7 +301,44 @@ function PerfumesPanel() {
   );
 }
 
-/* ---------------- Offers ---------------- */
+/* ---------------- Offers Hub (Banners / Discounts / Bundles) ----------------
+   Consolidates the old separate Promotions and Bundles admin tabs under one
+   Offers section, per spec — "Remove the separate Promotions section...
+   Consolidate relevant commercial functionality under Offers." Nothing about
+   the underlying tables/panels changed, just the navigation surface. */
+function OffersHub() {
+  const [segment, setSegment] = useState<"banners" | "discounts" | "bundles">("discounts");
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-display text-2xl italic">Offers</h2>
+        <p className="mt-1 text-xs text-foreground/50">Discounts, bundles, and promotional banners — all in one place.</p>
+      </div>
+      <div className="flex gap-2 border-b border-border pb-4">
+        {(
+          [
+            { id: "discounts", label: "Discounts" },
+            { id: "bundles", label: "Bundles" },
+            { id: "banners", label: "Banners" },
+          ] as const
+        ).map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setSegment(s.id)}
+            className={`rounded-sm px-4 py-2 text-[10px] uppercase tracking-[0.3em] transition ${segment === s.id ? "bg-gold text-obsidian" : "border border-gold/25 text-foreground/60 hover:text-gold"}`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      {segment === "discounts" && <PromotionsPanel />}
+      {segment === "bundles" && <BundlesPanel />}
+      {segment === "banners" && <OffersPanel />}
+    </div>
+  );
+}
+
+/* ---------------- Offer Banners (announcement/slide-in/popup/inline) ---------------- */
 function OffersPanel() {
   const { data: offers = [], refetch } = useOffers({ includeInactive: true });
   const [form, setForm] = useState({

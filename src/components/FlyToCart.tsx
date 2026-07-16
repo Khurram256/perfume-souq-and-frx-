@@ -37,7 +37,7 @@ export function FlyToCart() {
           <img src={fly.img} alt="" className="relative h-full w-full object-contain p-2" />
           <div
             className="absolute inset-0 rounded-sm"
-            style={{ boxShadow: "inset 0 0 20px oklch(0.78 0.09 228 / 0.4)" }}
+            style={{ boxShadow: "inset 0 0 20px oklch(0.78 0.09 78 / 0.4)" }}
           />
         </div>
       </motion.div>
