@@ -20,6 +20,9 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Netlify build output
+.netlify/
+
 # Contains SUPABASE_SERVICE_ROLE_KEY — must never be committed
 .env
 

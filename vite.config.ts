@@ -12,4 +12,7 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Pin the deploy target explicitly instead of relying on Nitro's
+  // env-based auto-detection — the project is deployed to Netlify.
+  nitro: { preset: "netlify" },
 });
