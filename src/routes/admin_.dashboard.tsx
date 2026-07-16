@@ -993,7 +993,7 @@ function SpotlightPanel() {
         <select
           value={spotlight?.perfume_id ?? ""}
           onChange={(e) => save(e.target.value)}
-          className="w-full rounded-sm border border-gold/40 bg-obsidian px-3 py-3 text-sm"
+          className="w-full rounded-sm border border-gold/40 bg-background px-3 py-3 text-sm text-foreground"
         >
           <option value="">— select —</option>
           {perfumes

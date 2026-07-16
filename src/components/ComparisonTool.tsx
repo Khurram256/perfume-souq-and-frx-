@@ -57,7 +57,7 @@ function Side({
           className="w-full cursor-pointer appearance-none rounded-sm border border-gold/50 bg-obsidian/60 px-4 py-3 pr-10 text-[11px] uppercase tracking-[0.3em] text-gold transition hover:border-gold focus:border-gold focus:outline-none"
         >
           {perfumes.map((opt) => (
-            <option key={opt.id} value={opt.id} className="bg-obsidian text-foreground">
+            <option key={opt.id} value={opt.id} style={{ background: "var(--obsidian)", color: "oklch(0.96 0.012 220)" }}>
               {opt.name}
             </option>
           ))}

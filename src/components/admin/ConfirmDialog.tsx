@@ -35,7 +35,7 @@ export function ConfirmDialog({
             exit={{ scale: 0.94, opacity: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 26 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-sm border border-gold/40 bg-obsidian p-7"
+            className="w-full max-w-sm rounded-sm border border-gold/40 bg-card p-7 text-foreground"
           >
             <h3 className="font-display text-xl italic">{title}</h3>
             {description && <p className="mt-3 text-sm text-foreground/70">{description}</p>}

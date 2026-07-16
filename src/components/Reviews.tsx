@@ -117,7 +117,7 @@ export function Reviews() {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.94, opacity: 0 }}
               transition={{ type: "spring", stiffness: 240, damping: 26 }}
-              className="w-full max-w-md space-y-5 rounded-sm border border-gold/40 bg-obsidian p-8"
+              className="w-full max-w-md space-y-5 rounded-sm border border-gold/40 bg-card p-8 text-foreground"
             >
               <div>
                 <p className="mb-3 text-[10px] uppercase tracking-[0.5em] text-gold">

@@ -86,18 +86,22 @@ function ShopContent() {
   const priced = useMemo(() => {
     return perfumes.map((p) => {
       const perfumeVariants = variants.filter((v) => v.perfume_id === p.id);
-      const defaultVariant = perfumeVariants.find((v) => v.is_default) ?? perfumeVariants[0];
-      const basePrice = defaultVariant?.price_pkr ?? p.price_pkr;
-      const resolved = defaultVariant
+      // "Starting from" must reflect the cheapest available size, not just
+      // whichever variant happens to be flagged default.
+      const cheapest = perfumeVariants.length
+        ? perfumeVariants.reduce((min, v) => (v.price_pkr < min.price_pkr ? v : min))
+        : undefined;
+      const basePrice = cheapest?.price_pkr ?? p.price_pkr;
+      const resolved = cheapest
         ? resolveVariantPrice(basePrice, promotions, {
             perfumeId: p.id,
-            variantId: defaultVariant.id,
+            variantId: cheapest.id,
             brandId: p.brand_id,
             categoryId: p.category_id,
           })
         : { originalPrice: basePrice, finalPrice: basePrice, discountAmount: 0, appliedPromotions: [] };
       const inStock = perfumeVariants.length ? perfumeVariants.some((v) => v.in_stock) : p.in_stock;
-      return { perfume: p, price: resolved, inStock };
+      return { perfume: p, price: resolved, inStock, sizeCount: perfumeVariants.length };
     });
   }, [perfumes, variants, promotions]);
 
@@ -249,8 +253,15 @@ function ShopContent() {
             {isLoading && <p className="text-sm text-foreground/50">Loading the collection…</p>}
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {filtered.map(({ perfume, price, inStock }) => (
-                <ShopCard key={perfume.id} perfume={perfume} price={price} inStock={inStock} brandName={brands.find((b) => b.id === perfume.brand_id)?.name} />
+              {filtered.map(({ perfume, price, inStock, sizeCount }) => (
+                <ShopCard
+                  key={perfume.id}
+                  perfume={perfume}
+                  price={price}
+                  inStock={inStock}
+                  multipleSizes={sizeCount > 1}
+                  brandName={brands.find((b) => b.id === perfume.brand_id)?.name}
+                />
               ))}
             </div>
 
@@ -271,11 +282,13 @@ function ShopCard({
   price,
   inStock,
   brandName,
+  multipleSizes,
 }: {
   perfume: Perfume;
   price: { originalPrice: number; finalPrice: number; discountAmount: number };
   inStock: boolean;
   brandName?: string;
+  multipleSizes?: boolean;
 }) {
   return (
     <motion.div
@@ -306,11 +319,16 @@ function ShopCard({
         </div>
         {brandName && <p className="label-eyebrow mb-2 text-[8px]">{brandName}</p>}
         <h3 className="font-display text-2xl italic">{perfume.name}</h3>
-        <div className="mt-4 flex items-center gap-2">
-          {price.discountAmount > 0 && (
-            <span className="text-xs text-foreground/40 line-through">{formatPKR(price.originalPrice)}</span>
-          )}
-          <span className="text-gradient-gold font-display text-lg">{formatPKR(price.finalPrice)}</span>
+        <div className="mt-4 flex flex-col items-center gap-1">
+          <div className="flex items-center gap-2">
+            {price.discountAmount > 0 && (
+              <span className="text-xs text-foreground/40 line-through">{formatPKR(price.originalPrice)}</span>
+            )}
+            <span className="text-gradient-gold font-display text-lg">
+              {multipleSizes ? "Starting from " : ""}
+              {formatPKR(price.finalPrice)}
+            </span>
+          </div>
         </div>
       </Link>
     </motion.div>

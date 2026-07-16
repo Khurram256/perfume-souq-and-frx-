@@ -7,7 +7,17 @@ import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
 import { SplitHeading } from "./SplitHeading";
 
-function ProductCard({ p, variant, promotions }: { p: Perfume; variant?: ProductVariant; promotions: ReturnType<typeof usePromotions>["data"] }) {
+function ProductCard({
+  p,
+  variant,
+  promotions,
+  multipleSizes,
+}: {
+  p: Perfume;
+  variant?: ProductVariant;
+  promotions: ReturnType<typeof usePromotions>["data"];
+  multipleSizes?: boolean;
+}) {
   const { add } = useCart();
   const imgRef = useRef<HTMLImageElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -136,7 +146,10 @@ function ProductCard({ p, variant, promotions }: { p: Perfume; variant?: Product
       <div className="mt-7 flex w-full items-center justify-between border-t border-border pt-6">
         <span className="flex items-baseline gap-2">
           {price.discountAmount > 0 && <span className="text-xs text-foreground/40 line-through">{formatPKR(price.originalPrice)}</span>}
-          <span className="text-gradient-gold font-display text-xl">{formatPKR(price.finalPrice)}</span>
+          <span className="text-gradient-gold font-display text-xl">
+            {multipleSizes ? "From " : ""}
+            {formatPKR(price.finalPrice)}
+          </span>
         </span>
         <button
           onClick={handleAdd}
@@ -199,7 +212,7 @@ export function Collection() {
           {filtered.map((p) => {
             const pv = variants.filter((v) => v.perfume_id === p.id);
             const defaultVariant = pv.find((v) => v.is_default) ?? pv[0];
-            return <ProductCard key={p.id} p={p} variant={defaultVariant} promotions={promotions.data} />;
+            return <ProductCard key={p.id} p={p} variant={defaultVariant} promotions={promotions.data} multipleSizes={pv.length > 1} />;
           })}
         </div>
 

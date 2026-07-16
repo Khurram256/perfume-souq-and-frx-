@@ -1,10 +1,12 @@
 import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Upload, Loader2 } from "lucide-react";
+import { X, Upload, Loader2, Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadPerfumeImage } from "@/lib/api/admin.functions";
-import type { Perfume, Category } from "@/lib/api/queries";
+import { useVariants, type Perfume, type Category, type ProductVariant } from "@/lib/api/queries";
+import { useQueryClient } from "@tanstack/react-query";
+import { formatPKR } from "@/lib/format";
 
 type Draft = {
   name: string;
@@ -124,6 +126,182 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const inputCls =
   "w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm outline-none focus:border-gold";
+
+// Size/variant management — add, edit, reorder and delete product_variants
+// rows for this perfume. Sizes can only be added once the perfume itself has
+// been saved (a variant needs a real perfume_id to attach to).
+function VariantsSection({ perfumeId }: { perfumeId: string }) {
+  const { data: variants = [], refetch } = useVariants(perfumeId);
+  const qc = useQueryClient();
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState({ size_label: "", price_pkr: 0 });
+  const [pendingDelete, setPendingDelete] = useState<ProductVariant | null>(null);
+
+  const refresh = () => {
+    refetch();
+    qc.invalidateQueries({ queryKey: ["variants", "all"] });
+  };
+
+  const addVariant = async () => {
+    if (!draft.size_label.trim()) {
+      toast.error("Enter a size label, e.g. 50ml");
+      return;
+    }
+    const { error } = await supabase.from("product_variants").insert({
+      perfume_id: perfumeId,
+      size_label: draft.size_label.trim(),
+      price_pkr: draft.price_pkr,
+      is_default: variants.length === 0,
+      sort_order: variants.length,
+    });
+    if (error) {
+      toast.error(error.message.includes("duplicate") ? "That size already exists for this perfume." : error.message);
+      return;
+    }
+    toast.success("Size added");
+    setDraft({ size_label: "", price_pkr: 0 });
+    setAdding(false);
+    refresh();
+  };
+
+  const updateVariant = async (id: string, patch: Partial<ProductVariant>) => {
+    const { error } = await supabase.from("product_variants").update(patch).eq("id", id);
+    if (error) toast.error(error.message);
+    else refresh();
+  };
+
+  const deleteVariant = async () => {
+    if (!pendingDelete) return;
+    const { error } = await supabase.from("product_variants").delete().eq("id", pendingDelete.id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Size removed");
+      refresh();
+    }
+    setPendingDelete(null);
+  };
+
+  const move = async (variant: ProductVariant, dir: -1 | 1) => {
+    const sorted = [...variants].sort((a, b) => a.sort_order - b.sort_order);
+    const idx = sorted.findIndex((v) => v.id === variant.id);
+    const swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= sorted.length) return;
+    const other = sorted[swapIdx];
+    await Promise.all([
+      supabase.from("product_variants").update({ sort_order: other.sort_order }).eq("id", variant.id),
+      supabase.from("product_variants").update({ sort_order: variant.sort_order }).eq("id", other.id),
+    ]);
+    refresh();
+  };
+
+  const sorted = [...variants].sort((a, b) => a.sort_order - b.sort_order);
+
+  return (
+    <section>
+      <p className="mb-3 text-[10px] uppercase tracking-[0.4em] text-gold">Sizes &amp; Pricing</p>
+      <div className="space-y-2">
+        {sorted.map((v, i) => (
+          <div key={v.id} className="flex flex-wrap items-center gap-2 rounded-sm border border-border p-3">
+            <input
+              className="w-24 rounded-sm border border-border bg-transparent px-2 py-1.5 text-sm"
+              value={v.size_label}
+              onChange={(e) => updateVariant(v.id, { size_label: e.target.value })}
+            />
+            <input
+              type="number"
+              className="w-28 rounded-sm border border-border bg-transparent px-2 py-1.5 text-sm"
+              value={v.price_pkr}
+              onChange={(e) => updateVariant(v.id, { price_pkr: Number(e.target.value) })}
+            />
+            <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-foreground/60">
+              <input type="checkbox" checked={v.in_stock} onChange={(e) => updateVariant(v.id, { in_stock: e.target.checked })} />
+              In Stock
+            </label>
+            <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-foreground/60">
+              <input
+                type="radio"
+                name="default-variant"
+                checked={v.is_default}
+                onChange={() => {
+                  // Only one default: clear the others, then set this one.
+                  Promise.all(sorted.filter((o) => o.id !== v.id).map((o) => updateVariant(o.id, { is_default: false })));
+                  updateVariant(v.id, { is_default: true });
+                }}
+              />
+              Default
+            </label>
+            <span className="ml-auto text-xs text-foreground/40">{formatPKR(v.price_pkr)}</span>
+            <button onClick={() => move(v, -1)} disabled={i === 0} className="text-foreground/50 hover:text-gold disabled:opacity-20">
+              <ArrowUp className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => move(v, 1)} disabled={i === sorted.length - 1} className="text-foreground/50 hover:text-gold disabled:opacity-20">
+              <ArrowDown className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => setPendingDelete(v)} className="text-red-400/70 hover:text-red-400">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+        {!sorted.length && <p className="text-xs text-foreground/40">No sizes yet — the storefront falls back to the base price above.</p>}
+      </div>
+
+      {adding ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-sm border border-gold/30 p-3">
+          <input
+            className={`${inputCls} w-28`}
+            placeholder="e.g. 50ml"
+            value={draft.size_label}
+            onChange={(e) => setDraft({ ...draft, size_label: e.target.value })}
+          />
+          <input
+            type="number"
+            className={`${inputCls} w-32`}
+            placeholder="Price (PKR)"
+            value={draft.price_pkr || ""}
+            onChange={(e) => setDraft({ ...draft, price_pkr: Number(e.target.value) })}
+          />
+          <button onClick={addVariant} className="btn-gold px-4 py-2 text-[10px] uppercase tracking-[0.35em]">
+            Add
+          </button>
+          <button onClick={() => setAdding(false)} className="text-[10px] uppercase tracking-[0.35em] text-foreground/50">
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          className="mt-3 flex items-center gap-2 text-[10px] uppercase tracking-[0.35em] text-gold/80 hover:text-gold"
+        >
+          <Plus className="h-3.5 w-3.5" /> Add Size
+        </button>
+      )}
+
+      <ConfirmDialogInline
+        open={!!pendingDelete}
+        title={pendingDelete ? `Remove "${pendingDelete.size_label}"?` : ""}
+        onConfirm={deleteVariant}
+        onCancel={() => setPendingDelete(null)}
+      />
+    </section>
+  );
+}
+
+// Tiny inline confirm to avoid importing the full ConfirmDialog component
+// into every variant delete — same visual language, minimal footprint.
+function ConfirmDialogInline({ open, title, onConfirm, onCancel }: { open: boolean; title: string; onConfirm: () => void; onCancel: () => void }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[320] flex items-center justify-center bg-black/70 px-4" onClick={onCancel}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xs rounded-sm border border-gold/40 bg-card p-6 text-foreground">
+        <p className="text-sm">{title}</p>
+        <div className="mt-4 flex justify-end gap-3">
+          <button onClick={onCancel} className="text-[10px] uppercase tracking-[0.3em] text-foreground/60">Cancel</button>
+          <button onClick={onConfirm} className="rounded-sm bg-red-500/90 px-4 py-1.5 text-[10px] uppercase tracking-[0.3em] text-white hover:bg-red-500">Remove</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function PerfumeEditor({
   perfume,
@@ -250,7 +428,7 @@ export function PerfumeEditor({
           exit={{ opacity: 0, scale: 0.96 }}
           transition={{ type: "spring", stiffness: 240, damping: 26 }}
           onClick={(e) => e.stopPropagation()}
-          className="flex max-h-[88vh] w-full max-w-3xl flex-col rounded-sm border border-gold/40 bg-obsidian"
+          className="flex max-h-[88vh] w-full max-w-3xl flex-col rounded-sm border border-gold/40 bg-card text-foreground"
         >
           <header className="flex items-center justify-between border-b border-border px-6 py-4">
             <h3 className="font-display text-xl italic">{isNew ? "Add Perfume" : `Edit — ${perfume?.name}`}</h3>
@@ -359,6 +537,16 @@ export function PerfumeEditor({
                 </label>
               ))}
             </section>
+
+            {/* Sizes / variants */}
+            {isNew ? (
+              <section>
+                <p className="mb-3 text-[10px] uppercase tracking-[0.4em] text-gold">Sizes &amp; Pricing</p>
+                <p className="text-xs text-foreground/40">Save the perfume first, then reopen it to add sizes (e.g. 50ml, 100ml) with their own prices and stock.</p>
+              </section>
+            ) : (
+              <VariantsSection perfumeId={perfume.id} />
+            )}
 
             {/* Notes */}
             <section>
