@@ -29,17 +29,29 @@ export function Hero() {
   const { data: variants = [] } = useAllVariants();
   const { data: promotions = [] } = usePromotions();
 
-  const featured = useMemo(() => {
-    const p = perfumes.find((x) => x.id === featuredPerfumeId);
-    if (!p) return null;
-    const pv = variants.filter((v) => v.perfume_id === p.id);
-    const dv = pv.find((v) => v.is_default) ?? pv[0];
-    const inStock = pv.length ? pv.some((v) => v.in_stock) : p.in_stock;
-    const price = dv
-      ? resolveVariantPrice(dv.price_pkr, promotions, { perfumeId: p.id, variantId: dv.id, brandId: p.brand_id, categoryId: p.category_id })
-      : { originalPrice: p.price_pkr, finalPrice: p.price_pkr, discountAmount: 0, appliedPromotions: [] };
-    return { perfume: p, inStock, price };
+  // Hero showcase: the admin-picked perfume (if any) plus enough
+  // featured/spotlight-eligible catalogue perfumes to fill up to 3 slots —
+  // real inventory, never invented or placeholder bottles. Gracefully
+  // shows fewer than 3 if the catalogue doesn't have that many yet.
+  const showcase = useMemo(() => {
+    const withImage = perfumes.filter((p) => p.image_url);
+    const picked = withImage.find((x) => x.id === featuredPerfumeId);
+    const rest = withImage
+      .filter((p) => p.id !== picked?.id)
+      .sort((a, b) => Number(b.featured) - Number(a.featured) || Number(b.spotlight_eligible) - Number(a.spotlight_eligible));
+    const chosen = [picked, ...rest].filter((p): p is NonNullable<typeof p> => !!p).slice(0, 3);
+
+    return chosen.map((p) => {
+      const pv = variants.filter((v) => v.perfume_id === p.id);
+      const dv = pv.find((v) => v.is_default) ?? pv[0];
+      const inStock = pv.length ? pv.some((v) => v.in_stock) : p.in_stock;
+      const price = dv
+        ? resolveVariantPrice(dv.price_pkr, promotions, { perfumeId: p.id, variantId: dv.id, brandId: p.brand_id, categoryId: p.category_id })
+        : { originalPrice: p.price_pkr, finalPrice: p.price_pkr, discountAmount: 0, appliedPromotions: [] };
+      return { perfume: p, inStock, price };
+    });
   }, [perfumes, variants, promotions, featuredPerfumeId]);
+  const featured = showcase[0] ?? null;
   const reduceMotion = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
@@ -276,21 +288,78 @@ export function Hero() {
             <div className="halo-pulse" />
             <div className="halo-pulse halo-pulse--delay" />
 
-            <motion.div
-              style={{ rotateY: bottleTiltY }}
-              className="relative"
-              transition={{ type: "spring" }}
-            >
-              <div className="glint-sweep" />
-              <img
-                src={featured?.perfume.image_url || bottle}
-                alt={featured ? featured.perfume.name : "The Perfume Souq signature flacon"}
-                width={520}
-                height={780}
-                className="float-bottle relative max-h-[72vh] w-auto"
-                style={{ filter: "drop-shadow(0 50px 60px rgba(0,0,0,0.9))" }}
-              />
-            </motion.div>
+            {showcase.length > 0 ? (
+              <div className="relative flex items-end justify-center gap-2 sm:gap-4 lg:gap-6">
+                {showcase.map((item, idx) => {
+                  // Center-weighted line-up: middle bottle (or the only one)
+                  // stands tallest and frontmost, echoing a boutique display.
+                  const mid = (showcase.length - 1) / 2;
+                  const distFromCenter = Math.abs(idx - mid);
+                  const scale = showcase.length === 1 ? 1 : 1 - distFromCenter * 0.16;
+                  const liftDelay = idx * 0.18;
+                  return (
+                    <Link
+                      key={item.perfume.id}
+                      to="/product/$slug"
+                      params={{ slug: item.perfume.slug }}
+                      className="group relative flex flex-col items-center"
+                      style={{ zIndex: showcase.length - Math.round(distFromCenter) }}
+                    >
+                      <motion.div
+                        initial={{ opacity: 0, y: 60, scale: scale * 0.85 }}
+                        animate={{ opacity: 1, y: 0, scale }}
+                        transition={{ delay: 0.3 + liftDelay, duration: 1.3, ease: [0.16, 1, 0.3, 1] }}
+                        whileHover={reduceMotion ? undefined : { scale: scale * 1.05, y: -10 }}
+                        className="relative"
+                      >
+                        <motion.div
+                          animate={reduceMotion ? undefined : { y: [0, -10, 0] }}
+                          transition={{ duration: 5 + idx * 0.7, repeat: Infinity, ease: "easeInOut", delay: idx * 0.4 }}
+                        >
+                          {idx === Math.round(mid) && <div className="glint-sweep" />}
+                          <img
+                            src={item.perfume.image_url ?? bottle}
+                            alt={item.perfume.name}
+                            width={showcase.length === 1 ? 520 : 320}
+                            height={showcase.length === 1 ? 780 : 480}
+                            className="relative w-auto"
+                            style={{
+                              maxHeight: showcase.length === 1 ? "72vh" : `${58 - distFromCenter * 8}vh`,
+                              filter: `drop-shadow(0 ${40 - distFromCenter * 10}px ${50 - distFromCenter * 10}px rgba(0,0,0,0.85))`,
+                            }}
+                          />
+                        </motion.div>
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 1.4 + liftDelay, duration: 0.8 }}
+                          className="pointer-events-none absolute inset-x-0 -bottom-9 text-center opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                        >
+                          <p className="truncate font-display text-sm italic text-foreground">{item.perfume.name}</p>
+                          <p className="text-[11px] text-gold">{formatPKR(item.price.finalPrice)}</p>
+                        </motion.div>
+                      </motion.div>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <motion.div
+                style={{ rotateY: bottleTiltY }}
+                className="relative"
+                transition={{ type: "spring" }}
+              >
+                <div className="glint-sweep" />
+                <img
+                  src={bottle}
+                  alt="The Perfume Souq signature flacon"
+                  width={520}
+                  height={780}
+                  className="float-bottle relative max-h-[72vh] w-auto"
+                  style={{ filter: "drop-shadow(0 50px 60px rgba(0,0,0,0.9))" }}
+                />
+              </motion.div>
+            )}
           </motion.div>
         </motion.div>
       </div>
