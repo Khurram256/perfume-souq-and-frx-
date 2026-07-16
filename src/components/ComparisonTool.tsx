@@ -4,6 +4,19 @@ import { usePerfumes, useBrands, useAllVariants, usePromotions, trackEvent, type
 import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
 
+// Plain-language labels for average shoppers — no raw "7/10" chemistry-lab
+// numbers, per the spec's explicit customer-friendly comparison requirement.
+function strengthLabel(n: number): string {
+  if (n >= 8) return "Strong";
+  if (n >= 5) return "Moderate";
+  return "Light";
+}
+function longevityLabel(n: number): string {
+  if (n >= 8) return "Long-lasting";
+  if (n >= 5) return "Medium-lasting";
+  return "Short-lasting";
+}
+
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-border py-3 text-left last:border-b-0">
@@ -81,19 +94,37 @@ function Side({
 
       <div className="mt-6">
         <Row label="Availability" value={inStock ? <span className="text-gold">In Stock</span> : "Out of Stock"} />
-        <Row label="Offer" value={price.appliedPromotions[0]?.badge_text ?? price.appliedPromotions[0]?.name ?? "None active"} />
+        {price.discountAmount > 0 && (
+          <Row
+            label="Discount"
+            value={`-${formatPKR(price.discountAmount)}${price.appliedPromotions[0]?.name ? ` (${price.appliedPromotions[0].name})` : ""}`}
+          />
+        )}
         <Row label="Gender" value={p.gender ? p.gender[0].toUpperCase() + p.gender.slice(1) : "—"} />
-        <Row label="Concentration" value={p.concentration || "—"} />
-        <Row label="Fragrance Family" value={p.family || "—"} />
+        <Row label="Scent Style" value={p.family || "—"} />
         <Row label="Available Sizes" value={sizeRange} />
-        <Row label="Top Notes" value={p.top_notes.join(", ") || "—"} />
-        <Row label="Heart Notes" value={p.heart_notes.join(", ") || "—"} />
-        <Row label="Base Notes" value={p.base_notes.join(", ") || "—"} />
-        <Row label="Sillage" value={`${p.rating_sillage}/10`} />
-        <Row label="Longevity" value={`${p.rating_longevity}/10`} />
+        <Row label="Main Notes" value={[...p.top_notes, ...p.heart_notes].slice(0, 4).join(", ") || "—"} />
+        <Row label="Projection" value={strengthLabel(p.rating_projection)} />
+        <Row label="Longevity" value={longevityLabel(p.rating_longevity)} />
         <Row label="Best Season" value={p.best_season || "—"} />
         <Row label="Best Occasion" value={p.occasion || "—"} />
+        <Row label="Day or Night" value={p.rating_sillage >= 7 ? "Evening" : "Day-friendly"} />
+        <Row label="Formal or Casual" value={p.occasion?.toLowerCase().includes("formal") ? "Formal" : "Everyday / Casual"} />
       </div>
+
+      <details className="mt-6">
+        <summary className="cursor-pointer text-[9px] uppercase tracking-[0.3em] text-foreground/40 hover:text-gold">
+          Advanced fragrance details
+        </summary>
+        <div className="mt-3">
+          <Row label="Concentration" value={p.concentration || "—"} />
+          <Row label="Top Notes" value={p.top_notes.join(", ") || "—"} />
+          <Row label="Heart Notes" value={p.heart_notes.join(", ") || "—"} />
+          <Row label="Base Notes" value={p.base_notes.join(", ") || "—"} />
+          <Row label="Sillage (raw)" value={`${p.rating_sillage}/10`} />
+          <Row label="Longevity (raw)" value={`${p.rating_longevity}/10`} />
+        </div>
+      </details>
     </div>
   );
 }
