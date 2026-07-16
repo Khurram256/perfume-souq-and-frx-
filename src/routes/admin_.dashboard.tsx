@@ -32,6 +32,7 @@ import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { PerfumeEditor } from "@/components/admin/PerfumeEditor";
 import type { Perfume } from "@/lib/api/queries";
 import { THEMES, applyTheme, DEFAULT_THEME } from "@/components/ThemeEngine";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { listAdminRoles, addAdminRole, removeAdminRole, uploadPerfumeImage } from "@/lib/api/admin.functions";
 
 export const Route = createFileRoute("/admin_/dashboard")({
@@ -125,17 +126,34 @@ function Dashboard() {
     "theme",
     "settings",
     "analytics",
-    ...(isOwner ? (["administrators"] as Tab[]) : []),
   ];
+
+  // Administrators is deliberately not a visible tab (per spec — "remove
+  // the Administrators option from the visible dashboard navigation") but
+  // the panel, its server-side authorization, and RLS are all untouched;
+  // the Owner reaches it via the small header link below, same pattern as
+  // Back-in-Stock Requests.
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+  })();
+  const todayLabel = new Date().toLocaleDateString("en-PK", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-4 border-b border-gold/20 bg-obsidian/95 px-6 py-4 backdrop-blur-md">
         <div>
           <p className="text-[9px] uppercase tracking-[0.5em] text-gold/70">The Perfume Souq</p>
-          <h1 className="font-display text-xl italic text-gradient-gold">Admin Dashboard</h1>
+          <h1 className="font-display text-xl italic text-gradient-gold">
+            {greeting}
+            {isOwner ? ", Owner" : ""}
+          </h1>
+          <p className="mt-0.5 text-[10px] text-foreground/50">{todayLabel}</p>
         </div>
         <div className="flex items-center gap-4">
+          <ThemeToggle forceLight />
           <Link
             to="/"
             className="text-[10px] uppercase tracking-[0.35em] text-gold/70 hover:text-gold"
@@ -148,6 +166,14 @@ function Dashboard() {
           >
             Back-in-Stock Requests
           </button>
+          {isOwner && (
+            <button
+              onClick={() => setTab("administrators")}
+              className={`text-[10px] uppercase tracking-[0.35em] transition ${tab === "administrators" ? "text-gold" : "text-gold/50 hover:text-gold"}`}
+            >
+              Administrators
+            </button>
+          )}
           <button
             onClick={signOut}
             className="rounded-sm border border-gold/40 px-4 py-2 text-[10px] uppercase tracking-[0.35em] text-gold hover:bg-gold hover:text-obsidian"
