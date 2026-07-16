@@ -324,30 +324,39 @@ export type Database = {
       };
       media: {
         Row: {
+          active: boolean;
+          alt_text: string | null;
           caption: string | null;
           created_at: string;
           id: string;
           kind: string;
+          link_url: string | null;
           section: string;
           sort_order: number;
           updated_at: string;
           url: string;
         };
         Insert: {
+          active?: boolean;
+          alt_text?: string | null;
           caption?: string | null;
           created_at?: string;
           id?: string;
           kind: string;
+          link_url?: string | null;
           section: string;
           sort_order?: number;
           updated_at?: string;
           url: string;
         };
         Update: {
+          active?: boolean;
+          alt_text?: string | null;
           caption?: string | null;
           created_at?: string;
           id?: string;
           kind?: string;
+          link_url?: string | null;
           section?: string;
           sort_order?: number;
           updated_at?: string;

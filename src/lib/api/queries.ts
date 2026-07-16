@@ -284,6 +284,32 @@ export function useAds(opts?: { placement?: string; includeInactive?: boolean })
   });
 }
 
+/* ---------------- media (Souq in Motion, etc.) ---------------- */
+export type MediaItem = {
+  id: string;
+  url: string;
+  kind: "image" | "video";
+  section: "visions" | "souq_in_motion" | "instagram" | "general";
+  caption: string | null;
+  alt_text: string | null;
+  link_url: string | null;
+  sort_order: number;
+  active: boolean;
+};
+
+export function useMedia(section: MediaItem["section"], opts?: { includeInactive?: boolean }) {
+  return useQuery({
+    queryKey: ["media", section, opts?.includeInactive ? "all" : "active"],
+    queryFn: async () => {
+      let q = supabase.from("media").select("*").eq("section", section).order("sort_order");
+      if (!opts?.includeInactive) q = q.eq("active", true);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as unknown as MediaItem[];
+    },
+  });
+}
+
 /* ---------------- order intents ---------------- */
 export type OrderIntentLine = {
   name: string;

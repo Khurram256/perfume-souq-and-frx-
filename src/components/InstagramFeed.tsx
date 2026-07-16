@@ -1,25 +1,13 @@
 import { motion } from "framer-motion";
 import { Instagram } from "lucide-react";
 import { INSTAGRAM_URL, INSTAGRAM_HANDLE } from "@/lib/contact";
-import ad1 from "@/assets/ad-1.jpg";
-import ad2 from "@/assets/ad-2.jpg";
-import ad3 from "@/assets/ad-3.jpg";
-import ad4 from "@/assets/ad-4.jpg";
-import ad5 from "@/assets/ad-5.jpg";
-import p3 from "@/assets/perfume-3.png";
-import p10 from "@/assets/perfume-10.png";
-
-const posts = [
-  { img: ad1, caption: "Nuit d'Obsidienne — a quiet command." },
-  { img: ad2, caption: "Gold doesn't shout. It glows." },
-  { img: ad3, caption: "Rose Femme. Velvet over silence." },
-  { img: ad4, caption: "One petal. One signature." },
-  { img: ad5, caption: "The art of arrival." },
-  { img: p3, caption: "The Rose, reframed." },
-  { img: p10, caption: "Vanille Cristalline. Warm as embers." },
-];
+import { useMedia, trackEvent } from "@/lib/api/queries";
 
 export function InstagramFeed() {
+  const { data: items = [], isLoading } = useMedia("souq_in_motion");
+
+  if (!isLoading && !items.length) return null;
+
   return (
     <section className="section-pad relative border-y border-border px-6 lg:px-12">
       <div className="mx-auto max-w-7xl">
@@ -45,12 +33,13 @@ export function InstagramFeed() {
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
-          {posts.map((post, i) => (
+          {items.map((item, i) => (
             <motion.a
-              key={i}
-              href={INSTAGRAM_URL}
+              key={item.id}
+              href={item.link_url || INSTAGRAM_URL}
               target="_blank"
               rel="noreferrer"
+              onClick={() => trackEvent("ad_click", { sourcePath: "/souq-in-motion", metadata: { mediaId: item.id } })}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-50px" }}
@@ -58,15 +47,21 @@ export function InstagramFeed() {
               className="group relative block aspect-square overflow-hidden rounded-sm border border-gold/15 bg-obsidian"
               data-magnetic
             >
-              <img
-                src={post.img}
-                alt={post.caption}
-                loading="lazy"
-                className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/85 via-black/20 to-transparent p-3 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
-                <p className="font-display text-xs italic text-foreground/95">{post.caption}</p>
-              </div>
+              {item.kind === "video" ? (
+                <video src={item.url} className="h-full w-full object-cover" muted loop autoPlay playsInline />
+              ) : (
+                <img
+                  src={item.url}
+                  alt={item.alt_text || item.caption || "The Perfume Souq"}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                />
+              )}
+              {item.caption && (
+                <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/85 via-black/20 to-transparent p-3 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
+                  <p className="font-display text-xs italic text-foreground/95">{item.caption}</p>
+                </div>
+              )}
               <div className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 opacity-0 backdrop-blur transition-opacity duration-500 group-hover:opacity-100">
                 <Instagram className="h-3 w-3 text-gold" />
               </div>

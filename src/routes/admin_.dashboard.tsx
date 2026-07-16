@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { ArrowUp, ArrowDown, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   useAdminLock,
@@ -19,7 +20,9 @@ import {
   usePromotions,
   useBundles,
   useAds,
+  useMedia,
   type Advertisement,
+  type MediaItem,
 } from "@/lib/api/queries";
 import { useAuthUser } from "@/lib/admin/session";
 import { useQueryClient } from "@tanstack/react-query";
@@ -47,7 +50,7 @@ export const Route = createFileRoute("/admin_/dashboard")({
 // required internally" instruction (data/functionality is kept, just not a
 // top-level tab). Promotions and Bundles are folded into the Offers tab
 // (OffersHub) as internal segments rather than separate tabs.
-type Tab = "perfumes" | "offers" | "ads" | "hero" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "requests" | "administrators";
+type Tab = "perfumes" | "offers" | "ads" | "motion" | "hero" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "requests" | "administrators";
 type AdminRole = "owner" | "admin" | "editor" | "analyst" | null;
 
 function useMyAdminRole(userId: string | undefined, isOwner: boolean) {
@@ -114,6 +117,7 @@ function Dashboard() {
     "perfumes",
     "offers",
     "ads",
+    "motion",
     "hero",
     "spotlight",
     "reviews",
@@ -169,6 +173,7 @@ function Dashboard() {
         {tab === "perfumes" && <PerfumesPanel />}
         {tab === "offers" && <OffersHub />}
         {tab === "ads" && <AdsPanel />}
+        {tab === "motion" && <SouqInMotionPanel />}
         {tab === "spotlight" && <SpotlightPanel />}
         {tab === "reviews" && <ReviewsPanel />}
         {tab === "hero" && <HeroPanel />}
@@ -299,6 +304,157 @@ function PerfumesPanel() {
         danger
         busy={deleting}
         onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
+    </div>
+  );
+}
+
+/* ---------------- Souq in Motion (media gallery) ---------------- */
+function SouqInMotionPanel() {
+  const { data: items = [], refetch } = useMedia("souq_in_motion", { includeInactive: true });
+  const [uploading, setUploading] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; caption: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const refresh = () => refetch();
+
+  const addFromFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Image too large — max 8MB.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const result = await uploadPerfumeImage({ data: { fileName: file.name, contentType: file.type, base64 } });
+      const { error } = await supabase.from("media").insert({
+        url: result.url,
+        kind: "image",
+        section: "souq_in_motion",
+        sort_order: items.length,
+        active: true,
+      });
+      if (error) throw new Error(error.message);
+      toast.success("Added to Souq in Motion");
+      refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const update = async (id: string, patch: Partial<MediaItem>) => {
+    const { error } = await supabase.from("media").update(patch).eq("id", id);
+    if (error) toast.error(error.message);
+    else refresh();
+  };
+
+  const move = async (item: MediaItem, dir: -1 | 1) => {
+    const sorted = [...items].sort((a, b) => a.sort_order - b.sort_order);
+    const idx = sorted.findIndex((v) => v.id === item.id);
+    const swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= sorted.length) return;
+    const other = sorted[swapIdx];
+    await Promise.all([
+      supabase.from("media").update({ sort_order: other.sort_order }).eq("id", item.id),
+      supabase.from("media").update({ sort_order: item.sort_order }).eq("id", other.id),
+    ]);
+    refresh();
+  };
+
+  const del = async () => {
+    if (!pendingDelete) return;
+    const { error } = await supabase.from("media").delete().eq("id", pendingDelete.id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Removed");
+      refresh();
+    }
+    setPendingDelete(null);
+  };
+
+  const sorted = [...items].sort((a, b) => a.sort_order - b.sort_order);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-display text-2xl italic">Souq in Motion</h2>
+          <p className="mt-1 text-xs text-foreground/50">The gallery shown in "The Souq in motion" homepage section.</p>
+        </div>
+        <div>
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={addFromFile} />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="btn-gold px-6 py-2 text-[10px] uppercase tracking-[0.4em] disabled:opacity-50"
+          >
+            {uploading ? "Uploading…" : "Add Image"}
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3">
+        {sorted.map((item, i) => (
+          <div key={item.id} className="glass-card flex flex-wrap items-center gap-3 rounded-sm p-3">
+            <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-sm bg-card">
+              <img src={item.url} alt={item.alt_text || ""} className="h-full w-full object-cover" />
+            </div>
+            <input
+              placeholder="Caption (optional)"
+              defaultValue={item.caption ?? ""}
+              onBlur={(e) => update(item.id, { caption: e.target.value || null })}
+              className="min-w-[140px] flex-1 rounded-sm border border-border bg-transparent px-2 py-1.5 text-sm"
+            />
+            <input
+              placeholder="Alt text"
+              defaultValue={item.alt_text ?? ""}
+              onBlur={(e) => update(item.id, { alt_text: e.target.value || null })}
+              className="min-w-[120px] flex-1 rounded-sm border border-border bg-transparent px-2 py-1.5 text-sm"
+            />
+            <input
+              placeholder="Link (optional)"
+              defaultValue={item.link_url ?? ""}
+              onBlur={(e) => update(item.id, { link_url: e.target.value || null })}
+              className="min-w-[120px] flex-1 rounded-sm border border-border bg-transparent px-2 py-1.5 text-sm"
+            />
+            <button
+              onClick={() => update(item.id, { active: !item.active })}
+              className={`rounded-sm border px-3 py-1.5 text-[9px] uppercase tracking-[0.3em] ${item.active ? "border-gold/40 text-gold" : "border-foreground/30 text-foreground/50"}`}
+            >
+              {item.active ? "Active" : "Hidden"}
+            </button>
+            <button onClick={() => move(item, -1)} disabled={i === 0} className="text-foreground/50 hover:text-gold disabled:opacity-20">
+              <ArrowUp className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => move(item, 1)} disabled={i === sorted.length - 1} className="text-foreground/50 hover:text-gold disabled:opacity-20">
+              <ArrowDown className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => setPendingDelete({ id: item.id, caption: item.caption || "this item" })} className="text-red-400/70 hover:text-red-400">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+        {!sorted.length && <p className="text-sm text-foreground/50">No media yet — add an image to populate this section.</p>}
+      </div>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={`Remove "${pendingDelete?.caption}"?`}
+        description="This image stops showing on the homepage immediately."
+        confirmLabel="Remove"
+        danger
+        onConfirm={del}
         onCancel={() => setPendingDelete(null)}
       />
     </div>
