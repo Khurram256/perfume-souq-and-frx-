@@ -7,7 +7,11 @@ import { applyTheme, DEFAULT_THEME, DARK_THEME } from "./ThemeEngine";
 // personal per-visitor override. It never rewrites the admin's site-wide
 // default (site_content "theme.active"); it just applies a local choice for
 // this browser, same as ThemeEngine's own localStorage persistence.
-export function ThemeToggle() {
+// `forceLight` is for placing this over a background that's forced dark
+// regardless of the active theme (e.g. the sticky nav's scrolled navy
+// bar) — without it, the icon would follow text-foreground and go dark-on-
+// dark in the light theme.
+export function ThemeToggle({ forceLight }: { forceLight?: boolean } = {}) {
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
@@ -24,7 +28,8 @@ export function ThemeToggle() {
     <button
       onClick={toggle}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className="flex h-9 w-9 items-center justify-center rounded-full border border-gold/25 text-foreground/70 transition hover:border-gold/60 hover:text-gold"
+      style={forceLight ? { color: "oklch(0.96 0.012 220 / 0.75)" } : undefined}
+      className={`flex h-9 w-9 items-center justify-center rounded-full border border-gold/25 transition hover:border-gold/60 hover:text-gold ${forceLight ? "" : "text-foreground/70"}`}
     >
       {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
     </button>

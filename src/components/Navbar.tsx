@@ -7,12 +7,14 @@ import { AccountMenu } from "./AccountMenu";
 import { ThemeToggle } from "./ThemeToggle";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 
+// Men/Women/Unisex/Brands are shop FILTERS, not primary navigation
+// destinations — reachable via the Shop page's filter panel, not the top
+// nav. Keeping the nav itself to a short, honest set of real destinations
+// means it comfortably fits without ever needing a drawer on desktop or
+// tablet; the drawer is reserved for genuinely small mobile widths only.
 const NAV_LINKS: { label: string; to: string; search?: Record<string, string> }[] = [
   { label: "Home", to: "/" },
   { label: "Shop", to: "/shop" },
-  { label: "Men", to: "/shop", search: { gender: "men" } },
-  { label: "Women", to: "/shop", search: { gender: "women" } },
-  { label: "Unisex", to: "/shop", search: { gender: "unisex" } },
   { label: "Brands", to: "/brands" },
   { label: "Offers", to: "/offers" },
 ];
@@ -32,31 +34,37 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", on);
   }, []);
 
+  // Sticky nav gets a deep navy treatment on scroll in BOTH themes — the
+  // previous version followed the theme's own background var, which meant
+  // a nearly-white translucent bar in Signature Ivory (low contrast, felt
+  // washed out). Since the background is now forced dark regardless of
+  // theme, link text is forced to a light color here too — same rationale
+  // as the always-dark About/Footer/Signature blocks elsewhere on the site.
+  const linkColor = scrolled ? { color: "oklch(0.96 0.012 220 / 0.75)" } : undefined;
+
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 transition-all duration-700 ${
-        scrolled
-          ? "bg-background/70 backdrop-blur-xl border-b border-border py-3"
-          : "bg-transparent py-6"
-      }`}
+      className={`fixed inset-x-0 top-0 z-50 transition-all duration-700 ${scrolled ? "backdrop-blur-xl border-b border-gold/15 py-3" : "bg-transparent py-6"}`}
+      style={scrolled ? { background: "oklch(0.11 0.03 258 / 0.82)" } : undefined}
     >
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 lg:px-12">
         <div className="flex-1">
-          <Logo />
+          <Logo forceLight={scrolled} />
         </div>
 
-        {/* Center zone: switches to the drawer at xl (1280px) rather than lg (1024px) —
-            at 1024px there isn't reliably enough room for 9 links + logo + icons
-            without the longest label ("Find Your Scent") wrapping onto its own line. */}
-        <div className="hidden shrink-0 items-center gap-6 xl:flex">
+        {/* Center zone: switches to the drawer below lg (1024px). The nav is
+            short enough now (Home/Shop/Brands/Offers + 2 anchors) that it
+            comfortably fits at lg and up without wrapping. */}
+        <div className="hidden shrink-0 items-center gap-6 lg:flex">
           {NAV_LINKS.map((l) => (
             <Link
               key={l.label}
               to={l.to}
               search={l.search}
               activeOptions={{ exact: l.to === "/" }}
-              activeProps={{ className: "text-gold" }}
-              className="link-underline whitespace-nowrap text-[10px] uppercase tracking-[0.3em] text-foreground/70 transition-colors hover:text-gold"
+              activeProps={scrolled ? undefined : { className: "text-gold" }}
+              style={linkColor}
+              className={`link-underline whitespace-nowrap text-[10px] uppercase tracking-[0.3em] transition-colors hover:text-gold ${scrolled ? "" : "text-foreground/70"}`}
             >
               {l.label}
             </Link>
@@ -65,7 +73,8 @@ export function Navbar() {
             <a
               key={l.label}
               href={l.href}
-              className="link-underline whitespace-nowrap text-[10px] uppercase tracking-[0.3em] text-foreground/70 transition-colors hover:text-gold"
+              style={linkColor}
+              className={`link-underline whitespace-nowrap text-[10px] uppercase tracking-[0.3em] transition-colors hover:text-gold ${scrolled ? "" : "text-foreground/70"}`}
             >
               {l.label}
             </a>
@@ -73,14 +82,15 @@ export function Navbar() {
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-3">
-          <ThemeToggle />
+          <ThemeToggle forceLight={scrolled} />
           <AccountMenu />
           <CartButton />
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <button
                 aria-label="Open menu"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-gold/25 text-foreground/70 xl:hidden"
+                style={linkColor}
+                className={`flex h-9 w-9 items-center justify-center rounded-full border border-gold/25 lg:hidden ${scrolled ? "" : "text-foreground/70"}`}
               >
                 <Menu className="h-4 w-4" />
               </button>

@@ -2,6 +2,7 @@ import { motion, useMotionValue, useReducedMotion, useScroll, useSpring, useTran
 import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import bottle from "@/assets/hero-bottle.png";
+import logoMark from "@/assets/logo-mark.png";
 import { Magnetic } from "./Magnetic";
 import { Marquee } from "./Marquee";
 import { useContent, usePerfumes, useAllVariants, usePromotions } from "@/lib/api/queries";
@@ -15,7 +16,6 @@ type Mote = { id: number; left: number; size: number; delay: number; duration: n
 export function Hero() {
   const visible = useContent("hero.visible", "true");
   const ribbon = useContent("hero.promo_ribbon", "");
-  const eyebrow = useContent("hero.eyebrow", "The Souq — Est. 2026");
   const headline = useContent("hero.headline", FALLBACK_HEADLINE);
   const description = useContent("hero.description", "");
   const ctaPrimaryLabel = useContent("hero.cta_primary_label", "Shop Now");
@@ -23,35 +23,28 @@ export function Hero() {
   const ctaSecondaryLabel = useContent("hero.cta_secondary_label", "Find Your Signature Scent");
   const ctaSecondaryHref = useContent("hero.cta_secondary_href", "#quiz");
   const featuredPerfumeId = useContent("hero.featured_perfume_id", "");
-  const words = headline.split(" ");
 
   const { data: perfumes = [] } = usePerfumes();
   const { data: variants = [] } = useAllVariants();
   const { data: promotions = [] } = usePromotions();
 
-  // Hero showcase: the admin-picked perfume (if any) plus enough
-  // featured/spotlight-eligible catalogue perfumes to fill up to 3 slots —
-  // real inventory, never invented or placeholder bottles. Gracefully
-  // shows fewer than 3 if the catalogue doesn't have that many yet.
-  const showcase = useMemo(() => {
+  // One real perfume, never invented/placeholder imagery: the admin's pick
+  // if set, otherwise the best available featured/spotlight-eligible one.
+  const featured = useMemo(() => {
     const withImage = perfumes.filter((p) => p.image_url);
-    const picked = withImage.find((x) => x.id === featuredPerfumeId);
-    const rest = withImage
-      .filter((p) => p.id !== picked?.id)
-      .sort((a, b) => Number(b.featured) - Number(a.featured) || Number(b.spotlight_eligible) - Number(a.spotlight_eligible));
-    const chosen = [picked, ...rest].filter((p): p is NonNullable<typeof p> => !!p).slice(0, 3);
-
-    return chosen.map((p) => {
-      const pv = variants.filter((v) => v.perfume_id === p.id);
-      const dv = pv.find((v) => v.is_default) ?? pv[0];
-      const inStock = pv.length ? pv.some((v) => v.in_stock) : p.in_stock;
-      const price = dv
-        ? resolveVariantPrice(dv.price_pkr, promotions, { perfumeId: p.id, variantId: dv.id, brandId: p.brand_id, categoryId: p.category_id })
-        : { originalPrice: p.price_pkr, finalPrice: p.price_pkr, discountAmount: 0, appliedPromotions: [] };
-      return { perfume: p, inStock, price };
-    });
+    const p =
+      withImage.find((x) => x.id === featuredPerfumeId) ??
+      [...withImage].sort((a, b) => Number(b.featured) - Number(a.featured) || Number(b.spotlight_eligible) - Number(a.spotlight_eligible))[0];
+    if (!p) return null;
+    const pv = variants.filter((v) => v.perfume_id === p.id);
+    const dv = pv.find((v) => v.is_default) ?? pv[0];
+    const inStock = pv.length ? pv.some((v) => v.in_stock) : p.in_stock;
+    const price = dv
+      ? resolveVariantPrice(dv.price_pkr, promotions, { perfumeId: p.id, variantId: dv.id, brandId: p.brand_id, categoryId: p.category_id })
+      : { originalPrice: p.price_pkr, finalPrice: p.price_pkr, discountAmount: 0, appliedPromotions: [] };
+    return { perfume: p, inStock, price };
   }, [perfumes, variants, promotions, featuredPerfumeId]);
-  const featured = showcase[0] ?? null;
+
   const reduceMotion = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
@@ -111,14 +104,14 @@ export function Hero() {
       <div className="pointer-events-none absolute inset-0 smoke-mist" />
       <div className="perspective-grid pointer-events-none" />
 
-      {/* Luminous atmosphere: drifting light rays + breathing glow orbs */}
+      {/* Luminous atmosphere: drifting light rays + deep navy/gold glow orbs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-80">
         <div className="light-ray absolute left-[-20%] top-[20%]" />
         <div className="light-ray light-ray--2 absolute left-[-20%] top-[45%]" />
         <div className="light-ray light-ray--3 absolute left-[-20%] top-[68%]" />
         <div
           className="glow-orb"
-          style={{ width: 420, height: 420, top: "-8%", left: "8%", background: "oklch(0.62 0.10 232 / 0.35)" }}
+          style={{ width: 420, height: 420, top: "-8%", left: "8%", background: "oklch(0.28 0.09 258 / 0.45)" }}
         />
         <div
           className="glow-orb"
@@ -177,37 +170,54 @@ export function Hero() {
           {ribbon && (
             <p
               style={{ "--fib-delay": "0.15s" } as CSSProperties}
-              className="fade-in-blur mb-4 inline-block rounded-full border border-gold/40 px-4 py-1.5 text-[9px] uppercase tracking-[0.35em] text-gold"
+              className="fade-in-blur mb-5 inline-block rounded-full border border-gold/40 px-4 py-1.5 text-[9px] uppercase tracking-[0.35em] text-gold"
             >
               {ribbon}
             </p>
           )}
-          <div className="mb-6 flex items-baseline gap-6">
-            <span className="section-index text-[9vw] leading-none md:text-[6vw]">01</span>
-            <span
-              style={{ "--fib-delay": "0.35s" } as CSSProperties}
-              className="fade-in-blur mb-2 text-[10px] uppercase tracking-[0.5em] text-gold"
-            >
-              {eyebrow}
-            </span>
-          </div>
 
-          <h1 className="heading-hero text-foreground">
-            {words.map((w, i) => (
-              <span
-                key={i}
-                style={{ "--fib-delay": `${0.5 + i * 0.07}s` } as CSSProperties}
-                className={`fade-in-blur mr-[0.28em] inline-block ${w.toLowerCase() === "silence" ? "text-shimmer" : ""}`}
-              >
-                {w}
-              </span>
-            ))}
-          </h1>
+          {/* Branding is the main visual identity of the hero — logo, then
+              THE PERFUME SOUQ, then "by Khurram Shabbir" — all larger than
+              the supporting fragrance tagline beneath. */}
+          <motion.div
+            style={{ "--fib-delay": "0.1s" } as CSSProperties}
+            className="fade-in-blur mb-6 flex items-center gap-5"
+          >
+            <motion.img
+              src={logoMark}
+              alt=""
+              width={72}
+              height={72}
+              whileHover={
+                reduceMotion
+                  ? undefined
+                  : { rotate: 180, scale: 1.08, filter: "drop-shadow(0 0 26px oklch(0.66 0.12 74 / 0.7))" }
+              }
+              transition={{ type: "spring", stiffness: 200, damping: 18 }}
+              className="h-16 w-16 sm:h-[72px] sm:w-[72px]"
+              style={{ filter: "drop-shadow(0 0 16px oklch(0.66 0.12 74 / 0.5))" }}
+            />
+            <div className="leading-none">
+              <p className="font-display text-3xl italic tracking-[0.06em] text-gradient-gold sm:text-4xl">
+                The Perfume Souq
+              </p>
+              <p className="mt-1.5 text-[11px] uppercase tracking-[0.4em] text-foreground/60">
+                by Khurram Shabbir
+              </p>
+            </div>
+          </motion.div>
+
+          <p
+            style={{ "--fib-delay": "0.4s" } as CSSProperties}
+            className="fade-in-blur heading-hero-support max-w-lg text-foreground/75"
+          >
+            {headline}
+          </p>
 
           {description && (
             <p
-              style={{ "--fib-delay": "1.1s" } as CSSProperties}
-              className="fade-in-blur mt-6 max-w-md text-sm font-light leading-relaxed text-foreground/65"
+              style={{ "--fib-delay": "0.65s" } as CSSProperties}
+              className="fade-in-blur mt-5 max-w-md text-sm font-light leading-relaxed text-foreground/60"
             >
               {description}
             </p>
@@ -216,44 +226,49 @@ export function Hero() {
           <motion.div
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
-            transition={{ delay: 1.3, duration: 1.2, ease: "easeOut" }}
+            transition={{ delay: 0.9, duration: 1.2, ease: "easeOut" }}
             style={{ transformOrigin: "left" }}
-            className="gold-line my-12 w-2/3 max-w-sm"
+            className="gold-line my-10 w-2/3 max-w-sm"
           />
 
           <div
-            style={{ "--fib-delay": "1.5s" } as CSSProperties}
-            className="fade-in-blur flex flex-wrap items-center gap-8"
+            style={{ "--fib-delay": "1.1s" } as CSSProperties}
+            className="fade-in-blur flex flex-col items-start gap-4"
           >
             <Magnetic>
               {ctaPrimaryHref.startsWith("/") ? (
-                <Link to={ctaPrimaryHref} className="btn-gold inline-block px-12 py-5 text-[10px] uppercase tracking-[0.45em]">
+                <Link to={ctaPrimaryHref} className="btn-gold inline-block px-14 py-5 text-[11px] uppercase tracking-[0.45em] shadow-lg">
                   {ctaPrimaryLabel}
                 </Link>
               ) : (
-                <a href={ctaPrimaryHref} className="btn-gold inline-block px-12 py-5 text-[10px] uppercase tracking-[0.45em]">
+                <a href={ctaPrimaryHref} className="btn-gold inline-block px-14 py-5 text-[11px] uppercase tracking-[0.45em] shadow-lg">
                   {ctaPrimaryLabel}
                 </a>
               )}
             </Magnetic>
-            {ctaSecondaryLabel && (
-              ctaSecondaryHref.startsWith("/") ? (
-                <Link to={ctaSecondaryHref} className="link-underline inline-block px-2 py-5 text-[10px] uppercase tracking-[0.4em] text-foreground/70">
-                  {ctaSecondaryLabel}
-                </Link>
-              ) : (
-                <a href={ctaSecondaryHref} className="link-underline inline-block px-2 py-5 text-[10px] uppercase tracking-[0.4em] text-foreground/70">
-                  {ctaSecondaryLabel}
-                </a>
-              )
-            )}
+            <div className="flex flex-wrap items-center gap-6 pl-1">
+              {ctaSecondaryLabel && (
+                ctaSecondaryHref.startsWith("/") ? (
+                  <Link to={ctaSecondaryHref} className="link-underline inline-block py-2 text-[10px] uppercase tracking-[0.4em] text-foreground/70">
+                    {ctaSecondaryLabel}
+                  </Link>
+                ) : (
+                  <a href={ctaSecondaryHref} className="link-underline inline-block py-2 text-[10px] uppercase tracking-[0.4em] text-foreground/70">
+                    {ctaSecondaryLabel}
+                  </a>
+                )
+              )}
+              <Link to="/brands" className="link-underline inline-block py-2 text-[10px] uppercase tracking-[0.4em] text-foreground/70">
+                Explore Full Maison
+              </Link>
+            </div>
           </div>
 
           {featured && (
             <Link
               to="/product/$slug"
               params={{ slug: featured.perfume.slug }}
-              style={{ "--fib-delay": "1.7s" } as CSSProperties}
+              style={{ "--fib-delay": "1.4s" } as CSSProperties}
               className="fade-in-blur mt-8 inline-flex items-center gap-3 text-xs text-foreground/60 hover:text-gold"
             >
               <span className="font-display italic">{featured.perfume.name}</span>
@@ -288,85 +303,27 @@ export function Hero() {
             <div className="halo-pulse" />
             <div className="halo-pulse halo-pulse--delay" />
 
-            {showcase.length > 0 ? (
-              <div className="relative flex items-end justify-center gap-2 sm:gap-4 lg:gap-6">
-                {showcase.map((item, idx) => {
-                  // Center-weighted line-up: middle bottle (or the only one)
-                  // stands tallest and frontmost, echoing a boutique display.
-                  const mid = (showcase.length - 1) / 2;
-                  const distFromCenter = Math.abs(idx - mid);
-                  const scale = showcase.length === 1 ? 1 : 1 - distFromCenter * 0.16;
-                  const liftDelay = idx * 0.18;
-                  return (
-                    <Link
-                      key={item.perfume.id}
-                      to="/product/$slug"
-                      params={{ slug: item.perfume.slug }}
-                      className="group relative flex flex-col items-center"
-                      style={{ zIndex: showcase.length - Math.round(distFromCenter) }}
-                    >
-                      <motion.div
-                        initial={{ opacity: 0, y: 60, scale: scale * 0.85 }}
-                        animate={{ opacity: 1, y: 0, scale }}
-                        transition={{ delay: 0.3 + liftDelay, duration: 1.3, ease: [0.16, 1, 0.3, 1] }}
-                        whileHover={reduceMotion ? undefined : { scale: scale * 1.05, y: -10 }}
-                        className="relative"
-                      >
-                        <motion.div
-                          animate={reduceMotion ? undefined : { y: [0, -10, 0] }}
-                          transition={{ duration: 5 + idx * 0.7, repeat: Infinity, ease: "easeInOut", delay: idx * 0.4 }}
-                        >
-                          {idx === Math.round(mid) && <div className="glint-sweep" />}
-                          <img
-                            src={item.perfume.image_url ?? bottle}
-                            alt={item.perfume.name}
-                            width={showcase.length === 1 ? 520 : 320}
-                            height={showcase.length === 1 ? 780 : 480}
-                            className="relative w-auto"
-                            style={{
-                              maxHeight: showcase.length === 1 ? "72vh" : `${58 - distFromCenter * 8}vh`,
-                              filter: `drop-shadow(0 ${40 - distFromCenter * 10}px ${50 - distFromCenter * 10}px rgba(0,0,0,0.85))`,
-                            }}
-                          />
-                        </motion.div>
-                        <motion.div
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 1.4 + liftDelay, duration: 0.8 }}
-                          className="pointer-events-none absolute inset-x-0 -bottom-9 text-center opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-                        >
-                          <p className="truncate font-display text-sm italic text-foreground">{item.perfume.name}</p>
-                          <p className="text-[11px] text-gold">{formatPKR(item.price.finalPrice)}</p>
-                        </motion.div>
-                      </motion.div>
-                    </Link>
-                  );
-                })}
-              </div>
-            ) : (
-              <motion.div
-                style={{ rotateY: bottleTiltY }}
-                className="relative"
-                transition={{ type: "spring" }}
-              >
-                <div className="glint-sweep" />
-                <img
-                  src={bottle}
-                  alt="The Perfume Souq signature flacon"
-                  width={520}
-                  height={780}
-                  className="float-bottle relative max-h-[72vh] w-auto"
-                  style={{ filter: "drop-shadow(0 50px 60px rgba(0,0,0,0.9))" }}
-                />
-              </motion.div>
-            )}
+            <motion.div
+              style={{ rotateY: bottleTiltY }}
+              className="relative"
+              transition={{ type: "spring" }}
+            >
+              <div className="glint-sweep" />
+              <img
+                src={featured?.perfume.image_url || bottle}
+                alt={featured ? featured.perfume.name : "The Perfume Souq signature flacon"}
+                width={520}
+                height={780}
+                className="float-bottle relative max-h-[72vh] w-auto"
+                style={{ filter: "drop-shadow(0 50px 60px rgba(0,0,0,0.9))" }}
+              />
+            </motion.div>
           </motion.div>
         </motion.div>
       </div>
 
       <div className="absolute bottom-24 left-1/2 z-10 -translate-x-1/2 lg:left-16 lg:translate-x-0">
-        <div className="flex flex-col items-center gap-2 opacity-70">
-          <span className="text-[9px] uppercase tracking-[0.4em] text-foreground/50">Scroll</span>
+        <div className="flex flex-col items-center gap-2 opacity-70" aria-hidden="true">
           <div className="relative h-8 w-px overflow-hidden bg-gold/20">
             <span className="scroll-cue-dot absolute left-0 top-0 h-2 w-px bg-gold" />
           </div>

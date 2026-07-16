@@ -1,7 +1,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import logoMark from "@/assets/logo-mark.png";
 
-export function Logo({ size = 56, withText = true }: { size?: number; withText?: boolean }) {
+export function Logo({ size = 56, withText = true, forceLight }: { size?: number; withText?: boolean; forceLight?: boolean }) {
   const reduceMotion = useReducedMotion();
 
   return (
@@ -29,7 +29,10 @@ export function Logo({ size = 56, withText = true }: { size?: number; withText?:
           <span className="font-display text-[18px] uppercase tracking-[0.32em] text-gradient-gold md:text-[20px]">
             The Perfume Souq
           </span>
-          <span className="mt-1.5 font-display text-[11px] italic tracking-[0.28em] text-foreground/65">
+          <span
+            style={forceLight ? { color: "oklch(0.96 0.012 220 / 0.65)" } : undefined}
+            className={`mt-1.5 font-display text-[11px] italic tracking-[0.28em] ${forceLight ? "" : "text-foreground/65"}`}
+          >
             by Khurram Shabbir
           </span>
         </span>
