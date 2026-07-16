@@ -13,7 +13,7 @@ export function Footer() {
       />
 
       <Marquee
-        items={["The Perfume Souq", "Rare Fragrances", "Hand Composed"]}
+        items={["The Perfume Souq", "Authentic Fragrances", "Sourced with Care"]}
         className="mb-16 opacity-70"
         onDark
       />

@@ -1,15 +1,12 @@
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
-import { applyTheme, DEFAULT_THEME } from "./ThemeEngine";
+import { applyTheme, DEFAULT_THEME, DARK_THEME } from "./ThemeEngine";
 
-const DARK_THEME = "obsidian-platinum";
-
-// A simple binary light/dark toggle layered on top of the admin's 6-preset
-// ThemeEngine — this only flips between the default light preset and its
-// dark counterpart, as a personal per-visitor override. It never rewrites
-// the admin's site-wide default (site_content "theme.active"); it just
-// applies a local choice on top for this browser, same as ThemeEngine's own
-// localStorage persistence.
+// A simple binary light/dark toggle over the two approved themes — flips
+// between Signature Ivory (light) and Midnight Navy & Champagne (dark) as a
+// personal per-visitor override. It never rewrites the admin's site-wide
+// default (site_content "theme.active"); it just applies a local choice for
+// this browser, same as ThemeEngine's own localStorage persistence.
 export function ThemeToggle() {
   const [isDark, setIsDark] = useState(false);
 

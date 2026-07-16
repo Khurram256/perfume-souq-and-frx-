@@ -13,7 +13,7 @@ const promises = [
 ];
 
 const FALLBACK_BODY =
-  "Our mission is simple: to make authentic, high-quality fragrances accessible to everyone. What began as a passion for fine perfumes grew into a house built on trust, quality, and quiet obsession with craft.";
+  "Our mission is simple: to make authentic, original branded fragrances accessible to everyone. What began as a passion for fine perfumes grew into a house built on trust, authenticity, and carefully curated selection.";
 
 export function About() {
   const body = useContent("about.body", FALLBACK_BODY);
