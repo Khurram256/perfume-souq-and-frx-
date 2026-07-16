@@ -1,51 +1,39 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, Volume2, VolumeX } from "lucide-react";
-import ad1 from "@/assets/ad-1.jpg";
-import ad3 from "@/assets/ad-3.jpg";
-import ad4 from "@/assets/ad-4.jpg";
-import ad5 from "@/assets/ad-5.jpg";
-import adVideo from "@/assets/ad-video.mp4.asset.json";
+import { useAds, trackEvent, type Advertisement } from "@/lib/api/queries";
 
+// A "slide" is just the subset of an Advertisement this carousel renders —
+// title -> eyebrow, body split into a two-part headline (first line / rest
+// as the gold accent line) so existing admin-entered copy still reads well
+// in the two-line treatment this component was designed around.
 type Slide = {
   type: "video" | "image";
   src: string;
   eyebrow: string;
   line: string;
   accent: string;
+  id: string;
+  ctaLabel: string | null;
+  ctaHref: string | null;
 };
 
-const slides: Slide[] = [
-  {
-    type: "image",
-    src: ad1,
-    eyebrow: "Nuit d'Obsidienne",
-    line: "Make your presence",
-    accent: "unforgettable.",
-  },
-  {
-    type: "video",
-    src: adVideo.url,
-    eyebrow: "Élixir Doré",
-    line: "A whisper that",
-    accent: "echoes.",
-  },
-  { type: "image", src: ad3, eyebrow: "Rose Femme", line: "Dare to be", accent: "remembered." },
-  {
-    type: "image",
-    src: ad4,
-    eyebrow: "Sang Royal",
-    line: "Not just perfume —",
-    accent: "identity.",
-  },
-  {
-    type: "image",
-    src: ad5,
-    eyebrow: "Le Gentilhomme",
-    line: "The art of leaving a",
-    accent: "trace.",
-  },
-];
+function toSlide(ad: Advertisement): Slide {
+  const body = ad.body ?? "";
+  const splitAt = body.lastIndexOf(" ", Math.ceil(body.length * 0.6));
+  const line = splitAt > 0 ? body.slice(0, splitAt) : body;
+  const accent = splitAt > 0 ? body.slice(splitAt + 1) : "";
+  return {
+    id: ad.id,
+    type: ad.media_type,
+    src: ad.media_url ?? "",
+    eyebrow: ad.title,
+    line: line || ad.title,
+    accent,
+    ctaLabel: ad.cta_label,
+    ctaHref: ad.cta_href,
+  };
+}
 
 /**
  * Richer instrumental — layered chord with slow arpeggio + sub drone.
@@ -144,6 +132,9 @@ function useAmbient(playing: boolean) {
 }
 
 export function AdsCarousel() {
+  const { data: ads = [], isLoading } = useAds({ placement: "homepage" });
+  const slides = ads.filter((a) => a.media_url).map(toSlide);
+
   const [i, setI] = useState(0);
   const [music, setMusic] = useState(false); // user must opt-in due to autoplay rules
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -158,9 +149,19 @@ export function AdsCarousel() {
   }, []);
 
   useEffect(() => {
+    if (slides.length < 2) return;
     const t = setInterval(() => setI((p) => (p + 1) % slides.length), 7000);
     return () => clearInterval(t);
-  }, []);
+  }, [slides.length]);
+
+  useEffect(() => {
+    if (i >= slides.length) setI(0);
+  }, [slides.length, i]);
+
+  // No active ads (or admin hasn't added any) — don't render an empty
+  // carousel shell with nothing in it.
+  if (!isLoading && !slides.length) return null;
+  if (isLoading) return null;
 
   const slide = slides[i];
   const next = () => setI((p) => (p + 1) % slides.length);
@@ -232,6 +233,18 @@ export function AdsCarousel() {
                       <br />
                       <span className="text-gradient-gold">{slide.accent}</span>
                     </motion.h3>
+                    {slide.ctaLabel && slide.ctaHref && (
+                      <motion.a
+                        href={slide.ctaHref}
+                        onClick={() => trackEvent("ad_click", { sourcePath: "/ads-carousel", metadata: { adId: slide.id } })}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.7, duration: 0.8 }}
+                        className="btn-gold mt-8 inline-block px-8 py-3 text-[10px] uppercase tracking-[0.4em]"
+                      >
+                        {slide.ctaLabel}
+                      </motion.a>
+                    )}
                   </div>
                 </div>
               </motion.div>

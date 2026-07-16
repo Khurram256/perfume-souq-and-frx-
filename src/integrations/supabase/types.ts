@@ -397,6 +397,57 @@ export type Database = {
         };
         Relationships: [];
       };
+      advertisements: {
+        Row: {
+          active: boolean;
+          body: string | null;
+          created_at: string;
+          cta_href: string | null;
+          cta_label: string | null;
+          ends_at: string | null;
+          id: string;
+          media_type: string;
+          media_url: string | null;
+          placement: string;
+          sort_order: number;
+          starts_at: string | null;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          active?: boolean;
+          body?: string | null;
+          created_at?: string;
+          cta_href?: string | null;
+          cta_label?: string | null;
+          ends_at?: string | null;
+          id?: string;
+          media_type?: string;
+          media_url?: string | null;
+          placement?: string;
+          sort_order?: number;
+          starts_at?: string | null;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          active?: boolean;
+          body?: string | null;
+          created_at?: string;
+          cta_href?: string | null;
+          cta_label?: string | null;
+          ends_at?: string | null;
+          id?: string;
+          media_type?: string;
+          media_url?: string | null;
+          placement?: string;
+          sort_order?: number;
+          starts_at?: string | null;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       order_intents: {
         Row: {
           created_at: string;

@@ -254,6 +254,36 @@ export function useUpdateBackInStockStatus() {
   });
 }
 
+/* ---------------- advertisements ---------------- */
+export type Advertisement = {
+  id: string;
+  title: string;
+  body: string | null;
+  cta_label: string | null;
+  cta_href: string | null;
+  media_url: string | null;
+  media_type: "image" | "video";
+  placement: "homepage" | "shop" | "collection" | "banner" | "promo_card";
+  sort_order: number;
+  active: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+};
+
+export function useAds(opts?: { placement?: string; includeInactive?: boolean }) {
+  return useQuery({
+    queryKey: ["advertisements", opts?.placement ?? "all", opts?.includeInactive ? "all" : "active"],
+    queryFn: async () => {
+      let q = supabase.from("advertisements").select("*").order("sort_order");
+      if (opts?.placement) q = q.eq("placement", opts.placement);
+      if (!opts?.includeInactive) q = q.eq("active", true);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as unknown as Advertisement[];
+    },
+  });
+}
+
 /* ---------------- order intents ---------------- */
 export type OrderIntentLine = {
   name: string;
@@ -317,7 +347,9 @@ export type AnalyticsEventType =
   | "compare_add"
   | "offer_view"
   | "offer_click"
-  | "bundle_view";
+  | "bundle_view"
+  | "ad_view"
+  | "ad_click";
 
 export function trackEvent(
   eventType: AnalyticsEventType,

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   useAdminLock,
@@ -18,6 +18,8 @@ import {
   useAllVariants,
   usePromotions,
   useBundles,
+  useAds,
+  type Advertisement,
 } from "@/lib/api/queries";
 import { useAuthUser } from "@/lib/admin/session";
 import { useQueryClient } from "@tanstack/react-query";
@@ -27,7 +29,7 @@ import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { PerfumeEditor } from "@/components/admin/PerfumeEditor";
 import type { Perfume } from "@/lib/api/queries";
 import { THEMES, applyTheme, DEFAULT_THEME } from "@/components/ThemeEngine";
-import { listAdminRoles, addAdminRole, removeAdminRole } from "@/lib/api/admin.functions";
+import { listAdminRoles, addAdminRole, removeAdminRole, uploadPerfumeImage } from "@/lib/api/admin.functions";
 
 export const Route = createFileRoute("/admin_/dashboard")({
   head: () => ({
@@ -45,7 +47,7 @@ export const Route = createFileRoute("/admin_/dashboard")({
 // required internally" instruction (data/functionality is kept, just not a
 // top-level tab). Promotions and Bundles are folded into the Offers tab
 // (OffersHub) as internal segments rather than separate tabs.
-type Tab = "perfumes" | "offers" | "hero" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "requests" | "administrators";
+type Tab = "perfumes" | "offers" | "ads" | "hero" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "requests" | "administrators";
 type AdminRole = "owner" | "admin" | "editor" | "analyst" | null;
 
 function useMyAdminRole(userId: string | undefined, isOwner: boolean) {
@@ -111,6 +113,7 @@ function Dashboard() {
   const tabs: Tab[] = [
     "perfumes",
     "offers",
+    "ads",
     "hero",
     "spotlight",
     "reviews",
@@ -165,6 +168,7 @@ function Dashboard() {
       <section className="mx-auto max-w-6xl px-6 py-10">
         {tab === "perfumes" && <PerfumesPanel />}
         {tab === "offers" && <OffersHub />}
+        {tab === "ads" && <AdsPanel />}
         {tab === "spotlight" && <SpotlightPanel />}
         {tab === "reviews" && <ReviewsPanel />}
         {tab === "hero" && <HeroPanel />}
@@ -295,6 +299,214 @@ function PerfumesPanel() {
         danger
         busy={deleting}
         onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
+    </div>
+  );
+}
+
+/* ---------------- Advertisements ---------------- */
+function AdsPanel() {
+  const { data: ads = [], refetch } = useAds({ includeInactive: true });
+  const [form, setForm] = useState({
+    title: "",
+    body: "",
+    cta_label: "",
+    cta_href: "",
+    media_url: "",
+    media_type: "image" as "image" | "video",
+    placement: "homepage" as Advertisement["placement"],
+  });
+  const [uploading, setUploading] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; title: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Image too large — max 8MB.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const result = await uploadPerfumeImage({ data: { fileName: file.name, contentType: file.type, base64 } });
+      setForm((f) => ({ ...f, media_url: result.url, media_type: "image" }));
+      toast.success("Image uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const create = async () => {
+    if (!form.title.trim()) {
+      toast.error("Title is required.");
+      return;
+    }
+    const { error } = await supabase.from("advertisements").insert({
+      title: form.title.trim(),
+      body: form.body.trim() || null,
+      cta_label: form.cta_label.trim() || null,
+      cta_href: form.cta_href.trim() || null,
+      media_url: form.media_url || null,
+      media_type: form.media_type,
+      placement: form.placement,
+      sort_order: ads.length,
+      active: true,
+    });
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Ad created");
+      setForm({ title: "", body: "", cta_label: "", cta_href: "", media_url: "", media_type: "image", placement: "homepage" });
+      refetch();
+    }
+  };
+
+  const toggleActive = async (id: string, active: boolean) => {
+    const { error } = await supabase.from("advertisements").update({ active: !active }).eq("id", id);
+    if (error) toast.error(error.message);
+    else refetch();
+  };
+
+  const del = async () => {
+    if (!pendingDelete) return;
+    const { error } = await supabase.from("advertisements").delete().eq("id", pendingDelete.id);
+    if (error) toast.error(error.message);
+    else {
+      setPendingDelete(null);
+      refetch();
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="font-display text-2xl italic">Advertisements</h2>
+        <p className="mt-1 text-xs text-foreground/50">Campaign slides shown in "The House's Visions" on the homepage.</p>
+      </div>
+
+      <div className="glass-card rounded-sm p-6">
+        <h3 className="mb-4 font-display text-xl italic">Create Ad</h3>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <input
+            placeholder="Title"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            className="rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+          />
+          <select
+            value={form.placement}
+            onChange={(e) => setForm({ ...form, placement: e.target.value as Advertisement["placement"] })}
+            className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="homepage">Homepage</option>
+            <option value="shop">Shop Page</option>
+            <option value="collection">Collection Area</option>
+            <option value="banner">Banner</option>
+            <option value="promo_card">Promotional Card</option>
+          </select>
+          <div className="md:col-span-2">
+            <textarea
+              placeholder="Supporting text"
+              rows={2}
+              value={form.body}
+              onChange={(e) => setForm({ ...form, body: e.target.value })}
+              className="w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <input
+            placeholder="Button text (optional)"
+            value={form.cta_label}
+            onChange={(e) => setForm({ ...form, cta_label: e.target.value })}
+            className="rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+          />
+          <input
+            placeholder="Destination URL (optional)"
+            value={form.cta_href}
+            onChange={(e) => setForm({ ...form, cta_href: e.target.value })}
+            className="rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div className="mt-4 flex items-center gap-4">
+          <div className="h-16 w-24 flex-shrink-0 overflow-hidden rounded-sm border border-border bg-card">
+            {form.media_url && form.media_type === "image" && <img src={form.media_url} alt="" className="h-full w-full object-cover" />}
+            {form.media_url && form.media_type === "video" && <video src={form.media_url} className="h-full w-full object-cover" muted />}
+          </div>
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={handleFile} />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="rounded-sm border border-gold/40 px-4 py-2 text-[10px] uppercase tracking-[0.35em] text-gold hover:bg-gold/10 disabled:opacity-50"
+          >
+            {uploading ? "Uploading…" : "Upload Image"}
+          </button>
+          <div className="flex-1">
+            <input
+              placeholder="Or paste a video URL (already hosted)"
+              value={form.media_type === "video" ? form.media_url : ""}
+              onChange={(e) => setForm({ ...form, media_url: e.target.value, media_type: "video" })}
+              className="w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+
+        <button onClick={create} className="btn-gold mt-4 px-6 py-2 text-[10px] uppercase tracking-[0.4em]">
+          Create Ad
+        </button>
+      </div>
+
+      <div>
+        <h3 className="mb-3 font-display text-xl italic">All Ads ({ads.length})</h3>
+        <div className="space-y-2">
+          {ads.map((ad) => (
+            <div key={ad.id} className="glass-card flex flex-wrap items-center justify-between gap-3 rounded-sm p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-16 flex-shrink-0 overflow-hidden rounded-sm bg-card">
+                  {ad.media_url && ad.media_type === "image" && <img src={ad.media_url} alt="" className="h-full w-full object-cover" />}
+                </div>
+                <div>
+                  <p className="font-display italic">{ad.title}</p>
+                  <p className="text-[10px] text-foreground/50">{ad.placement}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => toggleActive(ad.id, ad.active)}
+                  className={`rounded-sm border px-3 py-1.5 text-[9px] uppercase tracking-[0.3em] ${ad.active ? "border-gold/40 text-gold" : "border-foreground/30 text-foreground/50"}`}
+                >
+                  {ad.active ? "Active" : "Inactive"}
+                </button>
+                <button
+                  onClick={() => setPendingDelete({ id: ad.id, title: ad.title })}
+                  className="text-[9px] uppercase tracking-[0.3em] text-red-400/80 hover:text-red-400"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+          {!ads.length && <p className="text-sm text-foreground/50">No ads yet.</p>}
+        </div>
+      </div>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={`Delete "${pendingDelete?.title}"?`}
+        description="This ad stops showing immediately."
+        confirmLabel="Delete"
+        danger
+        onConfirm={del}
         onCancel={() => setPendingDelete(null)}
       />
     </div>
