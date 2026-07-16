@@ -254,6 +254,44 @@ export function useUpdateBackInStockStatus() {
   });
 }
 
+/* ---------------- order intents ---------------- */
+export type OrderIntentLine = {
+  name: string;
+  sizeLabel: string;
+  quantity: number;
+  originalPrice: number;
+  finalPrice: number;
+  lineTotal: number;
+  promotionName: string | null;
+};
+export type OrderIntent = {
+  id: string;
+  order_ref: string;
+  customer_phone: string;
+  customer_name: string | null;
+  items: OrderIntentLine[];
+  subtotal_pkr: number;
+  discount_pkr: number;
+  total_pkr: number;
+  status: string;
+  created_at: string;
+};
+
+export function useOrderIntents(limit = 50) {
+  return useQuery({
+    queryKey: ["order_intents", limit],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("order_intents")
+        .select("id,order_ref,customer_phone,customer_name,items,subtotal_pkr,discount_pkr,total_pkr,status,created_at")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return (data ?? []) as unknown as OrderIntent[];
+    },
+  });
+}
+
 /* ---------------- analytics events ---------------- */
 const SESSION_KEY = "tps_session_v1";
 export function getSessionId(): string {

@@ -11,6 +11,7 @@ import {
   useSiteContent,
   useCategories,
   useAnalyticsEvents,
+  useOrderIntents,
   useBackInStockRequests,
   useUpdateBackInStockStatus,
   useBrands,
@@ -1393,6 +1394,7 @@ function AnalyticsPanel() {
   const [days, setDays] = useState(5);
   const { data: events = [], isLoading } = useAnalyticsEvents(days);
   const { data: perfumes = [] } = usePerfumes();
+  const { data: orders = [] } = useOrderIntents(25);
 
   const perfumeName = (id: string | null) => perfumes.find((p) => p.id === id)?.name ?? "Unknown";
 
@@ -1508,6 +1510,33 @@ function AnalyticsPanel() {
           </div>
         </>
       )}
+
+      <div className="glass-card rounded-sm p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <p className="text-[10px] uppercase tracking-[0.4em] text-gold/70">Recent WhatsApp Orders</p>
+          <span className="text-[10px] text-foreground/40">{orders.length} recorded</span>
+        </div>
+        {orders.length === 0 ? (
+          <p className="text-xs text-foreground/40">No WhatsApp orders recorded yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {orders.map((o) => (
+              <div key={o.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2 text-sm last:border-b-0">
+                <div>
+                  <span className="font-mono text-xs text-gold">{o.order_ref}</span>
+                  <span className="ml-3 text-foreground/60">{o.customer_phone}</span>
+                  {o.customer_name && <span className="ml-2 text-foreground/40">· {o.customer_name}</span>}
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-[10px] text-foreground/40">{new Date(o.created_at).toLocaleString()}</span>
+                  <span className="text-foreground/60">{o.items?.length ?? 0} item(s)</span>
+                  <span className="text-gradient-gold font-display">{formatPKR(o.total_pkr)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

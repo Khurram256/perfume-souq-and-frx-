@@ -1,42 +1,58 @@
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Minus, MessageCircle, Phone, Plus, ShoppingBag, Trash2, X } from "lucide-react";
-import { useCart, type CartItem } from "@/contexts/CartContext";
+import { toast } from "sonner";
+import { useCart } from "@/contexts/CartContext";
 import { CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL, waLink } from "@/lib/contact";
-import { useSettings, trackEvent } from "@/lib/api/queries";
+import { useSettings, trackEvent, getSessionId } from "@/lib/api/queries";
+import { recordOrderIntent, type RecordedOrderLine } from "@/lib/api/order.functions";
 import { formatPKR } from "@/lib/format";
 
-function buildInvoice(items: CartItem[], total: number) {
-  const date = new Date().toLocaleDateString("en-PK", {
+// Builds the WhatsApp message from server-recomputed, trusted totals — never
+// from client-held prices. Includes the unique order reference + customer
+// phone so the maison can look the intent up in the admin dashboard.
+function buildInvoice(opts: {
+  orderRef: string;
+  phone: string;
+  name?: string;
+  note?: string;
+  lines: RecordedOrderLine[];
+  subtotal: number;
+  discount: number;
+  total: number;
+}) {
+  const date = new Date().toLocaleString("en-PK", {
     year: "numeric",
     month: "long",
     day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
-  const orderId = "TPS-" + Date.now().toString(36).toUpperCase();
-  const originalTotal = items.reduce((s, i) => s + (i.originalPrice ?? i.price) * i.qty, 0);
-  const discountTotal = originalTotal - total;
-  const lines = [
+  const out = [
     "*THE PERFUME SOUQ*",
-    "_By Khurram Shabbir_",
+    "_by Khurram Shabbir_",
     "",
-    `Order: *${orderId}*`,
+    `Order: *${opts.orderRef}*`,
     `Date: ${date}`,
+    `Phone: ${opts.phone}`,
+    ...(opts.name ? [`Name: ${opts.name}`] : []),
     "",
     "*Items*",
-    ...items.map((i, idx) => {
-      const size = i.sizeLabel ? ` (${i.sizeLabel})` : "";
-      const discounted = i.originalPrice && i.originalPrice > i.price;
+    ...opts.lines.map((i, idx) => {
+      const discounted = i.originalPrice > i.finalPrice;
       const priceLine = discounted
-        ? `Qty ${i.qty} × ${formatPKR(i.price)} (was ${formatPKR(i.originalPrice!)}${i.promotionName ? `, ${i.promotionName}` : ""}) = ${formatPKR(i.qty * i.price)}`
-        : `Qty ${i.qty} × ${formatPKR(i.price)} = ${formatPKR(i.qty * i.price)}`;
-      return `${idx + 1}. ${i.name}${size}\n    ${priceLine}`;
+        ? `Qty ${i.quantity} × ${formatPKR(i.finalPrice)} (was ${formatPKR(i.originalPrice)}${i.promotionName ? `, ${i.promotionName}` : ""}) = ${formatPKR(i.lineTotal)}`
+        : `Qty ${i.quantity} × ${formatPKR(i.finalPrice)} = ${formatPKR(i.lineTotal)}`;
+      return `${idx + 1}. ${i.name} (${i.sizeLabel})\n    ${priceLine}`;
     }),
     "",
-    ...(discountTotal > 0 ? [`Subtotal: ${formatPKR(originalTotal)}`, `Discount: -${formatPKR(discountTotal)}`] : []),
-    `*Total: ${formatPKR(total)}*`,
+    ...(opts.discount > 0 ? [`Subtotal: ${formatPKR(opts.subtotal)}`, `Discount: -${formatPKR(opts.discount)}`] : []),
+    `*Total: ${formatPKR(opts.total)}*`,
+    ...(opts.note ? ["", `Note: ${opts.note}`] : []),
     "",
     "Kindly confirm this order. Thank you.",
   ];
-  return lines.join("\n");
+  return out.join("\n");
 }
 
 export function CartButton() {
@@ -65,18 +81,85 @@ export function CartButton() {
   );
 }
 
+const PHONE_STORAGE_KEY = "tps_customer_phone_v1";
+
 export function CartDrawer() {
-  const { items, isOpen, close, setQty, remove, total } = useCart();
+  const { items, isOpen, close, setQty, remove, total, clear } = useCart();
   const { data: settings } = useSettings();
   const waNumber = settings?.whatsapp_number || "923228408507";
 
-  const handleCheckout = () => {
-    if (!items.length) return;
-    const msg = buildInvoice(items, total);
-    for (const it of items) {
-      trackEvent("whatsapp_click", { perfumeId: it.perfumeId, variantId: it.variantId, sourcePath: "/cart" });
+  const [phone, setPhone] = useState(() => {
+    try {
+      return localStorage.getItem(PHONE_STORAGE_KEY) ?? "";
+    } catch {
+      return "";
     }
-    window.open(waLink(waNumber, msg), "_blank");
+  });
+  const [name, setName] = useState("");
+  const [note, setNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const phoneValid = phone.replace(/[^0-9]/g, "").length >= 10;
+  const allHaveVariants = items.every((i) => !!i.variantId);
+
+  const handleCheckout = async () => {
+    if (!items.length || submitting) return;
+    if (!phoneValid) {
+      toast.error("Please enter your WhatsApp number so we can confirm your order.");
+      return;
+    }
+    if (!allHaveVariants) {
+      toast.error("Please re-add your items from a product page so we can capture the exact size.");
+      return;
+    }
+
+    setSubmitting(true);
+    // Open the tab synchronously so mobile popup blockers allow it; we set its
+    // URL once the server has recorded the intent and returned trusted totals.
+    const win = window.open("", "_blank");
+    try {
+      try {
+        localStorage.setItem(PHONE_STORAGE_KEY, phone);
+      } catch {}
+
+      const result = await recordOrderIntent({
+        data: {
+          phone,
+          name: name.trim() || undefined,
+          note: note.trim() || undefined,
+          sessionId: getSessionId(),
+          items: items.map((i) => ({ variantId: i.variantId as string, quantity: i.qty })),
+        },
+      });
+
+      for (const it of items) {
+        trackEvent("whatsapp_click", { perfumeId: it.perfumeId, variantId: it.variantId, sourcePath: "/cart" });
+      }
+
+      const msg = buildInvoice({
+        orderRef: result.orderRef,
+        phone: result.phone,
+        name: name.trim() || undefined,
+        note: note.trim() || undefined,
+        lines: result.lines,
+        subtotal: result.subtotal,
+        discount: result.discount,
+        total: result.total,
+      });
+      const url = waLink(waNumber, msg);
+      if (win) win.location.href = url;
+      else window.location.href = url;
+
+      toast.success(`Order ${result.orderRef} sent to WhatsApp.`);
+      clear();
+      setNote("");
+      close();
+    } catch (e) {
+      if (win) win.close();
+      toast.error(e instanceof Error ? e.message : "Could not create your order. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -192,16 +275,52 @@ export function CartDrawer() {
                   {formatPKR(total)}
                 </span>
               </div>
+
+              {items.length > 0 && (
+                <div className="mb-4 space-y-2">
+                  <label className="block">
+                    <span className="mb-1 block text-[9px] uppercase tracking-[0.3em] text-foreground/50">
+                      WhatsApp Number <span className="text-gold">*</span>
+                    </span>
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="03XX XXXXXXX"
+                      aria-label="Your WhatsApp number"
+                      className="w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
+                    />
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your name (optional)"
+                    aria-label="Your name"
+                    className="w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Note (optional)"
+                    aria-label="Order note"
+                    className="w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
+                  />
+                </div>
+              )}
+
               <button
-                disabled={!items.length}
+                disabled={!items.length || submitting}
                 onClick={handleCheckout}
                 data-magnetic
                 className="btn-gold w-full py-4 text-[10px] uppercase tracking-[0.4em] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Send Invoice via WhatsApp
+                {submitting ? "Preparing…" : "Send Order via WhatsApp"}
               </button>
               <p className="mt-3 text-center text-[10px] uppercase tracking-[0.3em] text-foreground/40">
-                Sends a formatted invoice to the maison on WhatsApp.
+                Records your order &amp; opens WhatsApp to confirm. No online payment.
               </p>
 
               <div className="mt-5 grid grid-cols-2 gap-2 border-t border-border pt-4">

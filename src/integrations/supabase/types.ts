@@ -397,6 +397,57 @@ export type Database = {
         };
         Relationships: [];
       };
+      order_intents: {
+        Row: {
+          created_at: string;
+          customer_name: string | null;
+          customer_phone: string;
+          discount_pkr: number;
+          id: string;
+          items: Json;
+          note: string | null;
+          offer_ids: string[];
+          order_ref: string;
+          session_id: string | null;
+          status: string;
+          subtotal_pkr: number;
+          total_pkr: number;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          customer_name?: string | null;
+          customer_phone: string;
+          discount_pkr?: number;
+          id?: string;
+          items?: Json;
+          note?: string | null;
+          offer_ids?: string[];
+          order_ref: string;
+          session_id?: string | null;
+          status?: string;
+          subtotal_pkr?: number;
+          total_pkr?: number;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          customer_name?: string | null;
+          customer_phone?: string;
+          discount_pkr?: number;
+          id?: string;
+          items?: Json;
+          note?: string | null;
+          offer_ids?: string[];
+          order_ref?: string;
+          session_id?: string | null;
+          status?: string;
+          subtotal_pkr?: number;
+          total_pkr?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       perfumes: {
         Row: {
           archived: boolean;
