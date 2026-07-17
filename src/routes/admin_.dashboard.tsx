@@ -13,6 +13,8 @@ import {
   useCategories,
   useAnalyticsEvents,
   useOrderIntents,
+  useUpdateOrderStatus,
+  type OrderStatus,
   useBackInStockRequests,
   useUpdateBackInStockStatus,
   useBrands,
@@ -51,7 +53,7 @@ export const Route = createFileRoute("/admin_/dashboard")({
 // required internally" instruction (data/functionality is kept, just not a
 // top-level tab). Promotions and Bundles are folded into the Offers tab
 // (OffersHub) as internal segments rather than separate tabs.
-type Tab = "perfumes" | "offers" | "ads" | "motion" | "hero" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "requests" | "administrators";
+type Tab = "perfumes" | "offers" | "ads" | "motion" | "hero" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "orders" | "requests" | "administrators";
 type AdminRole = "owner" | "admin" | "editor" | "analyst" | null;
 
 function useMyAdminRole(userId: string | undefined, isOwner: boolean) {
@@ -126,6 +128,7 @@ function Dashboard() {
     "theme",
     "settings",
     "analytics",
+    "orders",
   ];
 
   // Administrators is deliberately not a visible tab (per spec — "remove
@@ -207,6 +210,7 @@ function Dashboard() {
         {tab === "theme" && <ThemePanel />}
         {tab === "settings" && <SettingsPanel />}
         {tab === "analytics" && <AnalyticsPanel />}
+        {tab === "orders" && <OrdersPanel />}
         {tab === "requests" && <BackInStockPanel />}
         {tab === "administrators" && <AdministratorsPanel />}
       </section>
@@ -1949,32 +1953,137 @@ function AnalyticsPanel() {
         </>
       )}
 
-      <div className="glass-card rounded-sm p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <p className="text-[10px] uppercase tracking-[0.4em] text-gold/70">Recent WhatsApp Orders</p>
-          <span className="text-[10px] text-foreground/40">{orders.length} recorded</span>
+      <div className="glass-card flex items-center justify-between rounded-sm p-6">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.4em] text-gold/70">WhatsApp Orders</p>
+          <p className="mt-1 text-xs text-foreground/50">{orders.length} recorded — full detail, search and status updates live in the Orders tab.</p>
         </div>
-        {orders.length === 0 ? (
-          <p className="text-xs text-foreground/40">No WhatsApp orders recorded yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {orders.map((o) => (
-              <div key={o.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2 text-sm last:border-b-0">
-                <div>
-                  <span className="font-mono text-xs text-gold">{o.order_ref}</span>
-                  <span className="ml-3 text-foreground/60">{o.customer_phone}</span>
-                  {o.customer_name && <span className="ml-2 text-foreground/40">· {o.customer_name}</span>}
-                </div>
-                <div className="flex items-center gap-4">
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Orders (dedicated section) ---------------- */
+const ORDER_STATUSES: OrderStatus[] = ["draft", "whatsapp_opened", "submitted", "confirmed", "processing", "completed", "cancelled"];
+
+function OrdersPanel() {
+  const { data: orders = [], isLoading } = useOrderIntents(200);
+  const updateStatus = useUpdateOrderStatus();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const filtered = orders.filter((o) => {
+    if (statusFilter !== "all" && o.status !== statusFilter) return false;
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    const inProducts = o.items?.some((i) => i.name.toLowerCase().includes(q));
+    return (
+      o.order_ref.toLowerCase().includes(q) ||
+      (o.customer_name ?? "").toLowerCase().includes(q) ||
+      o.customer_phone.includes(q) ||
+      !!inProducts
+    );
+  });
+
+  const setStatus = async (id: string, status: OrderStatus) => {
+    try {
+      await updateStatus.mutateAsync({ id, status });
+      toast.success("Order status updated");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update status");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-display text-2xl italic">WhatsApp Orders</h2>
+        <p className="mt-1 text-xs text-foreground/50">Every order intent recorded when a customer sends their cart to WhatsApp.</p>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search order #, customer, phone, or product…"
+          className="min-w-[240px] flex-1 rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-foreground/40"
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as OrderStatus | "all")}
+          className="rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground"
+        >
+          <option value="all">All statuses</option>
+          {ORDER_STATUSES.map((s) => (
+            <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
+          ))}
+        </select>
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-foreground/50">Loading…</p>
+      ) : !filtered.length ? (
+        <p className="text-sm text-foreground/50">{orders.length ? "No orders match this search/filter." : "No orders recorded yet."}</p>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((o) => (
+            <div key={o.id} className="glass-card rounded-sm p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <button onClick={() => setExpanded(expanded === o.id ? null : o.id)} className="text-left">
+                  <span className="font-mono text-sm text-gold">{o.order_ref}</span>
+                  <span className="ml-3 text-sm text-foreground/70">{o.customer_name || "—"}</span>
+                  <span className="ml-3 text-xs text-foreground/50">{o.customer_phone}</span>
+                </button>
+                <div className="flex items-center gap-3">
                   <span className="text-[10px] text-foreground/40">{new Date(o.created_at).toLocaleString()}</span>
-                  <span className="text-foreground/60">{o.items?.length ?? 0} item(s)</span>
-                  <span className="text-gradient-gold font-display">{formatPKR(o.total_pkr)}</span>
+                  <span className="text-gradient-gold font-display text-sm">{formatPKR(o.total_pkr)}</span>
+                  <select
+                    value={o.status}
+                    onChange={(e) => setStatus(o.id, e.target.value as OrderStatus)}
+                    className="rounded-sm border border-gold/40 bg-background px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-gold"
+                  >
+                    {ORDER_STATUSES.map((s) => (
+                      <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+
+              {expanded === o.id && (
+                <div className="mt-4 space-y-3 border-t border-border pt-4 text-sm">
+                  {o.delivery_address && <p><span className="text-foreground/50">Address:</span> {o.delivery_address}</p>}
+                  {o.location_link && (
+                    <p>
+                      <span className="text-foreground/50">Location:</span>{" "}
+                      <a href={o.location_link} target="_blank" rel="noreferrer" className="text-gold underline">
+                        {o.location_link}
+                      </a>
+                    </p>
+                  )}
+                  {o.note && <p><span className="text-foreground/50">Note:</span> {o.note}</p>}
+                  <div>
+                    <p className="mb-1 text-[9px] uppercase tracking-[0.3em] text-foreground/40">Items</p>
+                    <ul className="space-y-1">
+                      {o.items.map((i, idx) => (
+                        <li key={idx} className="flex justify-between text-xs text-foreground/70">
+                          <span>{i.name} ({i.sizeLabel}) × {i.quantity}</span>
+                          <span>{formatPKR(i.lineTotal)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  {o.discount_pkr > 0 && (
+                    <p className="text-xs text-foreground/60">
+                      Subtotal {formatPKR(o.subtotal_pkr)} — Discount −{formatPKR(o.discount_pkr)}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

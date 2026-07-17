@@ -320,16 +320,20 @@ export type OrderIntentLine = {
   lineTotal: number;
   promotionName: string | null;
 };
+export type OrderStatus = "draft" | "whatsapp_opened" | "submitted" | "confirmed" | "processing" | "completed" | "cancelled";
 export type OrderIntent = {
   id: string;
   order_ref: string;
   customer_phone: string;
   customer_name: string | null;
+  delivery_address: string | null;
+  location_link: string | null;
+  note: string | null;
   items: OrderIntentLine[];
   subtotal_pkr: number;
   discount_pkr: number;
   total_pkr: number;
-  status: string;
+  status: OrderStatus;
   created_at: string;
 };
 
@@ -339,12 +343,23 @@ export function useOrderIntents(limit = 50) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("order_intents")
-        .select("id,order_ref,customer_phone,customer_name,items,subtotal_pkr,discount_pkr,total_pkr,status,created_at")
+        .select("id,order_ref,customer_phone,customer_name,delivery_address,location_link,note,items,subtotal_pkr,discount_pkr,total_pkr,status,created_at")
         .order("created_at", { ascending: false })
         .limit(limit);
       if (error) throw error;
       return (data ?? []) as unknown as OrderIntent[];
     },
+  });
+}
+
+export function useUpdateOrderStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; status: OrderStatus }) => {
+      const { error } = await supabase.from("order_intents").update({ status: input.status }).eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["order_intents"] }),
   });
 }
 

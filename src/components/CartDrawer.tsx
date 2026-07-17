@@ -15,6 +15,8 @@ function buildInvoice(opts: {
   orderRef: string;
   phone: string;
   name?: string;
+  address?: string;
+  locationLink?: string;
   note?: string;
   lines: RecordedOrderLine[];
   subtotal: number;
@@ -36,6 +38,8 @@ function buildInvoice(opts: {
     `Date: ${date}`,
     `Phone: ${opts.phone}`,
     ...(opts.name ? [`Name: ${opts.name}`] : []),
+    ...(opts.address ? [`Address: ${opts.address}`] : []),
+    ...(opts.locationLink ? [`Location: ${opts.locationLink}`] : []),
     "",
     "*Items*",
     ...opts.lines.map((i, idx) => {
@@ -96,6 +100,8 @@ export function CartDrawer() {
     }
   });
   const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const [locationLink, setLocationLink] = useState("");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -104,6 +110,10 @@ export function CartDrawer() {
 
   const handleCheckout = async () => {
     if (!items.length || submitting) return;
+    if (!name.trim()) {
+      toast.error("Please enter your name so we know who the order is for.");
+      return;
+    }
     if (!phoneValid) {
       toast.error("Please enter your WhatsApp number so we can confirm your order.");
       return;
@@ -126,6 +136,8 @@ export function CartDrawer() {
         data: {
           phone,
           name: name.trim() || undefined,
+          address: address.trim() || undefined,
+          locationLink: locationLink.trim() || undefined,
           note: note.trim() || undefined,
           sessionId: getSessionId(),
           items: items.map((i) => ({ variantId: i.variantId as string, quantity: i.qty })),
@@ -140,6 +152,8 @@ export function CartDrawer() {
         orderRef: result.orderRef,
         phone: result.phone,
         name: name.trim() || undefined,
+        address: address.trim() || undefined,
+        locationLink: locationLink.trim() || undefined,
         note: note.trim() || undefined,
         lines: result.lines,
         subtotal: result.subtotal,
@@ -153,6 +167,8 @@ export function CartDrawer() {
       toast.success(`Order ${result.orderRef} sent to WhatsApp.`);
       clear();
       setNote("");
+      setAddress("");
+      setLocationLink("");
       close();
     } catch (e) {
       if (win) win.close();
@@ -292,12 +308,33 @@ export function CartDrawer() {
                       className="w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
                     />
                   </label>
+                  <label className="block">
+                    <span className="mb-1 block text-[9px] uppercase tracking-[0.3em] text-foreground/50">
+                      Your Name <span className="text-gold">*</span>
+                    </span>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Full name"
+                      aria-label="Your name"
+                      className="w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
+                    />
+                  </label>
                   <input
                     type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name (optional)"
-                    aria-label="Your name"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Delivery address (optional)"
+                    aria-label="Delivery address"
+                    className="w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={locationLink}
+                    onChange={(e) => setLocationLink(e.target.value)}
+                    placeholder="Google Maps / shared location link (optional)"
+                    aria-label="Shared location link"
                     className="w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
                   />
                   <input

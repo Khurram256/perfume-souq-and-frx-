@@ -462,9 +462,11 @@ export type Database = {
           created_at: string;
           customer_name: string | null;
           customer_phone: string;
+          delivery_address: string | null;
           discount_pkr: number;
           id: string;
           items: Json;
+          location_link: string | null;
           note: string | null;
           offer_ids: string[];
           order_ref: string;
@@ -478,9 +480,11 @@ export type Database = {
           created_at?: string;
           customer_name?: string | null;
           customer_phone: string;
+          delivery_address?: string | null;
           discount_pkr?: number;
           id?: string;
           items?: Json;
+          location_link?: string | null;
           note?: string | null;
           offer_ids?: string[];
           order_ref: string;
@@ -494,9 +498,11 @@ export type Database = {
           created_at?: string;
           customer_name?: string | null;
           customer_phone?: string;
+          delivery_address?: string | null;
           discount_pkr?: number;
           id?: string;
           items?: Json;
+          location_link?: string | null;
           note?: string | null;
           offer_ids?: string[];
           order_ref?: string;

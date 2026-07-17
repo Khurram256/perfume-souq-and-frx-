@@ -10,6 +10,8 @@ const itemSchema = z.object({
 const inputSchema = z.object({
   phone: z.string().min(6).max(40),
   name: z.string().max(120).optional(),
+  address: z.string().max(500).optional(),
+  locationLink: z.string().max(500).optional(),
   note: z.string().max(500).optional(),
   sessionId: z.string().uuid().optional(),
   items: z.array(itemSchema).min(1).max(50),
@@ -120,7 +122,10 @@ export const recordOrderIntent = createServerFn({ method: "POST" })
         order_ref: candidate,
         customer_phone: phone,
         customer_name: data.name ?? null,
+        delivery_address: data.address ?? null,
+        location_link: data.locationLink ?? null,
         note: data.note ?? null,
+        status: "whatsapp_opened",
         items: lines as unknown as import("@/integrations/supabase/types").Json,
         subtotal_pkr: subtotal,
         discount_pkr: discount,
@@ -137,5 +142,5 @@ export const recordOrderIntent = createServerFn({ method: "POST" })
     }
     if (!orderRef) throw new Error(lastErr ?? "Could not create the order reference. Please try again.");
 
-    return { orderRef, phone, lines, subtotal, discount, total };
+    return { orderRef, phone, address: data.address ?? null, locationLink: data.locationLink ?? null, lines, subtotal, discount, total };
   });
