@@ -269,6 +269,7 @@
     display: flex;
     width: max-content;
     animation: marquee-scroll 26s linear infinite;
+    will-change: transform;
   }
   .marquee-row {
     display: flex;
@@ -392,6 +393,7 @@
   .float-bottle {
     animation: float-y 8s ease-in-out infinite;
     filter: drop-shadow(0 0 80px oklch(0.78 0.09 78 / 0.35));
+    will-change: transform;
   }
 
   /* Maison Spotlight highlight on featured product card */
@@ -465,24 +467,34 @@
   animation-delay: var(--fib-delay, 0s);
 }
 
-/* ───────────── Hero: perspective grid floor ───────────── */
+/* ───────────── Hero: perspective grid floor ─────────────
+   The grid pattern + slide animation live on a ::before that animates
+   transform (translateY by exactly one 64px tile, so the loop is seamless)
+   instead of background-position, which repainted the layer every frame. */
 .perspective-grid {
   position: absolute;
   inset: -20% -20% -40% -20%;
-  background-image:
-    linear-gradient(oklch(0.78 0.09 78 / 0.14) 1px, transparent 1px),
-    linear-gradient(90deg, oklch(0.78 0.09 78 / 0.14) 1px, transparent 1px);
-  background-size: 64px 64px;
   transform: perspective(600px) rotateX(62deg);
   transform-origin: center top;
   mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black 0%, transparent 75%);
   -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black 0%, transparent 75%);
-  animation: grid-drift 14s linear infinite;
   opacity: 0.55;
+  overflow: hidden;
 }
-@keyframes grid-drift {
-  from { background-position: 0 0, 0 0; }
-  to   { background-position: 0 64px, 0 0; }
+.perspective-grid::before {
+  content: "";
+  position: absolute;
+  inset: -64px 0 0 0;
+  background-image:
+    linear-gradient(oklch(0.78 0.09 78 / 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.78 0.09 78 / 0.14) 1px, transparent 1px);
+  background-size: 64px 64px;
+  animation: grid-slide 14s linear infinite;
+  will-change: transform;
+}
+@keyframes grid-slide {
+  from { transform: translateY(0); }
+  to   { transform: translateY(64px); }
 }
 
 /* ───────────── Hero: HUD corner brackets (viewfinder framing) ───────────── */
@@ -532,22 +544,26 @@
   overflow: hidden;
   pointer-events: none;
 }
+/* Animates transform, not `left` — animating a layout property forced a
+   reflow on every frame of the loop. -150%/325% of own width (40% of the
+   parent) reproduce the original -60%..130%-of-parent travel exactly. */
 .glint-sweep::after {
   content: "";
   position: absolute;
   top: -20%;
-  left: -60%;
+  left: 0;
   width: 40%;
   height: 140%;
   background: linear-gradient(100deg, transparent, oklch(0.96 0.01 220 / 0.55), transparent);
-  transform: skewX(-18deg);
+  transform: translateX(-150%) skewX(-18deg);
   animation: glint-move 5s ease-in-out infinite;
   animation-delay: 1.5s;
+  will-change: transform;
 }
 @keyframes glint-move {
-  0%   { left: -60%; }
-  35%  { left: 130%; }
-  100% { left: 130%; }
+  0%   { transform: translateX(-150%) skewX(-18deg); }
+  35%  { transform: translateX(325%) skewX(-18deg); }
+  100% { transform: translateX(325%) skewX(-18deg); }
 }
 .halo-pulse {
   position: absolute;
@@ -555,6 +571,7 @@
   border-radius: 50%;
   border: 1px solid oklch(0.78 0.09 78 / 0.25);
   animation: halo-pulse 4s ease-in-out infinite;
+  will-change: transform, opacity;
 }
 .halo-pulse--delay {
   animation-delay: 1.3s;
@@ -585,12 +602,25 @@
    ═══════════════════════════════════════════════════════════════════════ */
 /* Follows the site's active theme (light Signature Ivory by default) rather
    than being forced dark — same background technique as the original hero,
-   just centered on the new composition. */
+   just centered on the new composition.
+   The drift lives on an oversized ::before that animates TRANSFORM, not
+   background-position: position animation repaints the full viewport every
+   frame, while a transform on a promoted layer is compositor-only. */
 .hero-chamber {
   background-color: var(--background);
+  overflow: hidden;
+}
+.hero-chamber::before {
+  content: "";
+  position: absolute;
+  inset: 0 -100% -100% 0;
   background-image: var(--gradient-mesh);
-  background-size: 200% 200%;
-  animation: mesh-drift 28s ease-in-out infinite alternate;
+  animation: mesh-drift-transform 28s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes mesh-drift-transform {
+  from { transform: translate(0, 0); }
+  to   { transform: translate(-25%, -25%); }
 }
 .hero-vignette {
   background: radial-gradient(ellipse at 65% 45%, var(--gold) 0%, transparent 60%);
@@ -609,6 +639,7 @@
   filter: blur(32px);
   animation: mist-breathe 7s ease-in-out infinite;
   pointer-events: none;
+  will-change: transform, opacity;
 }
 @keyframes mist-breathe {
   0%, 100% { opacity: 0.5; transform: translateX(-50%) translateY(0) scale(1); }
@@ -624,6 +655,7 @@
 .note-chip {
   position: absolute;
   align-items: center;
+  will-change: transform;
   padding: 0.5em 0.95em;
   border-radius: 999px;
   border: 1px solid oklch(0.96 0.012 220 / 0.18);
@@ -879,6 +911,7 @@
   filter: blur(2px);
   transform-origin: center;
   animation: light-ray-drift 12s ease-in-out infinite;
+  will-change: transform, opacity;
 }
 .light-ray--2 { animation-duration: 16s; animation-delay: -4s; opacity: 0.7; }
 .light-ray--3 { animation-duration: 20s; animation-delay: -9s; opacity: 0.5; }
@@ -894,6 +927,9 @@
   filter: blur(70px);
   animation: glow-orb-drift 18s ease-in-out infinite;
   pointer-events: none;
+  /* Promoted layer: the blur is rasterized once and only the transform/
+     opacity animate on the compositor, instead of re-filtering per frame. */
+  will-change: transform, opacity;
 }
 @keyframes glow-orb-drift {
   0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.55; }
@@ -907,6 +943,7 @@
   background: var(--gold);
   box-shadow: 0 0 6px var(--gold);
   animation: dust-float linear infinite;
+  will-change: transform, opacity;
 }
 @keyframes dust-float {
   0%   { transform: translateY(0) translateX(0); opacity: 0; }
@@ -927,6 +964,7 @@
   filter: blur(6px);
   animation: spotlight-breathe 5s ease-in-out infinite;
   pointer-events: none;
+  will-change: opacity;
 }
 @keyframes spotlight-breathe {
   0%, 100% { opacity: 0.6; }

@@ -69,6 +69,8 @@ export function HeroBottle({
             alt={alt}
             width={520}
             height={780}
+            fetchPriority="high"
+            decoding="async"
             className="float-bottle relative h-full max-h-[34vh] w-auto sm:max-h-[38vh] lg:max-h-[42vh]"
             style={{ filter: "drop-shadow(0 30px 40px rgba(0,0,0,0.5))" }}
           />

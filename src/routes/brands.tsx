@@ -11,7 +11,10 @@ export const Route = createFileRoute("/brands")({
   head: () => ({
     meta: [
       { title: "Maisons — The Perfume Souq by Khurram Shabbir" },
-      { name: "description", content: "Explore the maisons and houses carried by The Perfume Souq." },
+      {
+        name: "description",
+        content: "Explore the maisons and houses carried by The Perfume Souq.",
+      },
     ],
   }),
   component: BrandsPage,
@@ -30,7 +33,9 @@ function BrandsPage() {
 
             {isLoading && <p className="text-sm text-foreground/50">Loading…</p>}
             {!isLoading && !brands.length && (
-              <p className="text-sm font-light text-foreground/50">Maisons are being added — check back soon.</p>
+              <p className="text-sm font-light text-foreground/50">
+                Maisons are being added — check back soon.
+              </p>
             )}
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -41,9 +46,21 @@ function BrandsPage() {
                   params={{ slug: b.slug }}
                   className="glass-card flex flex-col items-center rounded-sm p-8 text-center transition-transform hover:-translate-y-1"
                 >
-                  {b.logo_url && <img src={b.logo_url} alt={b.name} className="mb-4 h-14 w-auto" />}
+                  {b.logo_url && (
+                    <img
+                      src={b.logo_url}
+                      alt={b.name}
+                      loading="lazy"
+                      decoding="async"
+                      className="mb-4 h-14 w-auto"
+                    />
+                  )}
                   <h2 className="font-display text-xl italic">{b.name}</h2>
-                  {b.origin_country && <p className="mt-2 text-[9px] uppercase tracking-[0.3em] text-foreground/45">{b.origin_country}</p>}
+                  {b.origin_country && (
+                    <p className="mt-2 text-[9px] uppercase tracking-[0.3em] text-foreground/45">
+                      {b.origin_country}
+                    </p>
+                  )}
                 </Link>
               ))}
             </div>

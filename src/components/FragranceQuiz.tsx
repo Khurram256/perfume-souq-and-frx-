@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { usePerfumes, useAllVariants, usePromotions, trackEvent, type Perfume } from "@/lib/api/queries";
+import {
+  usePerfumes,
+  useAllVariants,
+  usePromotions,
+  trackEvent,
+  type Perfume,
+} from "@/lib/api/queries";
 import { resolveVariantPrice } from "@/lib/pricing";
 import { useCart } from "@/contexts/CartContext";
 import { formatPKR } from "@/lib/format";
@@ -83,7 +89,6 @@ export function FragranceQuiz() {
 
   useEffect(() => {
     if (open) trackEvent("quiz_start");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
@@ -92,14 +97,32 @@ export function FragranceQuiz() {
   }, [done]);
 
   const priceByPerfumeId = useMemo(() => {
-    const map = new Map<string, { originalPrice: number; finalPrice: number; discountAmount: number; appliedPromotions: { name: string; badge_text: string | null }[] }>();
+    const map = new Map<
+      string,
+      {
+        originalPrice: number;
+        finalPrice: number;
+        discountAmount: number;
+        appliedPromotions: { name: string; badge_text: string | null }[];
+      }
+    >();
     for (const p of perfumes) {
       const pv = variants.filter((v) => v.perfume_id === p.id);
       const dv = pv.find((v) => v.is_default) ?? pv[0];
       const basePrice = dv?.price_pkr ?? p.price_pkr;
       const resolved = dv
-        ? resolveVariantPrice(basePrice, promotions, { perfumeId: p.id, variantId: dv.id, brandId: p.brand_id, categoryId: p.category_id })
-        : { originalPrice: basePrice, finalPrice: basePrice, discountAmount: 0, appliedPromotions: [] };
+        ? resolveVariantPrice(basePrice, promotions, {
+            perfumeId: p.id,
+            variantId: dv.id,
+            brandId: p.brand_id,
+            categoryId: p.category_id,
+          })
+        : {
+            originalPrice: basePrice,
+            finalPrice: basePrice,
+            discountAmount: 0,
+            appliedPromotions: [],
+          };
       map.set(p.id, resolved);
     }
     return map;
@@ -226,8 +249,12 @@ export function FragranceQuiz() {
                       className="mb-6"
                     />
                     <div className="mb-8 flex items-center justify-between text-xs text-foreground/60">
-                      <span>{formatPKR((budgetDraft ?? [priceBounds.min, priceBounds.max])[0])}</span>
-                      <span>{formatPKR((budgetDraft ?? [priceBounds.min, priceBounds.max])[1])}</span>
+                      <span>
+                        {formatPKR((budgetDraft ?? [priceBounds.min, priceBounds.max])[0])}
+                      </span>
+                      <span>
+                        {formatPKR((budgetDraft ?? [priceBounds.min, priceBounds.max])[1])}
+                      </span>
                     </div>
                     <button
                       onClick={onBudgetNext}
@@ -255,6 +282,8 @@ export function FragranceQuiz() {
                           <img
                             src={p.image_url}
                             alt={p.name}
+                            loading="lazy"
+                            decoding="async"
                             className="h-20 w-16 object-contain"
                           />
                         )}
@@ -271,14 +300,18 @@ export function FragranceQuiz() {
                         </div>
                         <div className="text-right">
                           {price && price.discountAmount > 0 && (
-                            <p className="text-[10px] text-foreground/40 line-through">{formatPKR(price.originalPrice)}</p>
+                            <p className="text-[10px] text-foreground/40 line-through">
+                              {formatPKR(price.originalPrice)}
+                            </p>
                           )}
                           <p className="text-gradient-gold font-display text-lg">
                             {formatPKR(price?.finalPrice ?? p.price_pkr)}
                           </p>
                           <button
                             onClick={() => {
-                              const pv = variants.find((v) => v.perfume_id === p.id && v.is_default) ?? variants.find((v) => v.perfume_id === p.id);
+                              const pv =
+                                variants.find((v) => v.perfume_id === p.id && v.is_default) ??
+                                variants.find((v) => v.perfume_id === p.id);
                               add({
                                 id: pv?.id ?? p.id,
                                 perfumeId: p.id,
@@ -286,10 +319,17 @@ export function FragranceQuiz() {
                                 sizeLabel: pv?.size_label,
                                 name: p.name,
                                 price: price?.finalPrice ?? p.price_pkr,
-                                originalPrice: price && price.discountAmount > 0 ? price.originalPrice : undefined,
+                                originalPrice:
+                                  price && price.discountAmount > 0
+                                    ? price.originalPrice
+                                    : undefined,
                                 img: p.image_url || "",
                               });
-                              trackEvent("whatsapp_click", { perfumeId: p.id, variantId: pv?.id, sourcePath: "/quiz" });
+                              trackEvent("whatsapp_click", {
+                                perfumeId: p.id,
+                                variantId: pv?.id,
+                                sourcePath: "/quiz",
+                              });
                             }}
                             disabled={!p.in_stock}
                             data-magnetic

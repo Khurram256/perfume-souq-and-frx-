@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { usePerfumes, useBrands, useAllVariants, usePromotions, trackEvent, type Perfume } from "@/lib/api/queries";
+import {
+  usePerfumes,
+  useBrands,
+  useAllVariants,
+  usePromotions,
+  trackEvent,
+  type Perfume,
+} from "@/lib/api/queries";
 import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
 
@@ -54,7 +61,12 @@ function Side({
         brandId: p.brand_id,
         categoryId: p.category_id,
       })
-    : { originalPrice: p.price_pkr, finalPrice: p.price_pkr, discountAmount: 0, appliedPromotions: [] };
+    : {
+        originalPrice: p.price_pkr,
+        finalPrice: p.price_pkr,
+        discountAmount: 0,
+        appliedPromotions: [],
+      };
   const inStock = pv.length ? pv.some((v) => v.in_stock) : p.in_stock;
   const sizeRange = pv.length ? `${pv.map((v) => v.size_label).join(", ")}` : "—";
 
@@ -70,7 +82,11 @@ function Side({
           className="w-full cursor-pointer appearance-none rounded-sm border border-gold/50 bg-obsidian/60 px-4 py-3 pr-10 text-[11px] uppercase tracking-[0.3em] text-gold transition hover:border-gold focus:border-gold focus:outline-none"
         >
           {perfumes.map((opt) => (
-            <option key={opt.id} value={opt.id} style={{ background: "var(--obsidian)", color: "oklch(0.96 0.012 220)" }}>
+            <option
+              key={opt.id}
+              value={opt.id}
+              style={{ background: "var(--obsidian)", color: "oklch(0.96 0.012 220)" }}
+            >
               {opt.name}
             </option>
           ))}
@@ -80,36 +96,62 @@ function Side({
 
       <div className="flex items-start gap-6">
         {p.image_url && (
-          <img src={p.image_url} alt={p.name} className="h-32 w-24 flex-shrink-0 object-contain" />
+          <img
+            src={p.image_url}
+            alt={p.name}
+            loading="lazy"
+            decoding="async"
+            className="h-32 w-24 flex-shrink-0 object-contain"
+          />
         )}
         <div className="flex-1">
-          {brand && <p className="text-[9px] uppercase tracking-[0.4em] text-gold/70">{brand.name}</p>}
+          {brand && (
+            <p className="text-[9px] uppercase tracking-[0.4em] text-gold/70">{brand.name}</p>
+          )}
           <h3 className="font-display text-2xl italic">{p.name}</h3>
           <div className="mt-2 flex items-center gap-2">
-            {price.discountAmount > 0 && <span className="text-[10px] text-foreground/40 line-through">{formatPKR(price.originalPrice)}</span>}
-            <span className="text-gradient-gold font-display text-lg">{formatPKR(price.finalPrice)}</span>
+            {price.discountAmount > 0 && (
+              <span className="text-[10px] text-foreground/40 line-through">
+                {formatPKR(price.originalPrice)}
+              </span>
+            )}
+            <span className="text-gradient-gold font-display text-lg">
+              {formatPKR(price.finalPrice)}
+            </span>
           </div>
         </div>
       </div>
 
       <div className="mt-6">
-        <Row label="Availability" value={inStock ? <span className="text-gold">In Stock</span> : "Out of Stock"} />
+        <Row
+          label="Availability"
+          value={inStock ? <span className="text-gold">In Stock</span> : "Out of Stock"}
+        />
         {price.discountAmount > 0 && (
           <Row
             label="Discount"
             value={`-${formatPKR(price.discountAmount)}${price.appliedPromotions[0]?.name ? ` (${price.appliedPromotions[0].name})` : ""}`}
           />
         )}
-        <Row label="Gender" value={p.gender ? p.gender[0].toUpperCase() + p.gender.slice(1) : "—"} />
+        <Row
+          label="Gender"
+          value={p.gender ? p.gender[0].toUpperCase() + p.gender.slice(1) : "—"}
+        />
         <Row label="Scent Style" value={p.family || "—"} />
         <Row label="Available Sizes" value={sizeRange} />
-        <Row label="Main Notes" value={[...p.top_notes, ...p.heart_notes].slice(0, 4).join(", ") || "—"} />
+        <Row
+          label="Main Notes"
+          value={[...p.top_notes, ...p.heart_notes].slice(0, 4).join(", ") || "—"}
+        />
         <Row label="Projection" value={strengthLabel(p.rating_projection)} />
         <Row label="Longevity" value={longevityLabel(p.rating_longevity)} />
         <Row label="Best Season" value={p.best_season || "—"} />
         <Row label="Best Occasion" value={p.occasion || "—"} />
         <Row label="Day or Night" value={p.rating_sillage >= 7 ? "Evening" : "Day-friendly"} />
-        <Row label="Formal or Casual" value={p.occasion?.toLowerCase().includes("formal") ? "Formal" : "Everyday / Casual"} />
+        <Row
+          label="Formal or Casual"
+          value={p.occasion?.toLowerCase().includes("formal") ? "Formal" : "Everyday / Casual"}
+        />
       </div>
 
       <details className="mt-6">
@@ -168,8 +210,22 @@ export function ComparisonTool() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <Side perfumes={perfumes} brands={brands} variants={variants} promotions={promotions} value={a} onChange={selectA} />
-          <Side perfumes={perfumes} brands={brands} variants={variants} promotions={promotions} value={b} onChange={selectB} />
+          <Side
+            perfumes={perfumes}
+            brands={brands}
+            variants={variants}
+            promotions={promotions}
+            value={a}
+            onChange={selectA}
+          />
+          <Side
+            perfumes={perfumes}
+            brands={brands}
+            variants={variants}
+            promotions={promotions}
+            value={b}
+            onChange={selectB}
+          />
         </div>
       </div>
     </section>

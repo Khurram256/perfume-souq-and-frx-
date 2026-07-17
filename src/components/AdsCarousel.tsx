@@ -204,7 +204,13 @@ export function AdsCarousel() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <img src={slide.src} alt={slide.eyebrow} className="h-full w-full object-cover" />
+                  <img
+                    src={slide.src}
+                    alt={slide.eyebrow}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                  />
                 )}
                 <div
                   className="absolute inset-0"
@@ -236,7 +242,12 @@ export function AdsCarousel() {
                     {slide.ctaLabel && slide.ctaHref && (
                       <motion.a
                         href={slide.ctaHref}
-                        onClick={() => trackEvent("ad_click", { sourcePath: "/ads-carousel", metadata: { adId: slide.id } })}
+                        onClick={() =>
+                          trackEvent("ad_click", {
+                            sourcePath: "/ads-carousel",
+                            metadata: { adId: slide.id },
+                          })
+                        }
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.7, duration: 0.8 }}

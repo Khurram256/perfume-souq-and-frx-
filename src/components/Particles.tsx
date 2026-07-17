@@ -43,6 +43,7 @@ export function Particles({ count = 40 }: { count?: number }) {
             background: "var(--gold)",
             boxShadow: "0 0 6px var(--gold)",
             animation: `particle-up ${p.duration}s linear ${p.delay}s infinite`,
+            willChange: "transform, opacity",
             ["--p-x" as string]: `${p.x}px`,
             ["--p-op" as string]: p.op,
           }}

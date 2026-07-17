@@ -88,12 +88,13 @@ export function Hero() {
   const glowParX = useTransform(smx, [-0.5, 0.5], [14, -14]);
   const glowParY = useTransform(smy, [-0.5, 0.5], [10, -10]);
 
+  // Viewport-relative, deliberately not getBoundingClientRect(): reading the
+  // rect on every mousemove forces a synchronous layout (jank under motion),
+  // and the hero is full-bleed at the top of the page anyway.
   const onMouseMove = (e: React.MouseEvent) => {
     if (reduceMotion) return;
-    const r = ref.current?.getBoundingClientRect();
-    if (!r) return;
-    mx.set((e.clientX - r.left) / r.width - 0.5);
-    my.set((e.clientY - r.top) / r.height - 0.5);
+    mx.set(e.clientX / window.innerWidth - 0.5);
+    my.set(e.clientY / window.innerHeight - 0.5);
   };
 
   if (visible === "false") return null;
