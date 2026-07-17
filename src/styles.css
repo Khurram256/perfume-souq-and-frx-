@@ -646,36 +646,6 @@
   50%      { opacity: 0.85; transform: translateX(-50%) translateY(-14px) scale(1.06); }
 }
 
-/* Floating fragrance-note chips orbiting the bottle (spec §6). Display is
-   deliberately NOT set here — it's controlled by Tailwind's hidden/
-   sm:inline-flex utilities on the element, and this file's rules are
-   unlayered plain CSS, which beats Tailwind's utility layer regardless of
-   source order (unlayered always wins over @layer in cascade precedence).
-   Setting display here would silently defeat the responsive hide/show. */
-.note-chip {
-  position: absolute;
-  align-items: center;
-  will-change: transform;
-  padding: 0.5em 0.95em;
-  border-radius: 999px;
-  border: 1px solid oklch(0.96 0.012 220 / 0.18);
-  background: oklch(0.16 0.03 258 / 0.4);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  color: oklch(0.96 0.012 220 / 0.78);
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  animation: note-drift var(--note-dur, 7s) ease-in-out infinite;
-  animation-delay: var(--note-delay, 0s);
-  pointer-events: none;
-}
-@keyframes note-drift {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-10px); }
-}
-
 /* Premium solid CTA — champagne-gold fill, deep navy text (spec §9).
    Never a transparent ghost style for the primary action. */
 .btn-hero-primary {
@@ -712,6 +682,62 @@
 .link-underline:focus-visible {
   outline: 2px solid oklch(0.96 0.012 220 / 0.9);
   outline-offset: 4px;
+}
+
+/* Secondary CTA — elegant outline, never filled (spec: "Find Your Signature
+   Scent" stays a quiet second action next to the solid primary button). */
+.btn-hero-outline {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid oklch(0.66 0.12 74 / 0.45);
+  color: var(--gold);
+  background: transparent;
+  transition: border-color 0.4s ease, letter-spacing 0.4s ease, background-color 0.4s ease;
+}
+.btn-hero-outline:hover {
+  border-color: var(--gold);
+  background-color: oklch(0.66 0.12 74 / 0.08);
+  letter-spacing: 0.5em;
+}
+.btn-hero-outline:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+}
+
+/* Occasional title shimmer — a single sweep every few seconds, not a
+   continuous loop (spec explicitly rules out constant shine on the
+   wordmark). The pause is baked into the keyframe's percentage spacing. */
+.title-shimmer {
+  background: linear-gradient(
+    100deg,
+    var(--clay) 0%,
+    var(--champagne) 12%,
+    var(--gold) 18%,
+    var(--champagne) 24%,
+    var(--clay) 36%,
+    var(--clay) 100%
+  );
+  background-size: 320% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: title-shimmer-pass 7s ease-in-out infinite;
+}
+@keyframes title-shimmer-pass {
+  0%   { background-position: 100% 0; }
+  22%  { background-position: -60% 0; }
+  100% { background-position: -60% 0; }
+}
+
+/* Depth-of-field treatment for the second, background bottle in the hero's
+   dual-bottle composition — softer, cooler, slightly desaturated so it
+   reads as sitting further back in the studio rather than competing with
+   the foreground bottle for attention. */
+.bottle-secondary {
+  filter: blur(1.5px) saturate(0.85) brightness(0.97);
+  opacity: 0.72;
 }
 
 /* Intro: narrow champagne light sweep (BoutiqueLoader stage 4) */
