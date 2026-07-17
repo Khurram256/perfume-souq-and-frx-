@@ -4,10 +4,11 @@ import { motion } from "framer-motion";
 import { X } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { CartProvider } from "@/contexts/CartContext";
+import { CartProvider, useCart } from "@/contexts/CartContext";
 import { CartDrawer } from "@/components/CartDrawer";
 import { FlyToCart } from "@/components/FlyToCart";
 import { ContactButton } from "@/components/ContactButton";
+import { BackInStockButton } from "@/components/BackInStockButton";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -116,7 +117,13 @@ function ShopContent() {
           })
         : { originalPrice: basePrice, finalPrice: basePrice, discountAmount: 0, appliedPromotions: [] };
       const inStock = perfumeVariants.length ? perfumeVariants.some((v) => v.in_stock) : p.in_stock;
-      return { perfume: p, price: resolved, inStock, sizeCount: perfumeVariants.length };
+      return {
+        perfume: p,
+        price: resolved,
+        inStock,
+        sizeCount: perfumeVariants.length,
+        variantId: cheapest?.id,
+      };
     });
   }, [perfumes, variants, promotions]);
 
@@ -288,12 +295,13 @@ function ShopContent() {
             {isLoading && <p className="text-sm text-foreground/50">Loading the collection…</p>}
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {filtered.map(({ perfume, price, inStock, sizeCount }) => (
+              {filtered.map(({ perfume, price, inStock, sizeCount, variantId }) => (
                 <ShopCard
                   key={perfume.id}
                   perfume={perfume}
                   price={price}
                   inStock={inStock}
+                  variantId={variantId}
                   multipleSizes={sizeCount > 1}
                   brandName={brands.find((b) => b.id === perfume.brand_id)?.name}
                 />
@@ -316,27 +324,43 @@ function ShopCard({
   perfume,
   price,
   inStock,
+  variantId,
   brandName,
   multipleSizes,
 }: {
   perfume: Perfume;
   price: { originalPrice: number; finalPrice: number; discountAmount: number };
   inStock: boolean;
+  variantId?: string;
   brandName?: string;
   multipleSizes?: boolean;
 }) {
+  const { add } = useCart();
+
+  const handleAdd = () => {
+    add({
+      id: variantId ?? perfume.id,
+      perfumeId: perfume.id,
+      variantId,
+      name: perfume.name,
+      price: price.finalPrice,
+      originalPrice: price.discountAmount > 0 ? price.originalPrice : undefined,
+      img: perfume.image_url || "",
+    });
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.6 }}
+      className="glass-card group relative flex flex-col items-center overflow-hidden rounded-sm p-6 text-center transition-transform hover:-translate-y-1"
     >
-      <Link
-        to="/product/$slug"
-        params={{ slug: perfume.slug }}
-        className="glass-card group relative flex flex-col items-center overflow-hidden rounded-sm p-6 text-center transition-transform hover:-translate-y-1"
-      >
+      {/* Only the image/name/price area navigates — Add to Cart and View
+          Details are separate real actions below it, not nested inside an
+          anchor (a <button> inside <a> is invalid and breaks click intent). */}
+      <Link to="/product/$slug" params={{ slug: perfume.slug }} className="contents">
         {!inStock && (
           <span className="absolute left-4 top-4 z-[3] rounded-full border border-foreground/30 bg-black/60 px-3 py-1 text-[8px] uppercase tracking-[0.4em] text-foreground/70">
             Out of Stock
@@ -366,6 +390,30 @@ function ShopCard({
           </div>
         </div>
       </Link>
+
+      <div className="mt-5 flex items-center gap-5 border-t border-border pt-5">
+        {inStock ? (
+          <button
+            onClick={handleAdd}
+            className="text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
+          >
+            Add to Cart
+          </button>
+        ) : (
+          <BackInStockButton
+            perfumeId={perfume.id}
+            variantId={variantId}
+            className="text-[10px] uppercase tracking-[0.35em] text-gold hover:text-gold/80"
+          />
+        )}
+        <Link
+          to="/product/$slug"
+          params={{ slug: perfume.slug }}
+          className="link-underline text-[10px] uppercase tracking-[0.35em] text-foreground/60 hover:text-gold"
+        >
+          View Details
+        </Link>
+      </div>
     </motion.div>
   );
 }

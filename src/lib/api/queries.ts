@@ -179,31 +179,6 @@ export function usePromotions(opts?: { includeInactive?: boolean }) {
   });
 }
 
-/* ---------------- bundles ---------------- */
-export type BundleItem = { id: string; bundle_id: string; variant_id: string; quantity: number };
-export type BundleRow = {
-  id: string;
-  name: string;
-  description: string | null;
-  bundle_price_pkr: number;
-  image_url: string | null;
-  active: boolean;
-  starts_at: string | null;
-  ends_at: string | null;
-  items: BundleItem[];
-};
-
-export function useBundles() {
-  return useQuery({
-    queryKey: ["bundles"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("bundles").select("*, items:bundle_items(*)");
-      if (error) throw error;
-      return (data ?? []) as BundleRow[];
-    },
-  });
-}
-
 /* ---------------- back-in-stock requests ---------------- */
 export function useSubmitBackInStock() {
   return useMutation({
@@ -251,36 +226,6 @@ export function useUpdateBackInStockStatus() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["back_in_stock_requests"] }),
-  });
-}
-
-/* ---------------- advertisements ---------------- */
-export type Advertisement = {
-  id: string;
-  title: string;
-  body: string | null;
-  cta_label: string | null;
-  cta_href: string | null;
-  media_url: string | null;
-  media_type: "image" | "video";
-  placement: "homepage" | "shop" | "collection" | "banner" | "promo_card";
-  sort_order: number;
-  active: boolean;
-  starts_at: string | null;
-  ends_at: string | null;
-};
-
-export function useAds(opts?: { placement?: string; includeInactive?: boolean }) {
-  return useQuery({
-    queryKey: ["advertisements", opts?.placement ?? "all", opts?.includeInactive ? "all" : "active"],
-    queryFn: async () => {
-      let q = supabase.from("advertisements").select("*").order("sort_order");
-      if (opts?.placement) q = q.eq("placement", opts.placement);
-      if (!opts?.includeInactive) q = q.eq("active", true);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as unknown as Advertisement[];
-    },
   });
 }
 
@@ -349,17 +294,6 @@ export function useOrderIntents(limit = 50) {
       if (error) throw error;
       return (data ?? []) as unknown as OrderIntent[];
     },
-  });
-}
-
-export function useUpdateOrderStatus() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: { id: string; status: OrderStatus }) => {
-      const { error } = await supabase.from("order_intents").update({ status: input.status }).eq("id", input.id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["order_intents"] }),
   });
 }
 

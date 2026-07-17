@@ -2,8 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { resolveVariantPrice, isPromotionLiveNow, type Promotion } from "@/lib/pricing";
 
+// variantId is optional: a perfume with no configured size still has a real,
+// server-trusted price on the perfumes table itself, and must be orderable —
+// requiring a variant unconditionally is what caused checkout to dead-end
+// for the whole catalogue before any sizes were configured. perfumeId is
+// always required so the variant-less path still has a real product to look
+// up server-side (never trusts a client-sent price either way).
 const itemSchema = z.object({
-  variantId: z.string().uuid(),
+  perfumeId: z.string().uuid(),
+  variantId: z.string().uuid().optional(),
   quantity: z.number().int().min(1).max(50),
 });
 
@@ -35,7 +42,7 @@ function makeOrderRef(): string {
 
 export type RecordedOrderLine = {
   perfumeId: string;
-  variantId: string;
+  variantId: string | null;
   name: string;
   sizeLabel: string;
   quantity: number;
@@ -58,12 +65,26 @@ export const recordOrderIntent = createServerFn({ method: "POST" })
     const phone = normalizePhone(data.phone);
     if (phone.length < 10) throw new Error("Please enter a valid phone number.");
 
-    const variantIds = [...new Set(data.items.map((i) => i.variantId))];
-    const { data: variants, error: vErr } = await supabaseAdmin
-      .from("product_variants")
-      .select("id, size_label, price_pkr, in_stock, perfume:perfumes(id, name, brand_id, category_id)")
-      .in("id", variantIds);
+    const variantItems = data.items.filter((i) => i.variantId);
+    const plainItems = data.items.filter((i) => !i.variantId);
+
+    const variantIds = [...new Set(variantItems.map((i) => i.variantId as string))];
+    const { data: variants, error: vErr } = variantIds.length
+      ? await supabaseAdmin
+          .from("product_variants")
+          .select("id, size_label, price_pkr, in_stock, perfume:perfumes(id, name, brand_id, category_id)")
+          .in("id", variantIds)
+      : { data: [], error: null };
     if (vErr) throw new Error(vErr.message);
+
+    const perfumeIds = [...new Set(plainItems.map((i) => i.perfumeId))];
+    const { data: perfumes, error: pfErr } = perfumeIds.length
+      ? await supabaseAdmin
+          .from("perfumes")
+          .select("id, name, price_pkr, in_stock, brand_id, category_id")
+          .in("id", perfumeIds)
+      : { data: [], error: null };
+    if (pfErr) throw new Error(pfErr.message);
 
     const { data: promoRows, error: pErr } = await supabaseAdmin
       .from("promotions")
@@ -74,14 +95,15 @@ export const recordOrderIntent = createServerFn({ method: "POST" })
     );
 
     const variantById = new Map((variants ?? []).map((v) => [v.id, v]));
+    const perfumeById = new Map((perfumes ?? []).map((p) => [p.id, p]));
 
     const lines: RecordedOrderLine[] = [];
     let subtotal = 0;
     let total = 0;
     const offerIds = new Set<string>();
 
-    for (const item of data.items) {
-      const v = variantById.get(item.variantId) as
+    for (const item of variantItems) {
+      const v = variantById.get(item.variantId as string) as
         | { id: string; size_label: string; price_pkr: number; in_stock: boolean; perfume: { id: string; name: string; brand_id: string | null; category_id: string | null } | null }
         | undefined;
       if (!v || !v.perfume) throw new Error("One or more items are no longer available.");
@@ -103,6 +125,38 @@ export const recordOrderIntent = createServerFn({ method: "POST" })
         variantId: v.id,
         name: v.perfume.name,
         sizeLabel: v.size_label,
+        quantity: item.quantity,
+        originalPrice: priced.originalPrice,
+        finalPrice: priced.finalPrice,
+        lineTotal,
+        promotionName: priced.appliedPromotions[0]?.name ?? null,
+      });
+    }
+
+    // Perfumes with no configured size: price comes straight from the
+    // perfumes table (still resolved server-side, never client-trusted),
+    // and the line is labelled "Standard" since there's no real size.
+    for (const item of plainItems) {
+      const p = perfumeById.get(item.perfumeId);
+      if (!p) throw new Error("One or more items are no longer available.");
+      if (!p.in_stock) throw new Error(`"${p.name}" is out of stock.`);
+
+      const priced = resolveVariantPrice(p.price_pkr, promotions, {
+        perfumeId: p.id,
+        variantId: null,
+        brandId: p.brand_id,
+        categoryId: p.category_id,
+      });
+      priced.appliedPromotions.forEach((pr) => offerIds.add(pr.id));
+
+      const lineTotal = priced.finalPrice * item.quantity;
+      subtotal += priced.originalPrice * item.quantity;
+      total += lineTotal;
+      lines.push({
+        perfumeId: p.id,
+        variantId: null,
+        name: p.name,
+        sizeLabel: "Standard",
         quantity: item.quantity,
         originalPrice: priced.originalPrice,
         finalPrice: priced.finalPrice,

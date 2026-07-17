@@ -14,6 +14,7 @@ import { useCart } from "@/contexts/CartContext";
 import { formatPKR } from "@/lib/format";
 import { Slider } from "./ui/slider";
 import { Magnetic } from "./Magnetic";
+import { BackInStockButton } from "./BackInStockButton";
 
 type TagKey = "tag_gender" | "tag_family" | "tag_occasion";
 type Answers = Partial<Record<TagKey, string>> & { budget?: [number, number] };
@@ -312,51 +313,51 @@ export function FragranceQuiz() {
                             const pv =
                               variants.find((v) => v.perfume_id === p.id && v.is_default) ??
                               variants.find((v) => v.perfume_id === p.id);
-                            // No configured size means nothing for checkout to price/order
-                            // (recordOrderIntent always requires a real variant row) — send
-                            // to the product page instead, where WhatsApp ordering doesn't
-                            // need one, rather than letting the cart accept an item that
-                            // will fail at the final checkout step.
-                            if (!pv) {
-                              return (
+                            return (
+                              <div className="mt-2 flex flex-col items-end gap-1.5">
+                                {p.in_stock ? (
+                                  <button
+                                    onClick={() => {
+                                      add({
+                                        id: pv?.id ?? p.id,
+                                        perfumeId: p.id,
+                                        variantId: pv?.id,
+                                        sizeLabel: pv?.size_label,
+                                        name: p.name,
+                                        price: price?.finalPrice ?? p.price_pkr,
+                                        originalPrice:
+                                          price && price.discountAmount > 0
+                                            ? price.originalPrice
+                                            : undefined,
+                                        img: p.image_url || "",
+                                      });
+                                      trackEvent("whatsapp_click", {
+                                        perfumeId: p.id,
+                                        variantId: pv?.id,
+                                        sourcePath: "/quiz",
+                                      });
+                                    }}
+                                    data-magnetic
+                                    className="text-[9px] font-semibold uppercase tracking-[0.35em] text-gold hover-underline"
+                                  >
+                                    Add to Cart
+                                  </button>
+                                ) : (
+                                  <BackInStockButton
+                                    perfumeId={p.id}
+                                    variantId={pv?.id}
+                                    className="text-[9px] uppercase tracking-[0.35em] text-gold hover-underline"
+                                  />
+                                )}
                                 <Link
                                   to="/product/$slug"
                                   params={{ slug: p.slug }}
                                   data-magnetic
-                                  className="mt-2 inline-block text-[9px] uppercase tracking-[0.35em] text-gold hover-underline"
+                                  className="text-[9px] uppercase tracking-[0.3em] text-foreground/50 hover-underline hover:text-gold"
                                 >
                                   View Details
                                 </Link>
-                              );
-                            }
-                            return (
-                              <button
-                                onClick={() => {
-                                  add({
-                                    id: pv.id,
-                                    perfumeId: p.id,
-                                    variantId: pv.id,
-                                    sizeLabel: pv.size_label,
-                                    name: p.name,
-                                    price: price?.finalPrice ?? p.price_pkr,
-                                    originalPrice:
-                                      price && price.discountAmount > 0
-                                        ? price.originalPrice
-                                        : undefined,
-                                    img: p.image_url || "",
-                                  });
-                                  trackEvent("whatsapp_click", {
-                                    perfumeId: p.id,
-                                    variantId: pv.id,
-                                    sourcePath: "/quiz",
-                                  });
-                                }}
-                                disabled={!p.in_stock}
-                                data-magnetic
-                                className="mt-2 text-[9px] uppercase tracking-[0.35em] text-gold hover-underline disabled:opacity-40"
-                              >
-                                {p.in_stock ? "Add to Cart" : "Sold Out"}
-                              </button>
+                              </div>
                             );
                           })()}
                         </div>

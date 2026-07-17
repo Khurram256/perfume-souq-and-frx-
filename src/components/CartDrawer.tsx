@@ -108,11 +108,6 @@ export function CartDrawer() {
   const [submitting, setSubmitting] = useState(false);
 
   const phoneValid = phone.replace(/[^0-9]/g, "").length >= 10;
-  // Add-to-Cart is now only ever offered for items that already have a real
-  // size/variant (see Collection.tsx / FragranceQuiz.tsx) — this can only
-  // still trip if a variant was removed in admin after the item was added,
-  // so the message names the affected item(s) rather than blaming the user.
-  const itemsMissingVariant = items.filter((i) => !i.variantId);
 
   const handleCheckout = async () => {
     if (!items.length || submitting) return;
@@ -122,13 +117,6 @@ export function CartDrawer() {
     }
     if (!phoneValid) {
       toast.error("Please enter your WhatsApp number so we can confirm your order.");
-      return;
-    }
-    if (itemsMissingVariant.length > 0) {
-      const names = itemsMissingVariant.map((i) => i.name).join(", ");
-      toast.error(
-        `"${names}" is no longer available in that size — please remove it and pick a size again.`,
-      );
       return;
     }
 
@@ -149,7 +137,7 @@ export function CartDrawer() {
           locationLink: locationLink.trim() || undefined,
           note: note.trim() || undefined,
           sessionId: getSessionId(),
-          items: items.map((i) => ({ variantId: i.variantId as string, quantity: i.qty })),
+          items: items.map((i) => ({ perfumeId: i.perfumeId, variantId: i.variantId, quantity: i.qty })),
         },
       });
 

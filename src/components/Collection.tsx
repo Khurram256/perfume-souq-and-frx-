@@ -14,6 +14,7 @@ import {
 import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
 import { SplitHeading } from "./SplitHeading";
+import { BackInStockButton } from "./BackInStockButton";
 
 function ProductCard({
   p,
@@ -44,13 +45,6 @@ function ProductCard({
         appliedPromotions: [],
       };
   const inStock = variant ? variant.in_stock : p.in_stock;
-  // A perfume with zero configured sizes has nothing checkout can actually
-  // price/order (recordOrderIntent requires a real product_variants row —
-  // that's deliberate, so pricing is never trusted from the client). Adding
-  // it to the cart anyway used to silently fail at the final checkout step
-  // with an unactionable error. Route to the product page instead, where
-  // ordering happens directly over WhatsApp without needing a variant.
-  const hasVariant = !!variant;
 
   // Luxury-subtle tilt — max ~3° per the design direction (nothing exaggerated).
   const rx = useMotionValue(0);
@@ -166,8 +160,8 @@ function ProductCard({
         </div>
       </details>
 
-      <div className="mt-7 flex w-full items-center justify-between border-t border-border pt-6">
-        <span className="flex items-baseline gap-2">
+      <div className="mt-7 w-full border-t border-border pt-6">
+        <span className="flex items-baseline justify-center gap-2">
           {price.discountAmount > 0 && (
             <span className="text-xs text-foreground/40 line-through">
               {formatPKR(price.originalPrice)}
@@ -178,25 +172,35 @@ function ProductCard({
             {formatPKR(price.finalPrice)}
           </span>
         </span>
-        {hasVariant ? (
-          <button
-            onClick={handleAdd}
-            disabled={!inStock}
-            className="link-underline flex items-center gap-2 text-[10px] uppercase tracking-[0.35em] text-gold disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Plus className="h-3 w-3" />
-            {inStock ? "Add to Cart" : "Sold Out"}
-          </button>
-        ) : (
+
+        {/* Add to Cart and View Details are two distinct, always-available
+            actions — Add to Cart works whether or not this perfume has a
+            configured size (see order.functions.ts), it never disappears
+            in favour of View Details. */}
+        <div className="mt-4 flex items-center justify-center gap-5">
+          {inStock ? (
+            <button
+              onClick={handleAdd}
+              className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
+            >
+              <Plus className="h-3 w-3" />
+              Add to Cart
+            </button>
+          ) : (
+            <BackInStockButton
+              perfumeId={p.id}
+              variantId={variant?.id}
+              className="text-[10px] uppercase tracking-[0.35em] text-gold hover:text-gold/80"
+            />
+          )}
           <Link
             to="/product/$slug"
             params={{ slug: p.slug }}
-            className="link-underline flex items-center gap-2 text-[10px] uppercase tracking-[0.35em] text-gold"
+            className="link-underline text-[10px] uppercase tracking-[0.35em] text-foreground/60 hover:text-gold"
           >
-            <Plus className="h-3 w-3" />
             View Details
           </Link>
-        )}
+        </div>
       </div>
     </motion.article>
   );

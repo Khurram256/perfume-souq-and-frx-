@@ -7,7 +7,6 @@ import { Collection } from "@/components/Collection";
 import { FragranceQuiz } from "@/components/FragranceQuiz";
 import { ComparisonTool } from "@/components/ComparisonTool";
 import { CircleOfScent } from "@/components/CircleOfScent";
-import { AdsCarousel } from "@/components/AdsCarousel";
 import { InstagramFeed } from "@/components/InstagramFeed";
 import { Reviews } from "@/components/Reviews";
 import { ClosingSection } from "@/components/ClosingSection";
@@ -52,7 +51,6 @@ function Index() {
         <FragranceQuiz />
         <ComparisonTool />
         <CircleOfScent />
-        <AdsCarousel />
         <InstagramFeed />
         <Reviews />
         <ClosingSection />

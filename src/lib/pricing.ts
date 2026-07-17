@@ -28,7 +28,10 @@ export type Promotion = {
 
 export type PricingContext = {
   perfumeId: string;
-  variantId: string;
+  // null for perfumes with no configured size/variant — a "variant" target
+  // type promotion then simply never matches, which is correct (there's no
+  // real variant to have been targeted).
+  variantId: string | null;
   brandId: string | null;
   categoryId: string | null;
 };
@@ -47,7 +50,7 @@ function matchesTarget(target: PromotionTarget, ctx: PricingContext): boolean {
     case "product":
       return target.target_id === ctx.perfumeId;
     case "variant":
-      return target.target_id === ctx.variantId;
+      return !!ctx.variantId && target.target_id === ctx.variantId;
     case "brand":
       return !!ctx.brandId && target.target_id === ctx.brandId;
     case "category":
@@ -57,8 +60,8 @@ function matchesTarget(target: PromotionTarget, ctx: PricingContext): boolean {
   }
 }
 
-// Discount-type promotions only — bundles are priced as a fixed bundle_price
-// and resolved separately (see resolveBundlePrice below).
+// Discount-type promotions only — "bundle" is a legacy discount_type value
+// with no admin UI to create one (bundles are gone as a feature).
 export function getApplicablePromotions(
   promotions: Promotion[],
   ctx: PricingContext,
@@ -136,21 +139,3 @@ export function resolveVariantPrice(
   return resolvePrice(basePrice, getApplicablePromotions(promotions, ctx, now));
 }
 
-export type Bundle = {
-  id: string;
-  name: string;
-  description: string | null;
-  bundle_price_pkr: number;
-  active: boolean;
-  starts_at: string | null;
-  ends_at: string | null;
-};
-
-export function resolveBundlePrice(bundle: Bundle, itemOriginalTotal: number) {
-  const finalPrice = Math.max(0, Math.round(bundle.bundle_price_pkr));
-  return {
-    originalPrice: itemOriginalTotal,
-    finalPrice,
-    discountAmount: Math.max(0, itemOriginalTotal - finalPrice),
-  };
-}
