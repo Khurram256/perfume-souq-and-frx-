@@ -394,30 +394,6 @@
     filter: drop-shadow(0 0 80px oklch(0.78 0.09 78 / 0.35));
   }
 
-  .smoke-mist::before,
-  .smoke-mist::after {
-    content: "";
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(110px);
-    opacity: 0.22;
-    pointer-events: none;
-  }
-  .smoke-mist::before {
-    width: 420px; height: 420px;
-    background: var(--gold);
-    opacity: 0.28;
-    top: -8%; left: -8%;
-    animation: drift-1 22s ease-in-out infinite alternate;
-  }
-  .smoke-mist::after {
-    width: 520px; height: 520px;
-    background: var(--clay);
-    opacity: 0.30;
-    bottom: -18%; right: -8%;
-    animation: drift-2 26s ease-in-out infinite alternate;
-  }
-
   /* Maison Spotlight highlight on featured product card */
   .spotlight-card {
     position: relative;
@@ -460,14 +436,6 @@
 @keyframes float-y {
   0%, 100% { transform: translateY(0) rotateY(0deg); }
   50%      { transform: translateY(-20px) rotateY(8deg); }
-}
-@keyframes drift-1 {
-  0%   { transform: translate(0,0); }
-  100% { transform: translate(80px, 60px); }
-}
-@keyframes drift-2 {
-  0%   { transform: translate(0,0); }
-  100% { transform: translate(-100px, -50px); }
 }
 @keyframes particle-up {
   0%   { transform: translateY(100vh) translateX(0); opacity: 0; }
@@ -608,16 +576,123 @@
   100% { transform: translateY(14px); opacity: 0; }
 }
 
-/* ───────────── Hero wash — follows the active theme (was hardcoded dark) ───────────── */
-.hero-mesh {
+/* ═══════════════════════════════════════════════════════════════════════
+   HERO — "The Scent Chamber": a deliberately dark cinematic composition,
+   independent of the site's active theme (same rationale as the always-dark
+   About/Signature/Footer editorial blocks — see the [data-theme] engine
+   comment above). Text inside the hero uses hardcoded light oklch values,
+   never theme-following utility classes.
+   ═══════════════════════════════════════════════════════════════════════ */
+/* Follows the site's active theme (light Signature Ivory by default) rather
+   than being forced dark — same background technique as the original hero,
+   just centered on the new composition. */
+.hero-chamber {
   background-color: var(--background);
   background-image: var(--gradient-mesh);
   background-size: 200% 200%;
   animation: mesh-drift 28s ease-in-out infinite alternate;
 }
-.hero-blue-wash {
-  background: radial-gradient(ellipse at 65% 50%, var(--gold) 0%, transparent 60%);
-  opacity: 0.10;
+.hero-vignette {
+  background: radial-gradient(ellipse at 65% 45%, var(--gold) 0%, transparent 60%);
+  opacity: 0.08;
+}
+
+/* Rising fragrance mist column behind the bottle */
+.bottle-mist {
+  position: absolute;
+  left: 50%;
+  bottom: -4%;
+  width: 58%;
+  height: 72%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at 50% 100%, oklch(0.96 0.012 220 / 0.18), transparent 68%);
+  filter: blur(32px);
+  animation: mist-breathe 7s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes mist-breathe {
+  0%, 100% { opacity: 0.5; transform: translateX(-50%) translateY(0) scale(1); }
+  50%      { opacity: 0.85; transform: translateX(-50%) translateY(-14px) scale(1.06); }
+}
+
+/* Floating fragrance-note chips orbiting the bottle (spec §6). Display is
+   deliberately NOT set here — it's controlled by Tailwind's hidden/
+   sm:inline-flex utilities on the element, and this file's rules are
+   unlayered plain CSS, which beats Tailwind's utility layer regardless of
+   source order (unlayered always wins over @layer in cascade precedence).
+   Setting display here would silently defeat the responsive hide/show. */
+.note-chip {
+  position: absolute;
+  align-items: center;
+  padding: 0.5em 0.95em;
+  border-radius: 999px;
+  border: 1px solid oklch(0.96 0.012 220 / 0.18);
+  background: oklch(0.16 0.03 258 / 0.4);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: oklch(0.96 0.012 220 / 0.78);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  animation: note-drift var(--note-dur, 7s) ease-in-out infinite;
+  animation-delay: var(--note-delay, 0s);
+  pointer-events: none;
+}
+@keyframes note-drift {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+
+/* Premium solid CTA — champagne-gold fill, deep navy text (spec §9).
+   Never a transparent ghost style for the primary action. */
+.btn-hero-primary {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gradient-gold);
+  color: var(--navy-deep);
+  border: 1px solid oklch(0.96 0.012 220 / 0.15);
+  box-shadow: 0 14px 40px -12px oklch(0.66 0.12 74 / 0.55);
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.45s ease, letter-spacing 0.45s ease;
+}
+.btn-hero-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 35%, oklch(1 0 0 / 0.5) 50%, transparent 65%);
+  transform: translateX(-130%);
+  transition: transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.btn-hero-primary:hover {
+  letter-spacing: 0.55em;
+  box-shadow: 0 18px 50px -10px oklch(0.66 0.12 74 / 0.7);
+}
+.btn-hero-primary:hover::after {
+  transform: translateX(130%);
+}
+.btn-hero-primary:active {
+  transform: scale(0.97);
+}
+.btn-hero-primary:focus-visible,
+.link-underline:focus-visible {
+  outline: 2px solid oklch(0.96 0.012 220 / 0.9);
+  outline-offset: 4px;
+}
+
+/* Intro: narrow champagne light sweep (BoutiqueLoader stage 4) */
+.intro-sweep {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 42%, oklch(0.90 0.045 78 / 0.4) 50%, transparent 58%);
+  transform: translateX(-100%);
+  animation: intro-sweep-move 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  pointer-events: none;
+}
+@keyframes intro-sweep-move {
+  to { transform: translateX(100%); }
 }
 
 /* ───────────── Collection hover: spray mist puffs ───────────── */

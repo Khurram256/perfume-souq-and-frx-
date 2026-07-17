@@ -23,7 +23,8 @@ export function BoutiqueLoader() {
       setTimeout(() => setStage(2), 700), // gold line
       setTimeout(() => setStage(3), 1100), // wordmark
       setTimeout(() => setStage(4), 1750), // glow hold
-      setTimeout(() => setVisible(false), 2350), // fade out
+      setTimeout(() => setStage(5), 1900), // champagne light sweep
+      setTimeout(() => setVisible(false), 2500), // fade out
     ];
     return () => timers.forEach(clearTimeout);
   }, []);
@@ -70,6 +71,7 @@ export function BoutiqueLoader() {
           >
             by Khurram Shabbir
           </motion.p>
+          {stage >= 5 && <div className="intro-sweep" />}
         </motion.div>
       )}
     </AnimatePresence>

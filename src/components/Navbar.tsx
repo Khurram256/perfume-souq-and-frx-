@@ -37,9 +37,9 @@ export function Navbar() {
   // Sticky nav gets a deep navy treatment on scroll in BOTH themes — the
   // previous version followed the theme's own background var, which meant
   // a nearly-white translucent bar in Signature Ivory (low contrast, felt
-  // washed out). Since the background is now forced dark regardless of
-  // theme, link text is forced to a light color here too — same rationale
-  // as the always-dark About/Footer/Signature blocks elsewhere on the site.
+  // washed out). Since the background is forced dark on scroll only, link
+  // text is forced to a light color here too — same rationale as the
+  // always-dark About/Footer/Signature blocks elsewhere on the site.
   const linkColor = scrolled ? { color: "oklch(0.96 0.012 220 / 0.75)" } : undefined;
 
   return (
@@ -95,7 +95,10 @@ export function Navbar() {
                 <Menu className="h-4 w-4" />
               </button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-full max-w-xs border-l border-border bg-background">
+            <SheetContent
+              side="right"
+              className="w-full max-w-xs border-l border-border bg-background"
+            >
               <div className="mt-10 flex flex-col gap-6">
                 {NAV_LINKS.map((l) => (
                   <Link
