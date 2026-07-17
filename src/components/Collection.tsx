@@ -1,8 +1,16 @@
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
-import { usePerfumes, useCategories, useAllVariants, usePromotions, type Perfume, type ProductVariant } from "@/lib/api/queries";
+import {
+  usePerfumes,
+  useCategories,
+  useAllVariants,
+  usePromotions,
+  type Perfume,
+  type ProductVariant,
+} from "@/lib/api/queries";
 import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
 import { SplitHeading } from "./SplitHeading";
@@ -29,8 +37,20 @@ function ProductCard({
         brandId: p.brand_id,
         categoryId: p.category_id,
       })
-    : { originalPrice: p.price_pkr, finalPrice: p.price_pkr, discountAmount: 0, appliedPromotions: [] };
+    : {
+        originalPrice: p.price_pkr,
+        finalPrice: p.price_pkr,
+        discountAmount: 0,
+        appliedPromotions: [],
+      };
   const inStock = variant ? variant.in_stock : p.in_stock;
+  // A perfume with zero configured sizes has nothing checkout can actually
+  // price/order (recordOrderIntent requires a real product_variants row —
+  // that's deliberate, so pricing is never trusted from the client). Adding
+  // it to the cart anyway used to silently fail at the final checkout step
+  // with an unactionable error. Route to the product page instead, where
+  // ordering happens directly over WhatsApp without needing a variant.
+  const hasVariant = !!variant;
 
   // Luxury-subtle tilt — max ~3° per the design direction (nothing exaggerated).
   const rx = useMotionValue(0);
@@ -70,7 +90,7 @@ function ProductCard({
         promotionName: price.appliedPromotions[0]?.name,
         img: p.image_url || "",
       },
-      rect
+      rect,
     );
   };
 
@@ -101,7 +121,10 @@ function ProductCard({
       )}
 
       {/* Product photography is the hero here — much larger stage, quiet grayscale-to-color bloom on hover */}
-      <div className="relative mb-8 h-80 w-full overflow-visible" style={{ transform: "translateZ(30px)" }}>
+      <div
+        className="relative mb-8 h-80 w-full overflow-visible"
+        style={{ transform: "translateZ(30px)" }}
+      >
         {p.image_url && (
           <img
             ref={imgRef}
@@ -145,20 +168,35 @@ function ProductCard({
 
       <div className="mt-7 flex w-full items-center justify-between border-t border-border pt-6">
         <span className="flex items-baseline gap-2">
-          {price.discountAmount > 0 && <span className="text-xs text-foreground/40 line-through">{formatPKR(price.originalPrice)}</span>}
+          {price.discountAmount > 0 && (
+            <span className="text-xs text-foreground/40 line-through">
+              {formatPKR(price.originalPrice)}
+            </span>
+          )}
           <span className="text-gradient-gold font-display text-xl">
             {multipleSizes ? "From " : ""}
             {formatPKR(price.finalPrice)}
           </span>
         </span>
-        <button
-          onClick={handleAdd}
-          disabled={!inStock}
-          className="link-underline flex items-center gap-2 text-[10px] uppercase tracking-[0.35em] text-gold disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <Plus className="h-3 w-3" />
-          {inStock ? "Add to Cart" : "Sold Out"}
-        </button>
+        {hasVariant ? (
+          <button
+            onClick={handleAdd}
+            disabled={!inStock}
+            className="link-underline flex items-center gap-2 text-[10px] uppercase tracking-[0.35em] text-gold disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Plus className="h-3 w-3" />
+            {inStock ? "Add to Cart" : "Sold Out"}
+          </button>
+        ) : (
+          <Link
+            to="/product/$slug"
+            params={{ slug: p.slug }}
+            className="link-underline flex items-center gap-2 text-[10px] uppercase tracking-[0.35em] text-gold"
+          >
+            <Plus className="h-3 w-3" />
+            View Details
+          </Link>
+        )}
       </div>
     </motion.article>
   );
@@ -212,7 +250,15 @@ export function Collection() {
           {filtered.map((p) => {
             const pv = variants.filter((v) => v.perfume_id === p.id);
             const defaultVariant = pv.find((v) => v.is_default) ?? pv[0];
-            return <ProductCard key={p.id} p={p} variant={defaultVariant} promotions={promotions.data} multipleSizes={pv.length > 1} />;
+            return (
+              <ProductCard
+                key={p.id}
+                p={p}
+                variant={defaultVariant}
+                promotions={promotions.data}
+                multipleSizes={pv.length > 1}
+              />
+            );
           })}
         </div>
 

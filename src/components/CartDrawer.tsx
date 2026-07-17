@@ -50,7 +50,9 @@ function buildInvoice(opts: {
       return `${idx + 1}. ${i.name} (${i.sizeLabel})\n    ${priceLine}`;
     }),
     "",
-    ...(opts.discount > 0 ? [`Subtotal: ${formatPKR(opts.subtotal)}`, `Discount: -${formatPKR(opts.discount)}`] : []),
+    ...(opts.discount > 0
+      ? [`Subtotal: ${formatPKR(opts.subtotal)}`, `Discount: -${formatPKR(opts.discount)}`]
+      : []),
     `*Total: ${formatPKR(opts.total)}*`,
     ...(opts.note ? ["", `Note: ${opts.note}`] : []),
     "",
@@ -106,7 +108,11 @@ export function CartDrawer() {
   const [submitting, setSubmitting] = useState(false);
 
   const phoneValid = phone.replace(/[^0-9]/g, "").length >= 10;
-  const allHaveVariants = items.every((i) => !!i.variantId);
+  // Add-to-Cart is now only ever offered for items that already have a real
+  // size/variant (see Collection.tsx / FragranceQuiz.tsx) — this can only
+  // still trip if a variant was removed in admin after the item was added,
+  // so the message names the affected item(s) rather than blaming the user.
+  const itemsMissingVariant = items.filter((i) => !i.variantId);
 
   const handleCheckout = async () => {
     if (!items.length || submitting) return;
@@ -118,8 +124,11 @@ export function CartDrawer() {
       toast.error("Please enter your WhatsApp number so we can confirm your order.");
       return;
     }
-    if (!allHaveVariants) {
-      toast.error("Please re-add your items from a product page so we can capture the exact size.");
+    if (itemsMissingVariant.length > 0) {
+      const names = itemsMissingVariant.map((i) => i.name).join(", ");
+      toast.error(
+        `"${names}" is no longer available in that size — please remove it and pick a size again.`,
+      );
       return;
     }
 
@@ -145,7 +154,11 @@ export function CartDrawer() {
       });
 
       for (const it of items) {
-        trackEvent("whatsapp_click", { perfumeId: it.perfumeId, variantId: it.variantId, sourcePath: "/cart" });
+        trackEvent("whatsapp_click", {
+          perfumeId: it.perfumeId,
+          variantId: it.variantId,
+          sourcePath: "/cart",
+        });
       }
 
       const msg = buildInvoice({
@@ -172,7 +185,9 @@ export function CartDrawer() {
       close();
     } catch (e) {
       if (win) win.close();
-      toast.error(e instanceof Error ? e.message : "Could not create your order. Please try again.");
+      toast.error(
+        e instanceof Error ? e.message : "Could not create your order. Please try again.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -238,7 +253,11 @@ export function CartDrawer() {
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <h4 className="font-display text-lg italic leading-tight">{it.name}</h4>
-                            {it.sizeLabel && <p className="mt-1 text-[10px] uppercase tracking-[0.3em] text-foreground/40">{it.sizeLabel}</p>}
+                            {it.sizeLabel && (
+                              <p className="mt-1 text-[10px] uppercase tracking-[0.3em] text-foreground/40">
+                                {it.sizeLabel}
+                              </p>
+                            )}
                           </div>
                           <button
                             onClick={() => remove(it.id)}
@@ -268,7 +287,9 @@ export function CartDrawer() {
                           </div>
                           <span className="flex items-baseline gap-2">
                             {it.originalPrice && it.originalPrice > it.price && (
-                              <span className="text-xs text-foreground/40 line-through">{formatPKR(it.originalPrice * it.qty)}</span>
+                              <span className="text-xs text-foreground/40 line-through">
+                                {formatPKR(it.originalPrice * it.qty)}
+                              </span>
                             )}
                             <span className="text-gradient-gold font-display text-lg">
                               {formatPKR(it.price * it.qty)}

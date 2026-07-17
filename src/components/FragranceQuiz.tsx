@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import {
   usePerfumes,
@@ -307,36 +308,57 @@ export function FragranceQuiz() {
                           <p className="text-gradient-gold font-display text-lg">
                             {formatPKR(price?.finalPrice ?? p.price_pkr)}
                           </p>
-                          <button
-                            onClick={() => {
-                              const pv =
-                                variants.find((v) => v.perfume_id === p.id && v.is_default) ??
-                                variants.find((v) => v.perfume_id === p.id);
-                              add({
-                                id: pv?.id ?? p.id,
-                                perfumeId: p.id,
-                                variantId: pv?.id,
-                                sizeLabel: pv?.size_label,
-                                name: p.name,
-                                price: price?.finalPrice ?? p.price_pkr,
-                                originalPrice:
-                                  price && price.discountAmount > 0
-                                    ? price.originalPrice
-                                    : undefined,
-                                img: p.image_url || "",
-                              });
-                              trackEvent("whatsapp_click", {
-                                perfumeId: p.id,
-                                variantId: pv?.id,
-                                sourcePath: "/quiz",
-                              });
-                            }}
-                            disabled={!p.in_stock}
-                            data-magnetic
-                            className="mt-2 text-[9px] uppercase tracking-[0.35em] text-gold hover-underline disabled:opacity-40"
-                          >
-                            {p.in_stock ? "Add to Cart" : "Sold Out"}
-                          </button>
+                          {(() => {
+                            const pv =
+                              variants.find((v) => v.perfume_id === p.id && v.is_default) ??
+                              variants.find((v) => v.perfume_id === p.id);
+                            // No configured size means nothing for checkout to price/order
+                            // (recordOrderIntent always requires a real variant row) — send
+                            // to the product page instead, where WhatsApp ordering doesn't
+                            // need one, rather than letting the cart accept an item that
+                            // will fail at the final checkout step.
+                            if (!pv) {
+                              return (
+                                <Link
+                                  to="/product/$slug"
+                                  params={{ slug: p.slug }}
+                                  data-magnetic
+                                  className="mt-2 inline-block text-[9px] uppercase tracking-[0.35em] text-gold hover-underline"
+                                >
+                                  View Details
+                                </Link>
+                              );
+                            }
+                            return (
+                              <button
+                                onClick={() => {
+                                  add({
+                                    id: pv.id,
+                                    perfumeId: p.id,
+                                    variantId: pv.id,
+                                    sizeLabel: pv.size_label,
+                                    name: p.name,
+                                    price: price?.finalPrice ?? p.price_pkr,
+                                    originalPrice:
+                                      price && price.discountAmount > 0
+                                        ? price.originalPrice
+                                        : undefined,
+                                    img: p.image_url || "",
+                                  });
+                                  trackEvent("whatsapp_click", {
+                                    perfumeId: p.id,
+                                    variantId: pv.id,
+                                    sourcePath: "/quiz",
+                                  });
+                                }}
+                                disabled={!p.in_stock}
+                                data-magnetic
+                                className="mt-2 text-[9px] uppercase tracking-[0.35em] text-gold hover-underline disabled:opacity-40"
+                              >
+                                {p.in_stock ? "Add to Cart" : "Sold Out"}
+                              </button>
+                            );
+                          })()}
                         </div>
                       </div>
                     ))}
