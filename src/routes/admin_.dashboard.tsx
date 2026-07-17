@@ -222,6 +222,7 @@ function Dashboard() {
 function PerfumesPanel() {
   const { data: perfumes = [], refetch } = usePerfumes();
   const { data: categories = [] } = useCategories();
+  const { data: brands = [] } = useBrands();
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Perfume | null | "new">(null);
   const [pendingDelete, setPendingDelete] = useState<Perfume | null>(null);
@@ -318,6 +319,7 @@ function PerfumesPanel() {
         <PerfumeEditor
           perfume={editing === "new" ? null : editing}
           categories={categories}
+          brands={brands}
           onClose={() => setEditing(null)}
           onSaved={() => {
             refetch();

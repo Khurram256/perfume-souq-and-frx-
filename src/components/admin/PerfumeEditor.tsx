@@ -4,7 +4,7 @@ import { X, Upload, Loader2, Plus, Trash2, ArrowUp, ArrowDown } from "lucide-rea
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadPerfumeImage } from "@/lib/api/admin.functions";
-import { useVariants, type Perfume, type Category, type ProductVariant } from "@/lib/api/queries";
+import { useVariants, type Perfume, type Category, type Brand, type ProductVariant } from "@/lib/api/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatPKR } from "@/lib/format";
 
@@ -15,6 +15,8 @@ type Draft = {
   description: string;
   family: string;
   category_id: string;
+  brand_id: string;
+  gender: string;
   price_pkr: number;
   image_url: string;
   top_notes: string;
@@ -47,6 +49,8 @@ function toDraft(p?: Perfume | null): Draft {
     description: p?.description ?? "",
     family: p?.family ?? "",
     category_id: p?.category_id ?? "",
+    brand_id: p?.brand_id ?? "",
+    gender: p?.gender ?? "",
     price_pkr: p?.price_pkr ?? 20000,
     image_url: p?.image_url ?? "",
     top_notes: p?.top_notes?.join(", ") ?? "",
@@ -306,11 +310,13 @@ function ConfirmDialogInline({ open, title, onConfirm, onCancel }: { open: boole
 export function PerfumeEditor({
   perfume,
   categories,
+  brands,
   onClose,
   onSaved,
 }: {
   perfume: Perfume | null;
   categories: Category[];
+  brands: Brand[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -369,6 +375,8 @@ export function PerfumeEditor({
         description: draft.description.trim() || null,
         family: draft.family.trim() || cat?.name || null,
         category_id: draft.category_id || null,
+        brand_id: draft.brand_id || null,
+        gender: draft.gender || null,
         price_pkr: draft.price_pkr,
         image_url: draft.image_url || null,
         top_notes: splitNotes(draft.top_notes),
@@ -495,6 +503,32 @@ export function PerfumeEditor({
                       {c.name}
                     </option>
                   ))}
+                </select>
+              </Field>
+              <Field label="Maison / Brand">
+                <select
+                  className={inputCls}
+                  value={draft.brand_id}
+                  onChange={(e) => set("brand_id", e.target.value)}
+                >
+                  <option value="">— none —</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Gender / Presentation">
+                <select
+                  className={inputCls}
+                  value={draft.gender}
+                  onChange={(e) => set("gender", e.target.value)}
+                >
+                  <option value="">— not specified —</option>
+                  <option value="men">Masculine</option>
+                  <option value="women">Feminine</option>
+                  <option value="unisex">Unisex</option>
                 </select>
               </Field>
               <Field label="Price (PKR)">

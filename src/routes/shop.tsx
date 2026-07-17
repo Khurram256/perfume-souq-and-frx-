@@ -21,6 +21,11 @@ import {
 import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
 
+function clampPrice(n: number, bounds: { min: number; max: number }) {
+  if (Number.isNaN(n)) return bounds.min;
+  return Math.min(bounds.max, Math.max(bounds.min, n));
+}
+
 type ShopSearch = {
   gender?: "men" | "women" | "unisex";
   brands?: string[];
@@ -75,13 +80,23 @@ function ShopContent() {
   const { data: variants = [] } = useAllVariants();
   const { data: promotions = [] } = usePromotions();
 
+  // Falls back to the perfumes' own base prices when a product has no
+  // variants configured yet (true for the whole catalogue right now) — the
+  // old fallback was a hardcoded 0-100000 that didn't reflect real prices
+  // and would silently make any pricier product unreachable via the slider.
   const priceBounds = useMemo(() => {
-    const prices = variants.map((v) => v.price_pkr).filter((p) => p > 0);
+    const variantPrices = variants.map((v) => v.price_pkr).filter((p) => p > 0);
+    const perfumePrices = perfumes.map((p) => p.price_pkr).filter((p) => p > 0);
+    const prices = [...variantPrices, ...perfumePrices];
     if (!prices.length) return { min: 0, max: 100000 };
     return { min: Math.min(...prices), max: Math.max(...prices) };
-  }, [variants]);
+  }, [variants, perfumes]);
 
   const [minInput, maxInput] = [search.min ?? priceBounds.min, search.max ?? priceBounds.max];
+  // Local draft so dragging the slider doesn't fire a URL update (and thus a
+  // resetScroll navigation) on every pixel — only committed on release.
+  const [priceDraft, setPriceDraft] = useState<[number, number] | null>(null);
+  const sliderValue = priceDraft ?? [minInput, maxInput];
 
   const priced = useMemo(() => {
     return perfumes.map((p) => {
@@ -121,7 +136,13 @@ function ShopContent() {
     return sorted;
   }, [priced, search]);
 
-  const patch = (next: Partial<ShopSearch>) => navigate({ search: (prev) => ({ ...prev, ...next }) });
+  // resetScroll defaults to true on every navigate() call in this router —
+  // without disabling it, clicking any filter chip (and every pixel of a
+  // slider drag) snapped the page back to the top. That's the root cause of
+  // the "price slider scrolls the page" bug, and it silently affected every
+  // other filter control too.
+  const patch = (next: Partial<ShopSearch>) =>
+    navigate({ search: (prev) => ({ ...prev, ...next }), resetScroll: false });
 
   const toggleBrand = (id: string) => {
     const current = search.brands ?? [];
@@ -205,23 +226,37 @@ function ShopContent() {
                 min={priceBounds.min}
                 max={priceBounds.max}
                 step={500}
-                value={[minInput, maxInput]}
-                onValueChange={([lo, hi]) => patch({ min: lo, max: hi })}
+                value={sliderValue}
+                onValueChange={([lo, hi]) => setPriceDraft([lo, hi])}
+                onValueCommit={([lo, hi]) => {
+                  setPriceDraft(null);
+                  patch({ min: lo, max: hi });
+                }}
                 className="mb-4"
               />
               <div className="flex items-center justify-between text-xs text-foreground/60">
                 <input
                   type="number"
-                  value={minInput}
-                  onChange={(e) => patch({ min: Number(e.target.value) })}
+                  min={priceBounds.min}
+                  max={priceBounds.max}
+                  value={sliderValue[0]}
+                  onChange={(e) => {
+                    const lo = clampPrice(Number(e.target.value), priceBounds);
+                    patch({ min: lo, max: Math.max(lo, sliderValue[1]) });
+                  }}
                   className="w-24 rounded-sm border border-border bg-transparent px-2 py-1 text-foreground"
                   aria-label="Minimum price"
                 />
                 <span>—</span>
                 <input
                   type="number"
-                  value={maxInput}
-                  onChange={(e) => patch({ max: Number(e.target.value) })}
+                  min={priceBounds.min}
+                  max={priceBounds.max}
+                  value={sliderValue[1]}
+                  onChange={(e) => {
+                    const hi = clampPrice(Number(e.target.value), priceBounds);
+                    patch({ max: hi, min: Math.min(hi, sliderValue[0]) });
+                  }}
                   className="w-24 rounded-sm border border-border bg-transparent px-2 py-1 text-foreground"
                   aria-label="Maximum price"
                 />
