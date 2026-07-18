@@ -372,8 +372,12 @@ function ShopCard({
           </span>
         )}
         <div className="relative mb-6 h-64 w-full">
-          {perfume.image_url && (
+          {perfume.image_url ? (
             <img src={perfume.image_url} alt={perfume.name} loading="lazy" className={`mx-auto h-full w-auto object-contain ${inStock ? "" : "opacity-50"}`} />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center rounded-sm border border-dashed border-foreground/15 text-[9px] uppercase tracking-[0.3em] text-foreground/30">
+              Image Coming Soon
+            </div>
           )}
         </div>
         {brandName && <p className="label-eyebrow mb-2 text-[8px]">{brandName}</p>}

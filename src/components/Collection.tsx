@@ -119,7 +119,7 @@ function ProductCard({
         className="relative mb-8 h-80 w-full overflow-visible"
         style={{ transform: "translateZ(30px)" }}
       >
-        {p.image_url && (
+        {p.image_url ? (
           <img
             ref={imgRef}
             src={p.image_url}
@@ -129,6 +129,10 @@ function ProductCard({
             height={400}
             className={`img-reveal relative mx-auto h-full w-auto object-contain ${inStock ? "" : "opacity-50"}`}
           />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center rounded-sm border border-dashed border-foreground/15 text-[9px] uppercase tracking-[0.3em] text-foreground/30">
+            Image Coming Soon
+          </div>
         )}
       </div>
 

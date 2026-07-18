@@ -217,8 +217,8 @@ function ProductContent() {
         </nav>
 
         <div className="grid grid-cols-1 gap-16 lg:grid-cols-2">
-          <div className="relative flex items-center justify-center">
-            {perfume.image_url && (
+          <div className="relative flex min-h-[320px] items-center justify-center">
+            {perfume.image_url ? (
               <img
                 src={perfume.image_url}
                 alt={perfume.name}
@@ -226,6 +226,10 @@ function ProductContent() {
                 decoding="async"
                 className={`max-h-[560px] w-auto ${inStock ? "" : "opacity-50"}`}
               />
+            ) : (
+              <div className="flex h-80 w-full max-w-sm items-center justify-center rounded-sm border border-dashed border-foreground/15 text-[10px] uppercase tracking-[0.3em] text-foreground/30">
+                Image Coming Soon
+              </div>
             )}
           </div>
 

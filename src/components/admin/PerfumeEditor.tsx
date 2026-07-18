@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X, Upload, Loader2, Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadPerfumeImage } from "@/lib/api/admin.functions";
+import { uploadPerfumeImage, deletePerfumeImage } from "@/lib/api/admin.functions";
 import { useVariants, type Perfume, type Category, type Brand, type ProductVariant } from "@/lib/api/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatPKR } from "@/lib/format";
@@ -19,6 +19,7 @@ type Draft = {
   gender: string;
   price_pkr: number;
   image_url: string;
+  image_storage_path: string;
   top_notes: string;
   heart_notes: string;
   base_notes: string;
@@ -61,6 +62,7 @@ function toDraft(p?: Perfume | null): Draft {
     gender: p?.gender ?? "",
     price_pkr: p?.price_pkr ?? 20000,
     image_url: p?.image_url ?? "",
+    image_storage_path: p?.image_storage_path ?? "",
     top_notes: p?.top_notes?.join(", ") ?? "",
     heart_notes: p?.heart_notes?.join(", ") ?? "",
     base_notes: p?.base_notes?.join(", ") ?? "",
@@ -358,18 +360,39 @@ export function PerfumeEditor({
       return;
     }
     setUploading(true);
+    const previousPath = draft.image_storage_path;
     try {
       const base64 = await fileToBase64(file);
       const result = await uploadPerfumeImage({
         data: { fileName: file.name, contentType: file.type, base64 },
       });
-      set("image_url", result.url);
+      setDraft((d) => ({ ...d, image_url: result.url, image_storage_path: result.path }));
       toast.success("Image uploaded");
+      // Best-effort cleanup of the file being replaced — a failure here
+      // leaves an orphaned object in storage but never blocks the new image
+      // from taking effect, since the perfume row already points at it.
+      if (previousPath) {
+        deletePerfumeImage({ data: { path: previousPath } }).catch(() => {});
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleRemoveImage = async () => {
+    const previousPath = draft.image_storage_path;
+    setDraft((d) => ({ ...d, image_url: "", image_storage_path: "" }));
+    if (previousPath) {
+      try {
+        await deletePerfumeImage({ data: { path: previousPath } });
+      } catch {
+        // Row already cleared client-side; a leftover storage object isn't
+        // customer-visible and doesn't block anything, so don't re-surface it.
+      }
+    }
+    toast.success("Image removed");
   };
 
   const save = async () => {
@@ -395,6 +418,8 @@ export function PerfumeEditor({
         gender: draft.gender || null,
         price_pkr: draft.price_pkr,
         image_url: draft.image_url || null,
+        image_storage_path: draft.image_storage_path || null,
+        image_status: draft.image_url ? "uploaded" : "missing",
         top_notes: splitNotes(draft.top_notes),
         heart_notes: splitNotes(draft.heart_notes),
         base_notes: splitNotes(draft.base_notes),
@@ -487,15 +512,27 @@ export function PerfumeEditor({
                     className="hidden"
                     onChange={handleFileSelect}
                   />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="flex items-center gap-2 rounded-sm border border-gold/40 px-4 py-2 text-[10px] uppercase tracking-[0.35em] text-gold hover:bg-gold/10 disabled:opacity-50"
-                  >
-                    {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                    {uploading ? "Uploading…" : "Upload Image"}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="flex items-center gap-2 rounded-sm border border-gold/40 px-4 py-2 text-[10px] uppercase tracking-[0.35em] text-gold hover:bg-gold/10 disabled:opacity-50"
+                    >
+                      {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                      {uploading ? "Uploading…" : draft.image_url ? "Replace Image" : "Upload Image"}
+                    </button>
+                    {draft.image_url && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        disabled={uploading}
+                        className="text-[10px] uppercase tracking-[0.3em] text-red-400/80 hover:text-red-400 disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
                   <p className="mt-2 text-[10px] text-foreground/40">PNG, JPEG, WEBP, or GIF. Max 8MB.</p>
                 </div>
               </div>
