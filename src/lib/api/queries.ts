@@ -19,6 +19,20 @@ export function useCategories() {
 }
 
 /* ---------------- perfumes ---------------- */
+// Public-safe columns only — deliberately excludes `source_notes` (private
+// admin audit text) and `needs_confirmation` (admin-only flag). RLS is
+// row-level, not column-level, so `select("*")` here would ship both to
+// every visitor's network tab regardless of whether the UI renders them.
+// The admin dashboard uses usePerfumesAdmin() below instead, which does
+// select those two columns.
+const PUBLIC_PERFUME_COLUMNS =
+  "id,name,slug,tagline,description,category_id,family,price_pkr,image_url,top_notes,heart_notes,base_notes," +
+  "in_stock,featured,spotlight_eligible,rating_longevity,rating_sillage,rating_projection,rating_versatility," +
+  "rating_compliment,rating_uniqueness,rating_sweetness,rating_freshness,rating_warmth,best_season,occasion," +
+  "tag_family,tag_intensity,tag_mood,tag_season,tag_occasion,tag_gender,sort_order,brand_id,gender,concentration," +
+  "status,new_arrival,sku,meta_title,meta_description,og_image_url,main_accords,sale_price_pkr,stock_quantity," +
+  "image_status,image_storage_path";
+
 export type Perfume = {
   id: string;
   name: string;
@@ -41,6 +55,9 @@ export type Perfume = {
   rating_versatility: number;
   rating_compliment: number;
   rating_uniqueness: number;
+  rating_sweetness: number;
+  rating_freshness: number;
+  rating_warmth: number;
   best_season: string | null;
   occasion: string | null;
   tag_family: string | null;
@@ -59,11 +76,37 @@ export type Perfume = {
   meta_title: string | null;
   meta_description: string | null;
   og_image_url: string | null;
+  main_accords: string[];
+  sale_price_pkr: number | null;
+  stock_quantity: number | null;
+  image_status: "missing" | "uploaded";
+  image_storage_path: string | null;
+  // Admin-only — present only when fetched via usePerfumesAdmin().
+  needs_confirmation?: boolean;
+  source_notes?: string | null;
 };
 
 export function usePerfumes() {
   return useQuery({
     queryKey: ["perfumes"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("perfumes")
+        .select(PUBLIC_PERFUME_COLUMNS)
+        .order("sort_order")
+        .order("created_at");
+      if (error) throw error;
+      return (data ?? []) as unknown as Perfume[];
+    },
+  });
+}
+
+// Admin dashboard only — includes needs_confirmation and source_notes so
+// the Perfumes panel can show the "Needs Confirmation" flag and filter by
+// it. Never import this into a customer-facing page.
+export function usePerfumesAdmin() {
+  return useQuery({
+    queryKey: ["perfumes", "admin"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("perfumes")
@@ -81,9 +124,9 @@ export function usePerfumeBySlug(slug: string | undefined) {
     queryKey: ["perfume", slug],
     enabled: !!slug,
     queryFn: async () => {
-      const { data, error } = await supabase.from("perfumes").select("*").eq("slug", slug as string).maybeSingle();
+      const { data, error } = await supabase.from("perfumes").select(PUBLIC_PERFUME_COLUMNS).eq("slug", slug as string).maybeSingle();
       if (error) throw error;
-      return data as Perfume | null;
+      return data as unknown as Perfume | null;
     },
   });
 }
