@@ -33,7 +33,7 @@ import { InstantAddPerfume } from "@/components/admin/InstantAddPerfume";
 import type { Perfume } from "@/lib/api/queries";
 import { THEMES, applyTheme, DEFAULT_THEME } from "@/components/ThemeEngine";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { listAdminRoles, addAdminRole, removeAdminRole, uploadPerfumeImage } from "@/lib/api/admin.functions";
+import { listAdminRoles, addAdminRole, removeAdminRole, uploadPerfumeImage, resetAnalytics } from "@/lib/api/admin.functions";
 
 export const Route = createFileRoute("/admin_/dashboard")({
   head: () => ({
@@ -1646,6 +1646,92 @@ function AnalyticsPanel() {
           <p className="mt-1 text-xs text-foreground/50">{orders.length} recorded — full detail, search and status updates live in the Orders tab.</p>
         </div>
       </div>
+
+      <ResetAnalyticsSection />
+    </div>
+  );
+}
+
+// Kept visually separate from the stats above (its own bordered, muted
+// section below a divider) so it doesn't sit beside routine actions —
+// this is the one destructive action on this page.
+function ResetAnalyticsSection() {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const close = () => {
+    setOpen(false);
+    setConfirmText("");
+  };
+
+  const handleReset = async () => {
+    setBusy(true);
+    try {
+      const result = await resetAnalytics();
+      toast.success(`Analytics reset — ${result.rowsDeleted} event${result.rowsDeleted === 1 ? "" : "s"} removed.`);
+      qc.invalidateQueries({ queryKey: ["analytics_events"] });
+      close();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to reset analytics");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 border-t border-destructive/20 pt-6">
+      <div className="glass-card flex flex-wrap items-center justify-between gap-4 rounded-sm border border-destructive/25 p-6">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.4em] text-destructive/80">Danger Zone</p>
+          <p className="mt-1 text-sm text-foreground/70">Reset Analytics</p>
+          <p className="mt-1 text-xs text-foreground/50">
+            Permanently deletes all recorded page views, product views, WhatsApp clicks, and quiz activity.
+            Products, orders, customers, themes, CMS content, and admin accounts are never affected.
+          </p>
+        </div>
+        <button
+          onClick={() => setOpen(true)}
+          className="rounded-sm border border-destructive/50 px-5 py-2 text-[10px] uppercase tracking-[0.35em] text-destructive hover:bg-destructive/10"
+        >
+          Reset Analytics
+        </button>
+      </div>
+
+      {open && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4" onClick={close}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-sm border border-destructive/40 bg-card p-7 text-foreground">
+            <h3 className="font-display text-xl italic">Reset all analytics?</h3>
+            <p className="mt-3 text-sm text-foreground/70">
+              This permanently deletes every recorded analytics event. It cannot be undone. Products, orders,
+              and everything else on the site are untouched.
+            </p>
+            <p className="mt-4 text-[10px] uppercase tracking-[0.3em] text-foreground/50">
+              Type RESET to confirm
+            </p>
+            <input
+              autoFocus
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              className="mt-2 w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm uppercase tracking-[0.2em] outline-none focus:border-destructive"
+              placeholder="RESET"
+            />
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={close} className="px-4 py-2 text-[10px] uppercase tracking-[0.4em] text-foreground/60 hover:text-foreground">
+                Cancel
+              </button>
+              <button
+                onClick={handleReset}
+                disabled={confirmText.trim() !== "RESET" || busy}
+                className="rounded-sm bg-red-500/90 px-5 py-2 text-[10px] uppercase tracking-[0.4em] text-white hover:bg-red-500 disabled:opacity-40"
+              >
+                {busy ? "Resetting…" : "Reset Analytics"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1655,9 +1741,18 @@ const ORDER_STATUSES: OrderStatus[] = ["draft", "whatsapp_opened", "submitted", 
 
 function OrdersPanel() {
   const { data: orders = [], isLoading } = useOrderIntents(200);
+  const { data: perfumes = [] } = usePerfumesAdmin();
+  const { data: brands = [] } = useBrands();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  // Best-effort enrichment only — the order line itself (name, size, price)
+  // is a trusted snapshot and stays correct even if the product is later
+  // edited or deleted. Image/brand just dress up the row when the product
+  // still exists; if it doesn't, the row still reads fine without them.
+  const perfumeById = new Map(perfumes.map((p) => [p.id, p]));
+  const brandById = new Map(brands.map((b) => [b.id, b]));
 
   const filtered = orders.filter((o) => {
     if (statusFilter !== "all" && o.status !== statusFilter) return false;
@@ -1737,21 +1832,47 @@ function OrdersPanel() {
                   )}
                   {o.note && <p><span className="text-foreground/50">Note:</span> {o.note}</p>}
                   <div>
-                    <p className="mb-1 text-[9px] uppercase tracking-[0.3em] text-foreground/40">Items</p>
-                    <ul className="space-y-1">
-                      {o.items.map((i, idx) => (
-                        <li key={idx} className="flex justify-between text-xs text-foreground/70">
-                          <span>{i.name} ({i.sizeLabel}) × {i.quantity}</span>
-                          <span>{formatPKR(i.lineTotal)}</span>
-                        </li>
-                      ))}
+                    <p className="mb-2 text-[9px] uppercase tracking-[0.3em] text-foreground/40">Items</p>
+                    <ul className="space-y-2">
+                      {o.items.map((i, idx) => {
+                        const product = perfumeById.get(i.perfumeId);
+                        const brand = product?.brand_id ? brandById.get(product.brand_id) : undefined;
+                        const discounted = i.finalPrice < i.originalPrice;
+                        return (
+                          <li key={idx} className="flex items-center gap-3 text-xs text-foreground/70">
+                            <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-sm border border-border bg-background">
+                              {product?.image_url && (
+                                <img src={product.image_url} alt="" className="h-full w-full object-contain" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate">
+                                {brand && <span className="text-foreground/40">{brand.name} · </span>}
+                                {i.name} ({i.sizeLabel}) × {i.quantity}
+                              </p>
+                              {i.promotionName && (
+                                <p className="text-[10px] text-gold/80">Offer: {i.promotionName}</p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              {discounted && (
+                                <p className="text-[10px] text-foreground/40 line-through">
+                                  {formatPKR(i.originalPrice)}/unit
+                                </p>
+                              )}
+                              <p className="text-foreground/50">{formatPKR(i.finalPrice)}/unit</p>
+                              <p className="font-medium text-foreground">{formatPKR(i.lineTotal)}</p>
+                            </div>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
-                  {o.discount_pkr > 0 && (
-                    <p className="text-xs text-foreground/60">
-                      Subtotal {formatPKR(o.subtotal_pkr)} — Discount −{formatPKR(o.discount_pkr)}
-                    </p>
-                  )}
+                  <p className="text-xs text-foreground/60">
+                    Subtotal {formatPKR(o.subtotal_pkr)}
+                    {o.discount_pkr > 0 && <> — Discount −{formatPKR(o.discount_pkr)}</>}
+                    {" — "}Total <span className="text-gold">{formatPKR(o.total_pkr)}</span>
+                  </p>
                 </div>
               )}
             </div>

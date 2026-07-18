@@ -300,6 +300,8 @@ export function useMedia(section: MediaItem["section"], opts?: { includeInactive
 
 /* ---------------- order intents ---------------- */
 export type OrderIntentLine = {
+  perfumeId: string;
+  variantId: string | null;
   name: string;
   sizeLabel: string;
   quantity: number;

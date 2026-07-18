@@ -8,6 +8,33 @@ export type Database = {
   };
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string;
+          actor_email: string | null;
+          actor_user_id: string;
+          created_at: string;
+          details: Json;
+          id: string;
+        };
+        Insert: {
+          action: string;
+          actor_email?: string | null;
+          actor_user_id: string;
+          created_at?: string;
+          details?: Json;
+          id?: string;
+        };
+        Update: {
+          action?: string;
+          actor_email?: string | null;
+          actor_user_id?: string;
+          created_at?: string;
+          details?: Json;
+          id?: string;
+        };
+        Relationships: [];
+      };
       admin_lock: {
         Row: {
           admin_email: string | null;

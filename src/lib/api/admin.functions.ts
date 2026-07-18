@@ -39,6 +39,29 @@ async function assertOwner(userId: string) {
   }
 }
 
+// Owner or Admin only — deliberately excludes Editor and Analyst for
+// destructive, hard-to-reverse actions like the analytics reset below.
+async function assertOwnerOrAdmin(userId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: lock, error: lockError } = await supabaseAdmin
+    .from("admin_lock")
+    .select("admin_user_id")
+    .eq("id", 1)
+    .maybeSingle();
+  if (lockError) throw new Error(lockError.message);
+  if (lock?.admin_user_id === userId) return;
+
+  const { data: roleRow, error: roleError } = await supabaseAdmin
+    .from("admin_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (roleError) throw new Error(roleError.message);
+  if (roleRow?.role === "admin") return;
+
+  throw new Error("Forbidden: owner or admin only");
+}
+
 export const listAdminRoles = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -119,4 +142,41 @@ export const deletePerfumeImage = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin.storage.from("perfume-media").remove([data.path]);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+// Permanently deletes every row in analytics_events. Restricted to Owner/Admin
+// (not Editor/Analyst) since it's irreversible and touches no other table —
+// products, orders, customers, themes, CMS content, images, and admin
+// accounts are untouched. Every call is written to admin_audit_log first,
+// under the service-role client, so there is always a record of who reset
+// analytics and when even though the underlying data itself is gone.
+export const resetAnalytics = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertOwnerOrAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { count, error: countError } = await supabaseAdmin
+      .from("analytics_events")
+      .select("id", { count: "exact", head: true });
+    if (countError) throw new Error(countError.message);
+
+    const actorEmail = (context.claims as { email?: string } | undefined)?.email ?? null;
+    const { error: auditError } = await supabaseAdmin.from("admin_audit_log").insert({
+      actor_user_id: context.userId,
+      actor_email: actorEmail,
+      action: "analytics_reset",
+      details: { rows_deleted: count ?? 0 },
+    });
+    if (auditError) throw new Error(auditError.message);
+
+    // Deleted after the audit row is written — if this step ever failed
+    // partway, the log entry still proves the attempt was made and by whom.
+    const { error: deleteError } = await supabaseAdmin
+      .from("analytics_events")
+      .delete()
+      .not("id", "is", null);
+    if (deleteError) throw new Error(deleteError.message);
+
+    return { rowsDeleted: count ?? 0 };
   });
