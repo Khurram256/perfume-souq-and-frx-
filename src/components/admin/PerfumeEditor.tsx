@@ -31,6 +31,9 @@ type Draft = {
   rating_versatility: number;
   rating_compliment: number;
   rating_uniqueness: number;
+  rating_sweetness: number;
+  rating_freshness: number;
+  rating_warmth: number;
   best_season: string;
   occasion: string;
   tag_family: string;
@@ -39,6 +42,11 @@ type Draft = {
   tag_season: string;
   tag_occasion: string;
   tag_gender: string;
+  main_accords: string;
+  sale_price_pkr: number | "";
+  stock_quantity: number | "";
+  needs_confirmation: boolean;
+  source_notes: string;
 };
 
 function toDraft(p?: Perfume | null): Draft {
@@ -65,6 +73,9 @@ function toDraft(p?: Perfume | null): Draft {
     rating_versatility: p?.rating_versatility ?? 7,
     rating_compliment: p?.rating_compliment ?? 7,
     rating_uniqueness: p?.rating_uniqueness ?? 7,
+    rating_sweetness: p?.rating_sweetness ?? 5,
+    rating_freshness: p?.rating_freshness ?? 5,
+    rating_warmth: p?.rating_warmth ?? 5,
     best_season: p?.best_season ?? "",
     occasion: p?.occasion ?? "",
     tag_family: p?.tag_family ?? "",
@@ -73,6 +84,11 @@ function toDraft(p?: Perfume | null): Draft {
     tag_season: p?.tag_season ?? "",
     tag_occasion: p?.tag_occasion ?? "",
     tag_gender: p?.tag_gender ?? "unisex",
+    main_accords: p?.main_accords?.join(", ") ?? "",
+    sale_price_pkr: p?.sale_price_pkr ?? "",
+    stock_quantity: p?.stock_quantity ?? "",
+    needs_confirmation: p?.needs_confirmation ?? false,
+    source_notes: p?.source_notes ?? "",
   };
 }
 
@@ -391,6 +407,9 @@ export function PerfumeEditor({
         rating_versatility: draft.rating_versatility,
         rating_compliment: draft.rating_compliment,
         rating_uniqueness: draft.rating_uniqueness,
+        rating_sweetness: draft.rating_sweetness,
+        rating_freshness: draft.rating_freshness,
+        rating_warmth: draft.rating_warmth,
         best_season: draft.best_season.trim() || null,
         occasion: draft.occasion.trim() || null,
         tag_family: draft.tag_family.trim() || null,
@@ -399,6 +418,11 @@ export function PerfumeEditor({
         tag_season: draft.tag_season.trim() || null,
         tag_occasion: draft.tag_occasion.trim() || null,
         tag_gender: draft.tag_gender.trim() || null,
+        main_accords: splitNotes(draft.main_accords),
+        sale_price_pkr: draft.sale_price_pkr === "" ? null : draft.sale_price_pkr,
+        stock_quantity: draft.stock_quantity === "" ? null : draft.stock_quantity,
+        needs_confirmation: draft.needs_confirmation,
+        source_notes: draft.source_notes.trim() || null,
       };
 
       const { error } = isNew
@@ -539,6 +563,15 @@ export function PerfumeEditor({
                   onChange={(e) => set("price_pkr", Number(e.target.value))}
                 />
               </Field>
+              <Field label="Sale Price (PKR, optional)">
+                <input
+                  type="number"
+                  className={inputCls}
+                  value={draft.sale_price_pkr}
+                  onChange={(e) => set("sale_price_pkr", e.target.value === "" ? "" : Number(e.target.value))}
+                  placeholder="Leave blank if not on sale"
+                />
+              </Field>
               <div className="sm:col-span-2">
                 <Field label="Description">
                   <textarea
@@ -582,75 +615,122 @@ export function PerfumeEditor({
               <VariantsSection perfumeId={perfume.id} />
             )}
 
-            {/* Notes */}
-            <section>
-              <p className="mb-3 text-[10px] uppercase tracking-[0.4em] text-gold">Fragrance Notes (comma-separated)</p>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Field label="Top">
-                  <input className={inputCls} value={draft.top_notes} onChange={(e) => set("top_notes", e.target.value)} />
-                </Field>
-                <Field label="Heart">
-                  <input className={inputCls} value={draft.heart_notes} onChange={(e) => set("heart_notes", e.target.value)} />
-                </Field>
-                <Field label="Base">
-                  <input className={inputCls} value={draft.base_notes} onChange={(e) => set("base_notes", e.target.value)} />
-                </Field>
-              </div>
-            </section>
+            {/* Advanced — collapsed by default so the common path (name, brand,
+                price, image) isn't buried under fields most saves don't touch. */}
+            <details className="rounded-sm border border-border">
+              <summary className="cursor-pointer px-4 py-3 text-[10px] uppercase tracking-[0.4em] text-gold">
+                Advanced Fragrance Details
+              </summary>
+              <div className="space-y-8 border-t border-border p-4">
+                {/* Notes */}
+                <section>
+                  <p className="mb-3 text-[10px] uppercase tracking-[0.4em] text-gold">Fragrance Notes (comma-separated)</p>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <Field label="Top">
+                      <input className={inputCls} value={draft.top_notes} onChange={(e) => set("top_notes", e.target.value)} />
+                    </Field>
+                    <Field label="Heart">
+                      <input className={inputCls} value={draft.heart_notes} onChange={(e) => set("heart_notes", e.target.value)} />
+                    </Field>
+                    <Field label="Base">
+                      <input className={inputCls} value={draft.base_notes} onChange={(e) => set("base_notes", e.target.value)} />
+                    </Field>
+                  </div>
+                  <div className="mt-4">
+                    <Field label="Main Accords (comma-separated, e.g. woody, citrus, amber)">
+                      <input className={inputCls} value={draft.main_accords} onChange={(e) => set("main_accords", e.target.value)} />
+                    </Field>
+                  </div>
+                </section>
 
-            {/* Ratings */}
-            <section>
-              <p className="mb-3 text-[10px] uppercase tracking-[0.4em] text-gold">
-                Comparison Ratings (shown in Compare tool)
-              </p>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <RatingSlider label="Longevity" value={draft.rating_longevity} onChange={(v) => set("rating_longevity", v)} />
-                <RatingSlider label="Sillage" value={draft.rating_sillage} onChange={(v) => set("rating_sillage", v)} />
-                <RatingSlider label="Projection" value={draft.rating_projection} onChange={(v) => set("rating_projection", v)} />
-                <RatingSlider label="Versatility" value={draft.rating_versatility} onChange={(v) => set("rating_versatility", v)} />
-                <RatingSlider label="Compliment Factor" value={draft.rating_compliment} onChange={(v) => set("rating_compliment", v)} />
-                <RatingSlider label="Uniqueness" value={draft.rating_uniqueness} onChange={(v) => set("rating_uniqueness", v)} />
-              </div>
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Best Season">
-                  <input className={inputCls} value={draft.best_season} onChange={(e) => set("best_season", e.target.value)} placeholder="Autumn / Winter" />
-                </Field>
-                <Field label="Occasion">
-                  <input className={inputCls} value={draft.occasion} onChange={(e) => set("occasion", e.target.value)} placeholder="Evening" />
-                </Field>
-              </div>
-            </section>
+                {/* Ratings */}
+                <section>
+                  <p className="mb-3 text-[10px] uppercase tracking-[0.4em] text-gold">
+                    Comparison Ratings (shown in Compare tool)
+                  </p>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <RatingSlider label="Longevity" value={draft.rating_longevity} onChange={(v) => set("rating_longevity", v)} />
+                    <RatingSlider label="Sillage" value={draft.rating_sillage} onChange={(v) => set("rating_sillage", v)} />
+                    <RatingSlider label="Projection" value={draft.rating_projection} onChange={(v) => set("rating_projection", v)} />
+                    <RatingSlider label="Versatility" value={draft.rating_versatility} onChange={(v) => set("rating_versatility", v)} />
+                    <RatingSlider label="Compliment Factor" value={draft.rating_compliment} onChange={(v) => set("rating_compliment", v)} />
+                    <RatingSlider label="Uniqueness" value={draft.rating_uniqueness} onChange={(v) => set("rating_uniqueness", v)} />
+                    <RatingSlider label="Sweetness" value={draft.rating_sweetness} onChange={(v) => set("rating_sweetness", v)} />
+                    <RatingSlider label="Freshness" value={draft.rating_freshness} onChange={(v) => set("rating_freshness", v)} />
+                    <RatingSlider label="Warmth" value={draft.rating_warmth} onChange={(v) => set("rating_warmth", v)} />
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field label="Best Season">
+                      <input className={inputCls} value={draft.best_season} onChange={(e) => set("best_season", e.target.value)} placeholder="Autumn / Winter" />
+                    </Field>
+                    <Field label="Occasion">
+                      <input className={inputCls} value={draft.occasion} onChange={(e) => set("occasion", e.target.value)} placeholder="Evening" />
+                    </Field>
+                  </div>
+                </section>
 
-            {/* Quiz tags */}
-            <section>
-              <p className="mb-3 text-[10px] uppercase tracking-[0.4em] text-gold">
-                Quiz Tags (drive Find Your Signature Scent — leave blank to exclude from a question)
-              </p>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Field label="Gender">
-                  <select className={inputCls} value={draft.tag_gender} onChange={(e) => set("tag_gender", e.target.value)}>
-                    <option value="unisex">Unisex</option>
-                    <option value="masculine">Masculine</option>
-                    <option value="feminine">Feminine</option>
-                  </select>
-                </Field>
-                <Field label="Fragrance Family">
-                  <input className={inputCls} value={draft.tag_family} onChange={(e) => set("tag_family", e.target.value)} placeholder="oriental / floral / fresh" />
-                </Field>
-                <Field label="Intensity">
-                  <input className={inputCls} value={draft.tag_intensity} onChange={(e) => set("tag_intensity", e.target.value)} placeholder="soft / strong" />
-                </Field>
-                <Field label="Mood">
-                  <input className={inputCls} value={draft.tag_mood} onChange={(e) => set("tag_mood", e.target.value)} placeholder="romantic / commanding" />
-                </Field>
-                <Field label="Season">
-                  <input className={inputCls} value={draft.tag_season} onChange={(e) => set("tag_season", e.target.value)} placeholder="summer / winter" />
-                </Field>
-                <Field label="Occasion">
-                  <input className={inputCls} value={draft.tag_occasion} onChange={(e) => set("tag_occasion", e.target.value)} placeholder="daily / formal" />
-                </Field>
+                {/* Quiz tags */}
+                <section>
+                  <p className="mb-3 text-[10px] uppercase tracking-[0.4em] text-gold">
+                    Quiz Tags (drive Find Your Signature Scent — leave blank to exclude from a question)
+                  </p>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <Field label="Gender">
+                      <select className={inputCls} value={draft.tag_gender} onChange={(e) => set("tag_gender", e.target.value)}>
+                        <option value="unisex">Unisex</option>
+                        <option value="masculine">Masculine</option>
+                        <option value="feminine">Feminine</option>
+                      </select>
+                    </Field>
+                    <Field label="Fragrance Family">
+                      <input className={inputCls} value={draft.tag_family} onChange={(e) => set("tag_family", e.target.value)} placeholder="oriental / floral / fresh (single word)" />
+                    </Field>
+                    <Field label="Intensity">
+                      <input className={inputCls} value={draft.tag_intensity} onChange={(e) => set("tag_intensity", e.target.value)} placeholder="soft / strong" />
+                    </Field>
+                    <Field label="Mood">
+                      <input className={inputCls} value={draft.tag_mood} onChange={(e) => set("tag_mood", e.target.value)} placeholder="romantic / commanding" />
+                    </Field>
+                    <Field label="Season">
+                      <input className={inputCls} value={draft.tag_season} onChange={(e) => set("tag_season", e.target.value)} placeholder="summer / winter" />
+                    </Field>
+                    <Field label="Occasion">
+                      <input className={inputCls} value={draft.tag_occasion} onChange={(e) => set("tag_occasion", e.target.value)} placeholder="daily / formal (single word)" />
+                    </Field>
+                  </div>
+                </section>
+
+                {/* Stock & admin-only fields */}
+                <section>
+                  <p className="mb-3 text-[10px] uppercase tracking-[0.4em] text-gold">Stock &amp; Admin Notes</p>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field label="Stock Quantity (optional)">
+                      <input
+                        type="number"
+                        className={inputCls}
+                        value={draft.stock_quantity}
+                        onChange={(e) => set("stock_quantity", e.target.value === "" ? "" : Number(e.target.value))}
+                        placeholder="Leave blank if not tracked"
+                      />
+                    </Field>
+                    <label className="flex items-center gap-2 self-end pb-2 text-xs uppercase tracking-[0.2em] text-foreground/70">
+                      <input
+                        type="checkbox"
+                        checked={draft.needs_confirmation}
+                        onChange={(e) => set("needs_confirmation", e.target.checked)}
+                        className="h-4 w-4 accent-[var(--gold)]"
+                      />
+                      Needs Confirmation (hidden reasoning, never shown publicly)
+                    </label>
+                    <div className="sm:col-span-2">
+                      <Field label="Source Notes (private — never shown to customers)">
+                        <textarea rows={2} className={inputCls} value={draft.source_notes} onChange={(e) => set("source_notes", e.target.value)} />
+                      </Field>
+                    </div>
+                  </div>
+                </section>
               </div>
-            </section>
+            </details>
           </div>
 
           <footer className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">

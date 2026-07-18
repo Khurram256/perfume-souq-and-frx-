@@ -29,6 +29,7 @@ import { formatPKR } from "@/lib/format";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { PerfumeEditor } from "@/components/admin/PerfumeEditor";
+import { InstantAddPerfume } from "@/components/admin/InstantAddPerfume";
 import type { Perfume } from "@/lib/api/queries";
 import { THEMES, applyTheme, DEFAULT_THEME } from "@/components/ThemeEngine";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -220,6 +221,7 @@ function PerfumesPanel() {
   const { data: brands = [] } = useBrands();
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Perfume | null | "new">(null);
+  const [instantAdd, setInstantAdd] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Perfume | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState("");
@@ -272,12 +274,20 @@ function PerfumesPanel() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h2 className="font-display text-2xl italic">Perfumes ({filtered.length} of {perfumes.length})</h2>
-        <button
-          onClick={() => setEditing("new")}
-          className="btn-gold px-5 py-2 text-[10px] uppercase tracking-[0.4em]"
-        >
-          + Add Perfume
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setInstantAdd(true)}
+            className="rounded-sm border border-gold/40 px-5 py-2 text-[10px] uppercase tracking-[0.4em] text-gold hover:bg-gold/10"
+          >
+            Instant Add
+          </button>
+          <button
+            onClick={() => setEditing("new")}
+            className="btn-gold px-5 py-2 text-[10px] uppercase tracking-[0.4em]"
+          >
+            + Add Perfume
+          </button>
+        </div>
       </div>
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
@@ -376,6 +386,18 @@ function PerfumesPanel() {
           categories={categories}
           brands={brands}
           onClose={() => setEditing(null)}
+          onSaved={() => {
+            refetch();
+            qc.invalidateQueries({ queryKey: ["perfumes"] });
+          }}
+        />
+      )}
+
+      {instantAdd && (
+        <InstantAddPerfume
+          categories={categories}
+          brands={brands}
+          onClose={() => setInstantAdd(false)}
           onSaved={() => {
             refetch();
             qc.invalidateQueries({ queryKey: ["perfumes"] });
