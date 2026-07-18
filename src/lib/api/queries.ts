@@ -481,9 +481,14 @@ export function useSiteContent() {
   });
 }
 
+// `|| fallback`, not `?? fallback`: several site_content rows (hero CTA
+// label/href among them) are stored as empty strings rather than being
+// absent, and no caller ever wants "" to mean something different from
+// "not configured, use the default" — that gap was silently blanking the
+// hero's CTA buttons entirely (empty label, empty href).
 export function useContent(key: string, fallback = "") {
   const { data } = useSiteContent();
-  return data?.[key] ?? fallback;
+  return data?.[key] || fallback;
 }
 
 /* ---------------- settings ---------------- */
