@@ -17,12 +17,19 @@ import { Magnetic } from "./Magnetic";
 import { BackInStockButton } from "./BackInStockButton";
 
 type TagKey = "tag_gender" | "tag_family" | "tag_occasion";
-type Answers = Partial<Record<TagKey, string>> & { budget?: [number, number] };
+// Answers are always arrays, even for single-select questions (length <= 1)
+// — one uniform shape rather than a string for single-select and a string[]
+// for multi-select, which would need two branches everywhere they're read.
+type Answers = Partial<Record<TagKey, string[]>> & { budget?: [number, number] };
 
-const STEP_META: { key: TagKey; question: string }[] = [
-  { key: "tag_gender", question: "Who is this scent for?" },
-  { key: "tag_family", question: "Which mood draws you in?" },
-  { key: "tag_occasion", question: "What occasion calls for it?" },
+// A data-driven property of the question, not a hardcoded UI branch: which
+// questions allow several answers is a deliberate content decision (a scent
+// can suit more than one occasion or mood, but not more than one target
+// audience), so it lives next to the question text rather than in JSX.
+const STEP_META: { key: TagKey; question: string; selectionMode: "single" | "multiple" }[] = [
+  { key: "tag_gender", question: "Who is this scent for?", selectionMode: "single" },
+  { key: "tag_family", question: "Which moods draw you in?", selectionMode: "multiple" },
+  { key: "tag_occasion", question: "Which occasions call for it?", selectionMode: "multiple" },
 ];
 
 function titleCase(s: string) {
@@ -32,17 +39,18 @@ function titleCase(s: string) {
 function scoreMatch(p: Perfume, a: Answers, priceForBudget?: number) {
   const matched: string[] = [];
   let s = 0;
-  if (a.tag_gender && (p.tag_gender === a.tag_gender || p.tag_gender === "unisex")) {
+  const gender = a.tag_gender?.[0];
+  if (gender && (p.tag_gender === gender || p.tag_gender === "unisex")) {
     s += 3;
-    matched.push(titleCase(a.tag_gender));
+    matched.push(titleCase(gender));
   }
-  if (a.tag_family && p.tag_family === a.tag_family) {
+  if (a.tag_family?.length && p.tag_family && a.tag_family.includes(p.tag_family)) {
     s += 4;
-    matched.push(titleCase(a.tag_family));
+    matched.push(titleCase(p.tag_family));
   }
-  if (a.tag_occasion && p.tag_occasion === a.tag_occasion) {
+  if (a.tag_occasion?.length && p.tag_occasion && a.tag_occasion.includes(p.tag_occasion)) {
     s += 2;
-    matched.push(titleCase(a.tag_occasion));
+    matched.push(titleCase(p.tag_occasion));
   }
   if (a.budget && priceForBudget !== undefined) {
     const [lo, hi] = a.budget;
@@ -214,24 +222,66 @@ export function FragranceQuiz() {
                   <>
                     <p className="mb-2 text-[10px] uppercase tracking-[0.5em] text-gold">
                       Step {step + 1} of {totalSteps}
+                      {steps[step].selectionMode === "multiple" && " · Choose as many as you like"}
                     </p>
                     <h3 className="mb-10 font-display text-3xl italic md:text-4xl">
                       {steps[step].question}
                     </h3>
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                      {steps[step].options.map((o) => (
+                    {/* min-content-safe grid: rows size to their tallest cell, so a
+                        longer label never overlaps the row below it, and text wraps
+                        (break-words + leading-snug) instead of extending past the
+                        button's own border. */}
+                    <div className="grid grid-cols-2 items-stretch gap-3 md:grid-cols-3">
+                      {steps[step].options.map((o) => {
+                        const key = steps[step].key;
+                        const selected = ans[key]?.includes(o.value) ?? false;
+                        return (
+                          <button
+                            key={o.value}
+                            data-magnetic
+                            aria-pressed={selected}
+                            onClick={() => {
+                              if (steps[step].selectionMode === "single") {
+                                setAns((prev) => ({ ...prev, [key]: [o.value] }));
+                                setStep((s) => s + 1);
+                              } else {
+                                setAns((prev) => {
+                                  const current = prev[key] ?? [];
+                                  const next = current.includes(o.value)
+                                    ? current.filter((v) => v !== o.value)
+                                    : [...current, o.value];
+                                  return { ...prev, [key]: next };
+                                });
+                              }
+                            }}
+                            className={`flex min-h-[4.5rem] items-center justify-center break-words rounded-sm border px-4 py-4 text-center text-[11px] uppercase leading-snug tracking-[0.2em] transition-all ${
+                              selected
+                                ? "border-gold bg-gold/15 text-gold"
+                                : "border-gold/30 text-foreground/80 hover:border-gold hover:bg-gold/10 hover:text-gold"
+                            }`}
+                          >
+                            {o.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-8 flex items-center justify-between">
+                      <button
+                        onClick={() => setStep((s) => Math.max(0, s - 1))}
+                        disabled={step === 0}
+                        className="text-[10px] uppercase tracking-[0.4em] text-foreground/50 hover:text-gold disabled:opacity-0"
+                      >
+                        ← Back
+                      </button>
+                      {steps[step].selectionMode === "multiple" && (
                         <button
-                          key={o.label}
-                          data-magnetic
-                          onClick={() => {
-                            setAns((prev) => ({ ...prev, [steps[step].key]: o.value }));
-                            setStep((s) => s + 1);
-                          }}
-                          className="rounded-sm border border-gold/30 px-4 py-5 text-[11px] uppercase tracking-[0.3em] text-foreground/80 transition-all hover:border-gold hover:bg-gold/10 hover:text-gold"
+                          onClick={() => setStep((s) => s + 1)}
+                          disabled={!(ans[steps[step].key]?.length)}
+                          className="btn-gold px-8 py-3 text-[10px] uppercase tracking-[0.4em] disabled:opacity-30"
                         >
-                          {o.label}
+                          Next Question
                         </button>
-                      ))}
+                      )}
                     </div>
                   </>
                 ) : (
@@ -258,6 +308,12 @@ export function FragranceQuiz() {
                         {formatPKR((budgetDraft ?? [priceBounds.min, priceBounds.max])[1])}
                       </span>
                     </div>
+                    <button
+                      onClick={() => setStep((s) => Math.max(0, s - 1))}
+                      className="mb-4 text-[10px] uppercase tracking-[0.4em] text-foreground/50 hover:text-gold"
+                    >
+                      ← Back
+                    </button>
                     <button
                       onClick={onBudgetNext}
                       className="btn-gold w-full py-4 text-[10px] uppercase tracking-[0.4em]"
