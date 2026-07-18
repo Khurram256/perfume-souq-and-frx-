@@ -341,12 +341,13 @@ function PerfumesPanel() {
                     Image Needed
                   </span>
                 )}
-                {p.needs_confirmation && (
-                  <span className="rounded-full border border-destructive/40 px-2 py-0.5 text-[8px] uppercase tracking-[0.2em] text-destructive">
-                    Needs Confirmation
-                  </span>
-                )}
               </div>
+              {/* Needs Confirmation used to render as a badge on every matching
+                  row regardless of whether the admin was looking for it —
+                  cluttering the main list for something that's genuinely a
+                  per-product review flag. It's still surfaced via the "Needs
+                  Confirmation" filter checkbox above and the checkbox in the
+                  Edit form's Advanced section, just not printed on every row. */}
             </div>
             <input
               type="number"
