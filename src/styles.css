@@ -85,7 +85,14 @@
   --gradient-mesh: radial-gradient(at 15% 25%, oklch(0.90 0.04 78 / 0.55), transparent 55%),
     radial-gradient(at 85% 75%, oklch(0.88 0.05 72 / 0.42), transparent 55%),
     radial-gradient(at 50% 100%, oklch(0.94 0.02 78 / 0.5), transparent 60%);
-  --gradient-gold: linear-gradient(135deg, var(--clay) 0%, var(--champagne) 50%, var(--gold-soft) 100%);
+  /* Light theme only: the middle stop is a richer bronze-gold rather than
+     --champagne — --champagne's light-theme lightness (0.90) sits almost
+     flush with this theme's near-white card/background (0.995), so gold
+     price text using this gradient was washing out in its middle third.
+     Dark theme keeps the original --champagne-based formula below, where
+     that same light stop reads correctly as a bright highlight against a
+     near-black background. */
+  --gradient-gold: linear-gradient(135deg, var(--clay) 0%, oklch(0.58 0.11 76) 50%, var(--gold-soft) 100%);
   --gradient-gold-line: linear-gradient(90deg, transparent, var(--gold), transparent);
   --shadow-gold: 0 0 44px oklch(0.66 0.12 74 / 0.20);
   --shadow-deep: 0 28px 70px -20px oklch(0.45 0.04 74 / 0.28);
@@ -139,6 +146,10 @@
     radial-gradient(at 50% 100%, oklch(0.10 0.04 262 / 0.6), transparent 60%);
   --shadow-gold: 0 0 50px oklch(0.82 0.07 82 / 0.25);
   --glass: oklch(0.22 0.05 262 / 0.55);
+  /* Unchanged from the shared :root formula — this theme's --champagne
+     (0.92 lightness) reads correctly as a bright highlight against the
+     near-black background here, so it keeps the original gradient. */
+  --gradient-gold: linear-gradient(135deg, var(--clay) 0%, var(--champagne) 50%, var(--gold-soft) 100%);
 }
 
 @layer base {
