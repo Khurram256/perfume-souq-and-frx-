@@ -16,7 +16,6 @@ import { HeroAtmosphere } from "./HeroAtmosphere";
 import { HeroBottle } from "./HeroBottle";
 import { useContent, usePerfumes, useAllVariants, usePromotions } from "@/lib/api/queries";
 import { resolveVariantPrice } from "@/lib/pricing";
-import { formatPKR } from "@/lib/format";
 
 const FALLBACK_HEADLINE = "A scent is the silence you leave behind";
 
@@ -149,8 +148,8 @@ export function Hero() {
             <motion.img
               src={logoMark}
               alt=""
-              width={72}
-              height={72}
+              width={88}
+              height={88}
               whileHover={
                 reduceMotion
                   ? undefined
@@ -161,11 +160,11 @@ export function Hero() {
                     }
               }
               transition={{ type: "spring", stiffness: 200, damping: 18 }}
-              className="h-14 w-14 sm:h-16 sm:w-16"
+              className="h-16 w-16 sm:h-20 sm:w-20"
               style={{ filter: "drop-shadow(0 0 16px oklch(0.66 0.12 74 / 0.5))" }}
             />
             <div className="leading-none">
-              <p className="title-shimmer font-display text-5xl italic tracking-[0.01em] sm:text-6xl lg:text-[4.5rem] xl:text-[5.25rem]">
+              <p className="title-shimmer font-display text-6xl italic tracking-[0.01em] sm:text-7xl lg:text-[5rem] xl:text-[6rem]">
                 The Perfume Souq
               </p>
               <p className="mt-3 text-[11px] uppercase tracking-[0.5em] text-foreground/60">
@@ -200,68 +199,54 @@ export function Hero() {
 
           <div
             style={{ "--fib-delay": "1.15s" } as CSSProperties}
-            className="fade-in-blur flex flex-col items-center gap-5 lg:items-start"
+            className="fade-in-blur flex flex-col items-center gap-6 lg:items-start"
           >
-            <div className="flex flex-wrap items-center justify-center gap-4 lg:justify-start">
-              <Magnetic>
-                {ctaPrimaryHref.startsWith("/") ? (
-                  <Link
-                    to={ctaPrimaryHref}
-                    className="btn-hero-primary inline-block px-14 py-5 text-[11px] font-medium uppercase tracking-[0.4em]"
-                  >
-                    {ctaPrimaryLabel}
-                  </Link>
-                ) : (
-                  <a
-                    href={ctaPrimaryHref}
-                    className="btn-hero-primary inline-block px-14 py-5 text-[11px] font-medium uppercase tracking-[0.4em]"
-                  >
-                    {ctaPrimaryLabel}
-                  </a>
-                )}
-              </Magnetic>
+            <Magnetic>
+              {ctaPrimaryHref.startsWith("/") ? (
+                <Link
+                  to={ctaPrimaryHref}
+                  className="btn-hero-primary inline-block px-14 py-5 text-[11px] font-medium uppercase tracking-[0.4em]"
+                >
+                  {ctaPrimaryLabel}
+                </Link>
+              ) : (
+                <a
+                  href={ctaPrimaryHref}
+                  className="btn-hero-primary inline-block px-14 py-5 text-[11px] font-medium uppercase tracking-[0.4em]"
+                >
+                  {ctaPrimaryLabel}
+                </a>
+              )}
+            </Magnetic>
+
+            {/* A clean, non-competing stack of secondary links — none of them
+                boxed or bordered, so nothing competes with Shop Now for
+                visual weight. */}
+            <div className="flex flex-col items-center gap-3 lg:items-start">
               {ctaSecondaryLabel &&
                 (ctaSecondaryHref.startsWith("/") ? (
-                  <Link
-                    to={ctaSecondaryHref}
-                    className="btn-hero-outline inline-block px-10 py-5 text-[11px] uppercase tracking-[0.4em]"
-                  >
+                  <Link to={ctaSecondaryHref} className="link-shimmer-underline text-[11px] uppercase tracking-[0.35em] text-foreground/80 hover:text-gold">
                     {ctaSecondaryLabel}
                   </Link>
                 ) : (
-                  <a
-                    href={ctaSecondaryHref}
-                    className="btn-hero-outline inline-block px-10 py-5 text-[11px] uppercase tracking-[0.4em]"
-                  >
+                  <a href={ctaSecondaryHref} className="link-shimmer-underline text-[11px] uppercase tracking-[0.35em] text-foreground/80 hover:text-gold">
                     {ctaSecondaryLabel}
                   </a>
                 ))}
-            </div>
-            <Link
-              to="/brands"
-              className="link-underline inline-block py-1 text-[10px] uppercase tracking-[0.4em] text-foreground/60 hover:text-gold"
-            >
-              Explore Full Maison
-            </Link>
-          </div>
-
-          {featured && (
-            <Link
-              to="/product/$slug"
-              params={{ slug: featured.perfume.slug }}
-              style={{ "--fib-delay": "1.4s" } as CSSProperties}
-              className="fade-in-blur mt-9 inline-flex items-center gap-3 rounded-full border border-gold/20 bg-card/60 px-5 py-2.5 text-xs text-foreground/70 backdrop-blur-md hover:border-gold/40"
-            >
-              <span className="text-[9px] uppercase tracking-[0.3em] text-gold">Featured</span>
-              <span className="font-display italic">{featured.perfume.name}</span>
-              <span className="text-gold">{formatPKR(featured.price.finalPrice)}</span>
-              {!featured.inStock && (
-                <span className="text-[9px] uppercase tracking-[0.3em] text-foreground/40">
-                  Out of Stock
-                </span>
+              <Link to="/brands" className="link-underline inline-block py-1 text-[10px] uppercase tracking-[0.4em] text-foreground/60 hover:text-gold">
+                Explore Full Maison
+              </Link>
+              {featured && (
+                <Link
+                  to="/product/$slug"
+                  params={{ slug: featured.perfume.slug }}
+                  className="link-underline inline-block py-1 text-[10px] uppercase tracking-[0.4em] text-foreground/60 hover:text-gold"
+                >
+                  Featured
+                </Link>
               )}
-            </Link>
-          )}
+            </div>
+          </div>
         </div>
 
         {/* Bottle stage: the perfume bottle(s) as visual centrepiece. The

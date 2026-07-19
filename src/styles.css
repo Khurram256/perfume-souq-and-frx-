@@ -265,6 +265,31 @@
     opacity: 1;
   }
 
+  /* Hero "Find Your Signature Scent" link — a continuously shimmering
+     underline rather than a boxed button, per the hero's "no large card"
+     direction. The global prefers-reduced-motion rule below already halts
+     this (and every other CSS @keyframes animation) for users who need it. */
+  .link-shimmer-underline {
+    position: relative;
+    display: inline-block;
+    padding-bottom: 0.35em;
+  }
+  .link-shimmer-underline::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 1.5px;
+    background: linear-gradient(90deg, transparent, var(--gold-soft) 15%, var(--gold) 50%, var(--gold-soft) 85%, transparent);
+    background-size: 220% 100%;
+    animation: shimmer-underline-slide 3.2s linear infinite;
+  }
+  @keyframes shimmer-underline-slide {
+    0% { background-position: 220% 0; }
+    100% { background-position: -220% 0; }
+  }
+
   /* Oversized section index numeral (breaks the repeated centered-heading rhythm) */
   .section-index {
     font-family: var(--font-display-alt);

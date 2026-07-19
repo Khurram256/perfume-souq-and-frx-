@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import {
   usePerfumes,
@@ -24,14 +24,58 @@ function longevityLabel(n: number): string {
   return "Short-lasting";
 }
 
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
+// Treats null/undefined/blank/whitespace-only/placeholder strings
+// ("-", "–", "—", "n/a") and empty arrays as "no data" — never invented,
+// only ever real stored values. Numeric ratings are excluded from this
+// check: every perfume row has a real NOT NULL rating value (defaulted at
+// creation, not fabricated per-comparison), so they're always shown.
+function isValid(v: unknown): boolean {
+  if (v === null || v === undefined) return false;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (!t) return false;
+    if (["-", "–", "—", "n/a"].includes(t.toLowerCase())) return false;
+    return true;
+  }
+  return true;
+}
+
+function Row({ label, value, missing }: { label: string; value?: React.ReactNode; missing?: boolean }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-border py-3 text-left last:border-b-0">
       <span className="text-[9px] uppercase tracking-[0.3em] text-foreground/40">{label}</span>
-      <span className="max-w-[60%] text-right text-xs text-foreground/80">{value}</span>
+      <span className={`max-w-[60%] text-right text-xs ${missing ? "italic text-foreground/35" : "text-foreground/80"}`}>
+        {missing ? "Not provided" : value}
+      </span>
     </div>
   );
 }
+
+// Derived, always-visible fields (independent of the isValid/"Not provided"
+// system since availability, price and name are core to the card, not
+// optional fragrance data) plus every gate-able attribute this component
+// can show. Sizes/mainNotes are computed rather than raw columns, so they're
+// resolved once per perfume alongside the raw fields.
+function attributeValues(p: Perfume, variants: ReturnType<typeof useAllVariants>["data"]) {
+  const pv = (variants ?? []).filter((v) => v.perfume_id === p.id);
+  const sizeRange = pv.length ? pv.map((v) => v.size_label).join(", ") : "";
+  const mainNotes = [...p.top_notes, ...p.heart_notes].slice(0, 4).join(", ");
+  return {
+    gender: p.gender ? p.gender[0].toUpperCase() + p.gender.slice(1) : "",
+    family: p.family ?? "",
+    sizeRange,
+    mainNotes,
+    bestSeason: p.best_season ?? "",
+    occasion: p.occasion ?? "",
+    concentration: p.concentration ?? "",
+    topNotes: p.top_notes.join(", "),
+    heartNotes: p.heart_notes.join(", "),
+    baseNotes: p.base_notes.join(", "),
+  };
+}
+
+type AttrValues = ReturnType<typeof attributeValues>;
 
 function Side({
   perfumes,
@@ -40,6 +84,7 @@ function Side({
   promotions,
   value,
   onChange,
+  visibleKeys,
 }: {
   perfumes: Perfume[];
   brands: ReturnType<typeof useBrands>["data"];
@@ -47,6 +92,7 @@ function Side({
   promotions: ReturnType<typeof usePromotions>["data"];
   value: string;
   onChange: (id: string) => void;
+  visibleKeys: Set<keyof AttrValues>;
 }) {
   const p = perfumes.find((x) => x.id === value) ?? perfumes[0];
   if (!p) return null;
@@ -68,7 +114,16 @@ function Side({
         appliedPromotions: [],
       };
   const inStock = pv.length ? pv.some((v) => v.in_stock) : p.in_stock;
-  const sizeRange = pv.length ? `${pv.map((v) => v.size_label).join(", ")}` : "—";
+  const values = attributeValues(p, variants);
+
+  // Renders nothing for a row the other perfume also has no data for
+  // (filtered out of visibleKeys upstream); shows "Not provided" only when
+  // the row is being kept because the other side does have real data.
+  const gated = (key: keyof AttrValues, label: string) => {
+    if (!visibleKeys.has(key)) return null;
+    const val = values[key];
+    return <Row key={key} label={label} value={val} missing={!isValid(val)} />;
+  };
 
   return (
     <div className="glass-card rounded-sm p-8">
@@ -133,20 +188,14 @@ function Side({
             value={`-${formatPKR(price.discountAmount)}${price.appliedPromotions[0]?.name ? ` (${price.appliedPromotions[0].name})` : ""}`}
           />
         )}
-        <Row
-          label="Gender"
-          value={p.gender ? p.gender[0].toUpperCase() + p.gender.slice(1) : "—"}
-        />
-        <Row label="Scent Style" value={p.family || "—"} />
-        <Row label="Available Sizes" value={sizeRange} />
-        <Row
-          label="Main Notes"
-          value={[...p.top_notes, ...p.heart_notes].slice(0, 4).join(", ") || "—"}
-        />
+        {gated("gender", "Gender")}
+        {gated("family", "Scent Style")}
+        {gated("sizeRange", "Available Sizes")}
+        {gated("mainNotes", "Main Notes")}
         <Row label="Projection" value={strengthLabel(p.rating_projection)} />
         <Row label="Longevity" value={longevityLabel(p.rating_longevity)} />
-        <Row label="Best Season" value={p.best_season || "—"} />
-        <Row label="Best Occasion" value={p.occasion || "—"} />
+        {gated("bestSeason", "Best Season")}
+        {gated("occasion", "Best Occasion")}
         <Row label="Day or Night" value={p.rating_sillage >= 7 ? "Evening" : "Day-friendly"} />
         <Row
           label="Formal or Casual"
@@ -154,19 +203,21 @@ function Side({
         />
       </div>
 
-      <details className="mt-6">
-        <summary className="cursor-pointer text-[9px] uppercase tracking-[0.3em] text-foreground/40 hover:text-gold">
-          Advanced fragrance details
-        </summary>
-        <div className="mt-3">
-          <Row label="Concentration" value={p.concentration || "—"} />
-          <Row label="Top Notes" value={p.top_notes.join(", ") || "—"} />
-          <Row label="Heart Notes" value={p.heart_notes.join(", ") || "—"} />
-          <Row label="Base Notes" value={p.base_notes.join(", ") || "—"} />
-          <Row label="Sillage (raw)" value={`${p.rating_sillage}/10`} />
-          <Row label="Longevity (raw)" value={`${p.rating_longevity}/10`} />
-        </div>
-      </details>
+      {(visibleKeys.has("concentration") || visibleKeys.has("topNotes") || visibleKeys.has("heartNotes") || visibleKeys.has("baseNotes")) && (
+        <details className="mt-6">
+          <summary className="cursor-pointer text-[9px] uppercase tracking-[0.3em] text-foreground/40 hover:text-gold">
+            Advanced fragrance details
+          </summary>
+          <div className="mt-3">
+            {gated("concentration", "Concentration")}
+            {gated("topNotes", "Top Notes")}
+            {gated("heartNotes", "Heart Notes")}
+            {gated("baseNotes", "Base Notes")}
+            <Row label="Sillage (raw)" value={`${p.rating_sillage}/10`} />
+            <Row label="Longevity (raw)" value={`${p.rating_longevity}/10`} />
+          </div>
+        </details>
+      )}
     </div>
   );
 }
@@ -194,6 +245,23 @@ export function ComparisonTool() {
     trackEvent("compare_add", { perfumeId: id });
   };
 
+  // A row is only worth showing at all if at least one of the two selected
+  // perfumes has real data for it — otherwise the whole row (both cards)
+  // is skipped, per the "remove the entire attribute row" requirement.
+  // Recomputed whenever the selection changes so the table adapts per pair.
+  const visibleKeys = useMemo(() => {
+    const pA = perfumes.find((p) => p.id === a) ?? perfumes[0];
+    const pB = perfumes.find((p) => p.id === b) ?? perfumes[0];
+    const keys = new Set<keyof AttrValues>();
+    if (!pA || !pB) return keys;
+    const valuesA = attributeValues(pA, variants);
+    const valuesB = attributeValues(pB, variants);
+    (Object.keys(valuesA) as (keyof AttrValues)[]).forEach((key) => {
+      if (isValid(valuesA[key]) || isValid(valuesB[key])) keys.add(key);
+    });
+    return keys;
+  }, [perfumes, variants, a, b]);
+
   if (perfumes.length < 1) return null;
 
   return (
@@ -217,6 +285,7 @@ export function ComparisonTool() {
             promotions={promotions}
             value={a}
             onChange={selectA}
+            visibleKeys={visibleKeys}
           />
           <Side
             perfumes={perfumes}
@@ -225,6 +294,7 @@ export function ComparisonTool() {
             promotions={promotions}
             value={b}
             onChange={selectB}
+            visibleKeys={visibleKeys}
           />
         </div>
       </div>
