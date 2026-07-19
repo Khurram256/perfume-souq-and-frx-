@@ -4,10 +4,13 @@
 // (sizes + prices) are entered in this same preview, before the single Save
 // action — nothing is written to the database until the admin confirms.
 //
-// The parser only understands "Label: value" lines (case-insensitive) plus a
-// few numeric heuristics for price/sizes. It does not guess from unlabeled
-// prose — anything it can't confidently extract is just left blank for the
-// admin to fill in on the preview screen, rather than inventing a value.
+// There is no AI/LLM call here — wiring one up would mean adding a new paid
+// external API dependency, which isn't something to add unilaterally. This
+// is a structured parser: "Label: value" lines are read directly: a handful
+// of free-text fallbacks (gender, concentration, notes-by-phrase) handle
+// unlabeled prose too, but only for patterns it can match with confidence.
+// Anything it can't extract is left blank for the admin to fill in on the
+// preview screen, rather than inventing a value.
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Wand2, Plus, Trash2 } from "lucide-react";
@@ -22,6 +25,7 @@ type ParsedDraft = {
   category_id: string;
   gender: string;
   family: string;
+  concentration: string;
   tagline: string;
   description: string;
   price_pkr: number;
@@ -39,6 +43,7 @@ const emptyDraft: ParsedDraft = {
   category_id: "",
   gender: "",
   family: "",
+  concentration: "",
   tagline: "",
   description: "",
   price_pkr: 0,
@@ -111,9 +116,30 @@ function parseText(raw: string, brands: Brand[], categories: Category[]): { draf
     if (priceMatch) draft.price_pkr = parsePrice(priceMatch[0]);
   }
 
-  draft.top_notes = findLabel(lines, /^top(?:\s*notes)?\s*:\s*(.+)$/i) ?? "";
-  draft.heart_notes = findLabel(lines, /^heart(?:\s*notes)?\s*:\s*(.+)$/i) ?? "";
-  draft.base_notes = findLabel(lines, /^base(?:\s*notes)?\s*:\s*(.+)$/i) ?? "";
+  // Concentration: only ever set from an explicit, unambiguous keyword —
+  // never guessed from vague wording, since it materially affects price
+  // expectations.
+  const concLower = raw.toLowerCase();
+  if (/\beau de parfum\b|\bedp\b/.test(concLower)) draft.concentration = "Eau de Parfum";
+  else if (/\beau de toilette\b|\bedt\b/.test(concLower)) draft.concentration = "Eau de Toilette";
+  else if (/\bextrait de parfum\b|\bparfum extract\b/.test(concLower)) draft.concentration = "Extrait de Parfum";
+  else if (/\bparfum\b(?!\s*extract)/.test(concLower) && !/\beau de parfum\b/.test(concLower)) draft.concentration = "Parfum";
+  else if (/\beau de cologne\b|\bedc\b/.test(concLower)) draft.concentration = "Eau de Cologne";
+
+  // Notes: prefer an explicit "Top:" / "Top Notes:" label; fall back to
+  // free-text phrasing like "top notes of X, Y" or "opens with X, Y" only
+  // when no label exists — both still require an unambiguous keyword match,
+  // so a description with no note information at all is correctly left blank.
+  const findPhraseNotes = (keyword: RegExp): string => {
+    const m = raw.match(new RegExp(`(?:${keyword.source})[^.\\n]*?(?:of|include[s]?|with|:)\\s*([a-z0-9 ,'&-]+)`, "i"));
+    return m ? m[1].trim().replace(/\.$/, "") : "";
+  };
+  draft.top_notes = findLabel(lines, /^top(?:\s*notes)?\s*:\s*(.+)$/i) || findPhraseNotes(/top notes|opens with/i);
+  draft.heart_notes =
+    findLabel(lines, /^heart(?:\s*notes)?\s*:\s*(.+)$/i) ||
+    findLabel(lines, /^middle(?:\s*notes)?\s*:\s*(.+)$/i) ||
+    findPhraseNotes(/heart notes|middle notes/i);
+  draft.base_notes = findLabel(lines, /^base(?:\s*notes)?\s*:\s*(.+)$/i) || findPhraseNotes(/base notes|dries down to/i);
   draft.main_accords = findLabel(lines, /^(?:main\s*)?accords\s*:\s*(.+)$/i) ?? "";
 
   const variants: VariantDraft[] = [];
@@ -142,11 +168,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export function InstantAddPerfume({
   categories,
   brands,
+  existingPerfumes,
   onClose,
   onSaved,
 }: {
   categories: Category[];
   brands: Brand[];
+  existingPerfumes: { name: string; slug: string }[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -157,6 +185,14 @@ export function InstantAddPerfume({
   const [saving, setSaving] = useState(false);
 
   const set = <K extends keyof ParsedDraft>(key: K, value: ParsedDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
+
+  // Checked against the live catalogue as the admin types, not just on save —
+  // catches the duplicate before they've filled in the whole form, not after.
+  const duplicateOf = useMemo(() => {
+    if (!draft.name.trim()) return undefined;
+    const slug = slugify(draft.name);
+    return existingPerfumes.find((p) => p.slug === slug || p.name.trim().toLowerCase() === draft.name.trim().toLowerCase());
+  }, [draft.name, existingPerfumes]);
 
   const exampleText = useMemo(
     () =>
@@ -187,6 +223,10 @@ export function InstantAddPerfume({
       toast.error("Name is required.");
       return;
     }
+    if (duplicateOf) {
+      toast.error(`"${duplicateOf.name}" already exists in the catalogue — change the name or edit that product instead.`);
+      return;
+    }
     if (!draft.price_pkr && !variants.length) {
       toast.error("Enter a base price, or at least one size with a price.");
       return;
@@ -201,6 +241,7 @@ export function InstantAddPerfume({
         category_id: draft.category_id || null,
         gender: draft.gender || null,
         family: draft.family.trim() || cat?.name || null,
+        concentration: draft.concentration.trim() || null,
         tagline: draft.tagline.trim() || null,
         description: draft.description.trim() || null,
         price_pkr: draft.price_pkr || variants[0]?.price_pkr || 0,
@@ -271,8 +312,11 @@ export function InstantAddPerfume({
               <>
                 <p className="text-xs text-foreground/50">
                   Paste product details as labeled lines and click Parse. Recognized labels: Name, Brand, Category,
-                  Gender, Price, Tagline, Description, Top, Heart, Base, Accords, Sizes. Anything not recognized is
-                  left blank for you to fill in on the next screen — nothing is saved yet.
+                  Gender, Price, Tagline, Description, Top, Heart, Base, Accords, Sizes. Concentration (EDP/EDT/
+                  Parfum) and notes are also picked up from ordinary sentences like "Top notes of bergamot and
+                  pepper" even without a label. Anything not recognized is left blank for you to fill in on the
+                  next screen — nothing is saved yet, and a name that matches an existing product is flagged
+                  before you can save.
                 </p>
                 <textarea
                   rows={12}
@@ -290,6 +334,13 @@ export function InstantAddPerfume({
                 <button onClick={() => setParsed(false)} className="text-[10px] uppercase tracking-[0.3em] text-foreground/50 hover:text-gold">
                   ← Back to pasted text
                 </button>
+
+                {duplicateOf && (
+                  <div className="rounded-sm border border-destructive/40 bg-destructive/10 px-4 py-3 text-xs text-destructive">
+                    "{duplicateOf.name}" is already in the catalogue. Change the name to save this as a new
+                    product, or close this and edit the existing one instead.
+                  </div>
+                )}
 
                 <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <Field label="Name">
@@ -321,6 +372,16 @@ export function InstantAddPerfume({
                   </Field>
                   <Field label="Family (e.g. Woody Aromatic)">
                     <input className={inputCls} value={draft.family} onChange={(e) => set("family", e.target.value)} />
+                  </Field>
+                  <Field label="Concentration">
+                    <select className={inputCls} value={draft.concentration} onChange={(e) => set("concentration", e.target.value)}>
+                      <option value="">— not specified —</option>
+                      <option value="Eau de Cologne">Eau de Cologne</option>
+                      <option value="Eau de Toilette">Eau de Toilette</option>
+                      <option value="Eau de Parfum">Eau de Parfum</option>
+                      <option value="Parfum">Parfum</option>
+                      <option value="Extrait de Parfum">Extrait de Parfum</option>
+                    </select>
                   </Field>
                   <Field label="Base Price (PKR)">
                     <input
@@ -398,7 +459,7 @@ export function InstantAddPerfume({
               <button onClick={onClose} className="px-5 py-2.5 text-[10px] uppercase tracking-[0.4em] text-foreground/60 hover:text-foreground">
                 Cancel
               </button>
-              <button onClick={save} disabled={saving} className="btn-gold px-8 py-2.5 text-[10px] uppercase tracking-[0.4em] disabled:opacity-40">
+              <button onClick={save} disabled={saving || !!duplicateOf} className="btn-gold px-8 py-2.5 text-[10px] uppercase tracking-[0.4em] disabled:opacity-40">
                 {saving ? "Saving…" : "Save Perfume"}
               </button>
             </footer>

@@ -398,6 +398,7 @@ function PerfumesPanel() {
         <InstantAddPerfume
           categories={categories}
           brands={brands}
+          existingPerfumes={perfumes.map((p) => ({ name: p.name, slug: p.slug }))}
           onClose={() => setInstantAdd(false)}
           onSaved={() => {
             refetch();
