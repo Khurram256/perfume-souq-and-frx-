@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { CartProvider } from "@/contexts/CartContext";
+import { CartProvider, useCart } from "@/contexts/CartContext";
 import { CartDrawer } from "@/components/CartDrawer";
 import { FlyToCart } from "@/components/FlyToCart";
 import { ContactButton } from "@/components/ContactButton";
@@ -85,6 +85,7 @@ function ProductContent() {
   const { data: allPerfumes = [] } = usePerfumes();
   const { data: settings } = useSettings();
   const submitBackInStock = useSubmitBackInStock();
+  const { add } = useCart();
 
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [notifyEmail, setNotifyEmail] = useState("");
@@ -170,6 +171,21 @@ function ProductContent() {
     }
     lines.push(``, `Link: ${productUrl}`, ``, `Please confirm availability. Thank you!`);
     return lines.join("\n");
+  };
+
+  const handleAdd = () => {
+    if (!inStock) return;
+    add({
+      id: selectedVariant?.id ?? perfume.id,
+      perfumeId: perfume.id,
+      variantId: selectedVariant?.id,
+      sizeLabel: selectedVariant?.size_label,
+      name: perfume.name,
+      price: price ? price.finalPrice : perfume.price_pkr,
+      originalPrice: price && price.discountAmount > 0 ? price.originalPrice : undefined,
+      promotionName: price?.appliedPromotions[0]?.name,
+      img: perfume.image_url || "",
+    });
   };
 
   const handleOrder = () => {
@@ -335,17 +351,25 @@ function ProductContent() {
               </p>
             )}
 
-            <div className="mt-10 flex flex-wrap gap-4">
+            <div className="mt-10 flex flex-wrap items-center gap-4">
               {inStock ? (
-                <a
-                  href={waLink(whatsappNumber, buildOrderMessage())}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={handleOrder}
-                  className="btn-gold inline-block px-10 py-4 text-[10px] uppercase tracking-[0.4em]"
-                >
-                  Order via WhatsApp
-                </a>
+                <>
+                  <button
+                    onClick={handleAdd}
+                    className="btn-gold inline-block px-10 py-4 text-[10px] uppercase tracking-[0.4em]"
+                  >
+                    Add to Cart
+                  </button>
+                  <a
+                    href={waLink(whatsappNumber, buildOrderMessage())}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={handleOrder}
+                    className="link-underline inline-flex items-center px-2 text-[10px] uppercase tracking-[0.35em] text-gold/80"
+                  >
+                    Order via WhatsApp
+                  </a>
+                </>
               ) : (
                 <span className="rounded-sm border border-foreground/20 px-6 py-3 text-[10px] uppercase tracking-[0.35em] text-foreground/50">
                   Currently Out of Stock
