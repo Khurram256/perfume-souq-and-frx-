@@ -76,7 +76,18 @@ function ShopContent() {
   const navigate = useNavigate({ from: Route.fullPath });
 
   const { data: perfumes = [], isLoading } = usePerfumes();
-  const { data: brands = [] } = useBrands();
+  const { data: brandsRaw = [] } = useBrands();
+  // De-duplicated case-insensitively (e.g. "Gucci" / "gucci" would otherwise
+  // show as two separate checkboxes) and sorted alphabetically — matches the
+  // same treatment the Maison Collection brand filter uses.
+  const brands = useMemo(() => {
+    const seen = new Map<string, (typeof brandsRaw)[number]>();
+    for (const b of brandsRaw) {
+      const key = b.name.trim().toLowerCase();
+      if (!seen.has(key)) seen.set(key, b);
+    }
+    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [brandsRaw]);
   const { data: categories = [] } = useCategories();
   const { data: variants = [] } = useAllVariants();
   const { data: promotions = [] } = usePromotions();
