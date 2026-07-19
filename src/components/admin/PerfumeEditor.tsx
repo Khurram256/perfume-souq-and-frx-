@@ -404,6 +404,18 @@ export function PerfumeEditor({
       toast.error("Slug is required.");
       return;
     }
+    if (!Number.isFinite(draft.price_pkr) || draft.price_pkr < 0) {
+      toast.error("Price must be a valid non-negative number.");
+      return;
+    }
+    if (draft.sale_price_pkr !== "" && (!Number.isFinite(draft.sale_price_pkr) || draft.sale_price_pkr < 0)) {
+      toast.error("Sale price must be a valid non-negative number.");
+      return;
+    }
+    if (draft.stock_quantity !== "" && (!Number.isFinite(draft.stock_quantity) || draft.stock_quantity < 0)) {
+      toast.error("Stock quantity must be a valid non-negative number.");
+      return;
+    }
     setSaving(true);
     try {
       const cat = categories.find((c) => c.id === draft.category_id);

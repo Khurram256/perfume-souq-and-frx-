@@ -231,6 +231,10 @@ export function InstantAddPerfume({
       toast.error("Enter a base price, or at least one size with a price.");
       return;
     }
+    if (draft.price_pkr < 0 || variants.some((v) => v.price_pkr < 0)) {
+      toast.error("Prices must be non-negative.");
+      return;
+    }
     setSaving(true);
     try {
       const cat = categories.find((c) => c.id === draft.category_id);

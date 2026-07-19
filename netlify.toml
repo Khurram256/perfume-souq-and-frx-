@@ -4,3 +4,47 @@
 
 [build.environment]
   NODE_VERSION = "22"
+
+# Security headers. Notes on the choices below (see the Phase 3 handover
+# report for the full audit this came from):
+#
+# - script-src allows 'unsafe-inline' only because of one small, static,
+#   non-user-controlled boot script (ThemeEngine.tsx's themeBootScript,
+#   inlined in __root.tsx) that runs before paint to avoid a theme flash.
+#   A hash-based CSP was considered but rejected: this repo can't verify
+#   the exact SSR-rendered whitespace of that script against a hash without
+#   a live deploy, and a mismatch would silently break the boot script
+#   (theme flash) rather than fail loudly. No dangerouslySetInnerHTML XSS
+#   vector was found anywhere in this codebase during the audit (only two
+#   usages total, both static/config-driven, not user or CMS input), so the
+#   residual risk from allowing inline scripts is low here specifically —
+#   revisit if that ever changes.
+# - connect-src/img-src allow *.supabase.co broadly rather than a specific
+#   project ref, since the Supabase URL is env-configured and not fixed in
+#   this repo. Tighten to the exact project subdomain once the production
+#   Supabase URL is finalized, if stricter locking-down is wanted.
+# - style-src needs 'unsafe-inline' for Google Fonts' stylesheet import and
+#   for one dynamic (per-render, not user-controlled) <style> block in the
+#   shadcn chart component.
+#
+# IMPORTANT: these headers only take effect on Netlify's CDN, not the local
+# dev server — verify there are no CSP violations in the browser console on
+# the live deployed site after the next deploy, per the "test the final
+# policy rather than copying one blindly" requirement.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
+
+# /admin and its sub-routes are already excluded from robots.txt/sitemap;
+# this additionally tells any crawler that does reach them (e.g. via a
+# stray external link) not to index what it finds.
+[[headers]]
+  for = "/admin*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"

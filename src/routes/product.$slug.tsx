@@ -27,7 +27,7 @@ export const Route = createFileRoute("/product/$slug")({
     const { data } = await supabase
       .from("perfumes")
       .select(
-        "name,tagline,description,meta_title,meta_description,og_image_url,image_url,price_pkr",
+        "name,tagline,description,meta_title,meta_description,og_image_url,image_url,price_pkr,in_stock,concentration,brand:brands(name)",
       )
       .eq("slug", params.slug)
       .maybeSingle();
@@ -45,6 +45,27 @@ export const Route = createFileRoute("/product/$slug")({
       loaderData.description ||
       `Shop ${loaderData.name} at The Perfume Souq.`;
     const image = loaderData.og_image_url || loaderData.image_url || undefined;
+    const canonicalUrl = `https://theperfumesouq.pk/product/${params.slug}`;
+    // Only real, verified fields — no fabricated ratings, reviews, or
+    // shipping claims (per the explicit "no fake reviews" requirement).
+    const productLd: Record<string, unknown> = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: loaderData.name,
+      description: loaderData.description || loaderData.tagline || undefined,
+      url: canonicalUrl,
+      ...(image ? { image } : {}),
+      ...(loaderData.brand ? { brand: { "@type": "Brand", name: (loaderData.brand as { name: string }).name } } : {}),
+      offers: {
+        "@type": "Offer",
+        url: canonicalUrl,
+        priceCurrency: "PKR",
+        price: loaderData.price_pkr,
+        availability: loaderData.in_stock
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
+      },
+    };
     return {
       meta: [
         { title },
@@ -54,8 +75,9 @@ export const Route = createFileRoute("/product/$slug")({
         ...(image ? [{ property: "og:image", content: image }] : []),
         { property: "og:type", content: "product" },
         { name: "twitter:card", content: "summary_large_image" },
+        { "script:ld+json": productLd },
       ],
-      links: [{ rel: "canonical", href: `https://theperfumesouq.pk/product/${params.slug}` }],
+      links: [{ rel: "canonical", href: canonicalUrl }],
     };
   },
   component: ProductPage,
