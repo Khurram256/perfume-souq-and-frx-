@@ -143,11 +143,37 @@ export type Brand = {
   meta_title: string | null;
   meta_description: string | null;
   sort_order: number;
+  is_active: boolean;
 };
 
+// Storefront-facing: active brands only, independent of the caller's auth
+// state — filtered at the query level (not just relying on RLS) so this
+// hook is safe to reuse from anywhere without needing to reason about who's
+// signed in. Every public filter/page (Shop, brand pages, quiz, compare)
+// uses this.
 export function useBrands() {
   return useQuery({
     queryKey: ["brands"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("brands")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order")
+        .order("name");
+      if (error) throw error;
+      return (data ?? []) as Brand[];
+    },
+  });
+}
+
+// Admin-only: every brand, active or not, so the management panel and the
+// perfume brand picker can see (and reactivate) inactive ones. RLS still
+// requires an authenticated admin session for this to return anything
+// beyond the active rows every anonymous visitor can already see.
+export function useBrandsAdmin() {
+  return useQuery({
+    queryKey: ["brands", "admin"],
     queryFn: async () => {
       const { data, error } = await supabase.from("brands").select("*").order("sort_order").order("name");
       if (error) throw error;

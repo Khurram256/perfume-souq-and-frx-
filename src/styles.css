@@ -432,14 +432,6 @@
     will-change: transform;
   }
 
-  /* Second hero bottle floats slightly out of phase with the first — moving
-     in exact unison reads as one rigid unit rather than two independent
-     products. */
-  .float-bottle--offset {
-    animation-duration: 9s;
-    animation-delay: -3s;
-  }
-
   /* Maison Spotlight highlight on featured product card */
   .spotlight-card {
     position: relative;

@@ -18,10 +18,12 @@ import {
   useBackInStockRequests,
   useUpdateBackInStockStatus,
   useBrands,
+  useBrandsAdmin,
   useAllVariants,
   usePromotions,
   useMedia,
   type MediaItem,
+  type Brand,
 } from "@/lib/api/queries";
 import { useAuthUser } from "@/lib/admin/session";
 import { useQueryClient } from "@tanstack/react-query";
@@ -30,6 +32,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { PerfumeEditor } from "@/components/admin/PerfumeEditor";
 import { InstantAddPerfume } from "@/components/admin/InstantAddPerfume";
+import { BrandEditor } from "@/components/admin/BrandEditor";
 import type { Perfume } from "@/lib/api/queries";
 import { THEMES, applyTheme, DEFAULT_THEME } from "@/components/ThemeEngine";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -51,7 +54,7 @@ export const Route = createFileRoute("/admin_/dashboard")({
 // required internally" instruction (data/functionality is kept, just not a
 // top-level tab). Promotions and Bundles are folded into the Offers tab
 // (OffersHub) as internal segments rather than separate tabs.
-type Tab = "perfumes" | "offers" | "motion" | "hero" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "orders" | "requests" | "administrators";
+type Tab = "perfumes" | "brands" | "offers" | "motion" | "hero" | "spotlight" | "reviews" | "content" | "theme" | "settings" | "analytics" | "orders" | "requests" | "administrators";
 type AdminRole = "owner" | "admin" | "editor" | "analyst" | null;
 
 function useMyAdminRole(userId: string | undefined, isOwner: boolean) {
@@ -116,6 +119,7 @@ function Dashboard() {
 
   const tabs: Tab[] = [
     "perfumes",
+    "brands",
     "offers",
     "motion",
     "hero",
@@ -197,6 +201,7 @@ function Dashboard() {
 
       <section className="mx-auto max-w-6xl px-6 py-10">
         {tab === "perfumes" && <PerfumesPanel />}
+        {tab === "brands" && <BrandsPanel />}
         {tab === "offers" && <OffersHub />}
         {tab === "motion" && <SouqInMotionPanel />}
         {tab === "spotlight" && <SpotlightPanel />}
@@ -218,7 +223,10 @@ function Dashboard() {
 function PerfumesPanel() {
   const { data: perfumes = [], refetch } = usePerfumesAdmin();
   const { data: categories = [] } = useCategories();
-  const { data: brands = [] } = useBrands();
+  // Admin context: sees inactive brands too, so a perfume can still be
+  // assigned to (or kept pointing at) a brand the admin has temporarily
+  // deactivated, not just the storefront-visible active ones.
+  const { data: brands = [] } = useBrandsAdmin();
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Perfume | null | "new">(null);
   const [instantAdd, setInstantAdd] = useState(false);
@@ -387,6 +395,7 @@ function PerfumesPanel() {
           categories={categories}
           brands={brands}
           onClose={() => setEditing(null)}
+          onBrandCreated={() => qc.invalidateQueries({ queryKey: ["brands"] })}
           onSaved={() => {
             refetch();
             qc.invalidateQueries({ queryKey: ["perfumes"] });
@@ -400,6 +409,7 @@ function PerfumesPanel() {
           brands={brands}
           existingPerfumes={perfumes.map((p) => ({ name: p.name, slug: p.slug }))}
           onClose={() => setInstantAdd(false)}
+          onBrandCreated={() => qc.invalidateQueries({ queryKey: ["brands"] })}
           onSaved={() => {
             refetch();
             qc.invalidateQueries({ queryKey: ["perfumes"] });
@@ -417,6 +427,178 @@ function PerfumesPanel() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
+    </div>
+  );
+}
+
+/* ---------------- Brands ---------------- */
+function BrandsPanel() {
+  const { data: brands = [], refetch } = useBrandsAdmin();
+  const { data: perfumes = [] } = usePerfumesAdmin();
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState<Brand | null | "new">(null);
+  const [search, setSearch] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<Brand | null>(null);
+  const [reassignTo, setReassignTo] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  const perfumeCount = (brandId: string) => perfumes.filter((p) => p.brand_id === brandId).length;
+
+  const filtered = brands.filter((b) => !search.trim() || b.name.toLowerCase().includes(search.trim().toLowerCase()));
+
+  const refresh = () => {
+    refetch();
+    qc.invalidateQueries({ queryKey: ["brands"] });
+  };
+
+  const toggleActive = async (b: Brand) => {
+    const { error } = await supabase.from("brands").update({ is_active: !b.is_active }).eq("id", b.id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(b.is_active ? "Brand deactivated" : "Brand activated");
+      refresh();
+    }
+  };
+
+  const openDelete = (b: Brand) => {
+    setReassignTo("");
+    setPendingDelete(b);
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    const affected = perfumeCount(pendingDelete.id);
+    setDeleting(true);
+    try {
+      if (affected > 0) {
+        if (!reassignTo) {
+          toast.error(`${affected} perfume${affected === 1 ? "" : "s"} still use this brand — choose one to reassign them to first.`);
+          return;
+        }
+        const { error: reassignError } = await supabase
+          .from("perfumes")
+          .update({ brand_id: reassignTo })
+          .eq("brand_id", pendingDelete.id);
+        if (reassignError) {
+          toast.error(reassignError.message);
+          return;
+        }
+      }
+      const { error } = await supabase.from("brands").delete().eq("id", pendingDelete.id);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success(affected > 0 ? `Brand deleted — ${affected} perfume${affected === 1 ? "" : "s"} reassigned.` : "Brand deleted");
+      setPendingDelete(null);
+      refresh();
+      qc.invalidateQueries({ queryKey: ["perfumes"] });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const affectedCount = pendingDelete ? perfumeCount(pendingDelete.id) : 0;
+
+  return (
+    <div>
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="font-display text-2xl italic">Brands ({filtered.length} of {brands.length})</h2>
+        <button onClick={() => setEditing("new")} className="btn-gold px-5 py-2 text-[10px] uppercase tracking-[0.4em]">
+          + Add Brand
+        </button>
+      </div>
+
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search brands…"
+        className="mb-6 w-full max-w-sm rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-foreground/40"
+      />
+
+      <div className="space-y-3">
+        {filtered.map((b) => (
+          <div key={b.id} className="glass-card grid grid-cols-1 items-center gap-4 rounded-sm p-4 md:grid-cols-[64px_1fr_100px_90px_70px_70px]">
+            <div className="relative h-14 w-14 overflow-hidden bg-obsidian">
+              {b.logo_url ? (
+                <img src={b.logo_url} alt={b.name} className="h-full w-full object-contain" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-[7px] uppercase tracking-[0.2em] text-foreground/40">
+                  No Logo
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="font-display text-lg italic">{b.name}</p>
+              <p className="text-[9px] uppercase tracking-[0.3em] text-foreground/40">/{b.slug}</p>
+            </div>
+            <span className="text-xs text-foreground/60">{perfumeCount(b.id)} perfume{perfumeCount(b.id) === 1 ? "" : "s"}</span>
+            <button
+              onClick={() => toggleActive(b)}
+              className={`rounded-sm border px-3 py-2 text-[9px] uppercase tracking-[0.3em] ${b.is_active ? "border-gold/40 text-gold" : "border-foreground/30 text-foreground/50"}`}
+            >
+              {b.is_active ? "Active" : "Inactive"}
+            </button>
+            <button onClick={() => setEditing(b)} className="text-[9px] uppercase tracking-[0.3em] text-gold/80 hover:text-gold">
+              Edit
+            </button>
+            <button onClick={() => openDelete(b)} className="text-[9px] uppercase tracking-[0.3em] text-red-400/80 hover:text-red-400">
+              Delete
+            </button>
+          </div>
+        ))}
+        {!filtered.length && <p className="text-sm text-foreground/40">No brands match this search.</p>}
+      </div>
+
+      {editing && (
+        <BrandEditor
+          brand={editing === "new" ? null : editing}
+          existingBrands={brands}
+          onClose={() => setEditing(null)}
+          onSaved={refresh}
+        />
+      )}
+
+      {pendingDelete && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4" onClick={() => setPendingDelete(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-sm border border-gold/40 bg-card p-7 text-foreground">
+            <h3 className="font-display text-xl italic">Delete "{pendingDelete.name}"?</h3>
+            {affectedCount > 0 ? (
+              <>
+                <p className="mt-3 text-sm text-foreground/70">
+                  {affectedCount} perfume{affectedCount === 1 ? "" : "s"} still {affectedCount === 1 ? "uses" : "use"} this
+                  brand. Choose a brand to reassign {affectedCount === 1 ? "it" : "them"} to before deleting — this brand
+                  cannot be removed while perfumes still point to it.
+                </p>
+                <select
+                  value={reassignTo}
+                  onChange={(e) => setReassignTo(e.target.value)}
+                  className="mt-4 w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm"
+                >
+                  <option value="">— choose a brand —</option>
+                  {brands.filter((b) => b.id !== pendingDelete.id).map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <p className="mt-3 text-sm text-foreground/70">This permanently removes the brand and cannot be undone.</p>
+            )}
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setPendingDelete(null)} className="px-4 py-2 text-[10px] uppercase tracking-[0.4em] text-foreground/60 hover:text-foreground">
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting || (affectedCount > 0 && !reassignTo)}
+                className="rounded-sm bg-red-500/90 px-5 py-2 text-[10px] uppercase tracking-[0.4em] text-white hover:bg-red-500 disabled:opacity-40"
+              >
+                {deleting ? "…" : affectedCount > 0 ? "Reassign & Delete" : "Delete Permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

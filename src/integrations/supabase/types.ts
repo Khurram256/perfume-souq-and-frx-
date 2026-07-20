@@ -234,6 +234,7 @@ export type Database = {
           created_at: string;
           hero_image_url: string | null;
           id: string;
+          is_active: boolean;
           logo_url: string | null;
           meta_description: string | null;
           meta_title: string | null;
@@ -248,6 +249,7 @@ export type Database = {
           created_at?: string;
           hero_image_url?: string | null;
           id?: string;
+          is_active?: boolean;
           logo_url?: string | null;
           meta_description?: string | null;
           meta_title?: string | null;
@@ -262,6 +264,7 @@ export type Database = {
           created_at?: string;
           hero_image_url?: string | null;
           id?: string;
+          is_active?: boolean;
           logo_url?: string | null;
           meta_description?: string | null;
           meta_title?: string | null;

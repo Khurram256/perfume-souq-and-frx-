@@ -17,6 +17,7 @@ import { X, Wand2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Category, Brand } from "@/lib/api/queries";
+import { normalizeBrandName } from "./BrandEditor";
 import { formatPKR } from "@/lib/format";
 
 type ParsedDraft = {
@@ -78,14 +79,30 @@ function findLabel(lines: string[], label: RegExp): string | undefined {
   return undefined;
 }
 
-function parseText(raw: string, brands: Brand[], categories: Category[]): { draft: ParsedDraft; variants: VariantDraft[] } {
+function parseText(raw: string, brands: Brand[], categories: Category[]): { draft: ParsedDraft; variants: VariantDraft[]; brandNotFound: boolean } {
   const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
   const draft: ParsedDraft = { ...emptyDraft };
 
   draft.name = findLabel(lines, /^name\s*:\s*(.+)$/i) ?? lines[0] ?? "";
+
+  // Case/hyphen/extra-space-insensitive: "HUGO BOSS", "Hugo Boss", and
+  // "hugo-boss" must all resolve to the same existing brand rather than
+  // silently missing a match (or silently guessing the wrong one). An
+  // explicit "Brand:" label is matched exactly (normalized) — if it's given
+  // but doesn't match anything, that's reported as brandNotFound rather
+  // than falling back to a loose substring guess. Without a label at all,
+  // a substring search over the raw text is the best-effort fallback.
   const brandLabel = findLabel(lines, /^brand\s*:\s*(.+)$/i);
-  const brandSource = brandLabel ?? raw;
-  const matchedBrand = brands.find((b) => brandSource.toLowerCase().includes(b.name.toLowerCase()));
+  let matchedBrand: Brand | undefined;
+  let brandNotFound = false;
+  if (brandLabel) {
+    const normalized = normalizeBrandName(brandLabel);
+    matchedBrand = brands.find((b) => normalizeBrandName(b.name) === normalized);
+    brandNotFound = !matchedBrand;
+  } else {
+    const normalizedRaw = normalizeBrandName(raw);
+    matchedBrand = brands.find((b) => normalizedRaw.includes(normalizeBrandName(b.name)));
+  }
   draft.brand_id = matchedBrand?.id ?? "";
 
   const categoryLabel = findLabel(lines, /^category\s*:\s*(.+)$/i) ?? findLabel(lines, /^family\s*:\s*(.+)$/i);
@@ -151,7 +168,7 @@ function parseText(raw: string, brands: Brand[], categories: Category[]): { draf
     }
   }
 
-  return { draft, variants };
+  return { draft, variants, brandNotFound };
 }
 
 const inputCls = "w-full rounded-sm border border-border bg-transparent px-3 py-2 text-sm outline-none focus:border-gold";
@@ -171,18 +188,25 @@ export function InstantAddPerfume({
   existingPerfumes,
   onClose,
   onSaved,
+  onBrandCreated,
 }: {
   categories: Category[];
   brands: Brand[];
   existingPerfumes: { name: string; slug: string }[];
   onClose: () => void;
   onSaved: () => void;
+  onBrandCreated?: (brand: Brand) => void;
 }) {
   const [raw, setRaw] = useState("");
   const [parsed, setParsed] = useState(false);
   const [draft, setDraft] = useState<ParsedDraft>(emptyDraft);
   const [variants, setVariants] = useState<VariantDraft[]>([]);
   const [saving, setSaving] = useState(false);
+  const [brandNotFound, setBrandNotFound] = useState(false);
+  const [addingBrand, setAddingBrand] = useState(false);
+  const [newBrandName, setNewBrandName] = useState("");
+  const [creatingBrand, setCreatingBrand] = useState(false);
+  const [localBrands, setLocalBrands] = useState<Brand[]>(brands);
 
   const set = <K extends keyof ParsedDraft>(key: K, value: ParsedDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
@@ -205,12 +229,52 @@ export function InstantAddPerfume({
       toast.error("Paste some product text first.");
       return;
     }
-    const { draft: d, variants: v } = parseText(raw, brands, categories);
+    const { draft: d, variants: v, brandNotFound: bnf } = parseText(raw, localBrands, categories);
     setDraft(d);
     setVariants(v);
+    setBrandNotFound(bnf);
     setParsed(true);
     if (!d.name) toast.error("Couldn't find a name — enter one below before saving.");
+    else if (bnf) toast.error("Brand not found — select an existing one or create it below.");
     else toast.success("Parsed — review and edit before saving.");
+  };
+
+  const createBrand = async () => {
+    if (!newBrandName.trim()) {
+      toast.error("Enter a brand name.");
+      return;
+    }
+    const normalized = normalizeBrandName(newBrandName);
+    const existing = localBrands.find((b) => normalizeBrandName(b.name) === normalized);
+    if (existing) {
+      toast.error(`"${existing.name}" already exists — selecting it instead.`);
+      set("brand_id", existing.id);
+      setBrandNotFound(false);
+      setAddingBrand(false);
+      setNewBrandName("");
+      return;
+    }
+    setCreatingBrand(true);
+    try {
+      const { data: created, error } = await supabase
+        .from("brands")
+        .insert({ name: newBrandName.trim(), slug: slugify(newBrandName) })
+        .select()
+        .single();
+      if (error) {
+        toast.error(error.message.includes("duplicate") || error.message.includes("unique") ? "That brand already exists." : error.message);
+        return;
+      }
+      setLocalBrands((prev) => [...prev, created as Brand]);
+      onBrandCreated?.(created as Brand);
+      set("brand_id", created.id);
+      setBrandNotFound(false);
+      setAddingBrand(false);
+      setNewBrandName("");
+      toast.success(`"${created.name}" added — selected for this perfume.`);
+    } finally {
+      setCreatingBrand(false);
+    }
   };
 
   const addVariant = () => setVariants((v) => [...v, { size_label: "", price_pkr: 0 }]);
@@ -350,14 +414,59 @@ export function InstantAddPerfume({
                   <Field label="Name">
                     <input className={inputCls} value={draft.name} onChange={(e) => set("name", e.target.value)} />
                   </Field>
-                  <Field label="Brand / Maison">
-                    <select className={inputCls} value={draft.brand_id} onChange={(e) => set("brand_id", e.target.value)}>
-                      <option value="">— none —</option>
-                      {brands.map((b) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                  </Field>
+                  <div>
+                    <Field label="Brand / Maison">
+                      <select
+                        className={inputCls}
+                        value={draft.brand_id}
+                        onChange={(e) => {
+                          set("brand_id", e.target.value);
+                          setBrandNotFound(false);
+                        }}
+                      >
+                        <option value="">— none —</option>
+                        {localBrands.map((b) => (
+                          <option key={b.id} value={b.id}>{b.name}</option>
+                        ))}
+                      </select>
+                    </Field>
+                    {brandNotFound && !draft.brand_id && (
+                      <p className="mt-1.5 text-[10px] text-destructive">Brand not found in the pasted text — select one above or add it below.</p>
+                    )}
+                    {addingBrand ? (
+                      <div className="mt-2 flex items-center gap-2">
+                        <input
+                          className={`${inputCls} flex-1`}
+                          placeholder="New brand name"
+                          value={newBrandName}
+                          onChange={(e) => setNewBrandName(e.target.value)}
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={createBrand}
+                          disabled={creatingBrand}
+                          className="btn-gold whitespace-nowrap px-4 py-2 text-[10px] uppercase tracking-[0.35em] disabled:opacity-40"
+                        >
+                          {creatingBrand ? "…" : "Create"}
+                        </button>
+                        <button type="button" onClick={() => setAddingBrand(false)} className="text-[10px] uppercase tracking-[0.3em] text-foreground/50">
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddingBrand(true);
+                          setNewBrandName("");
+                        }}
+                        className="mt-1.5 text-[10px] uppercase tracking-[0.3em] text-gold/80 hover:text-gold"
+                      >
+                        + Add New Brand
+                      </button>
+                    )}
+                  </div>
                   <Field label="Category">
                     <select className={inputCls} value={draft.category_id} onChange={(e) => set("category_id", e.target.value)}>
                       <option value="">— none —</option>

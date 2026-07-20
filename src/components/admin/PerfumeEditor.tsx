@@ -7,6 +7,7 @@ import { uploadPerfumeImage, deletePerfumeImage } from "@/lib/api/admin.function
 import { useVariants, type Perfume, type Category, type Brand, type ProductVariant } from "@/lib/api/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatPKR } from "@/lib/format";
+import { BrandSelect } from "./BrandSelect";
 
 type Draft = {
   name: string;
@@ -331,12 +332,14 @@ export function PerfumeEditor({
   brands,
   onClose,
   onSaved,
+  onBrandCreated,
 }: {
   perfume: Perfume | null;
   categories: Category[];
   brands: Brand[];
   onClose: () => void;
   onSaved: () => void;
+  onBrandCreated?: (brand: Brand) => void;
 }) {
   const isNew = !perfume;
   const [draft, setDraft] = useState<Draft>(() => toDraft(perfume));
@@ -402,6 +405,10 @@ export function PerfumeEditor({
     }
     if (!draft.slug.trim()) {
       toast.error("Slug is required.");
+      return;
+    }
+    if (!draft.brand_id) {
+      toast.error("Select a brand — use \"+ Add New Brand\" if it isn't in the list yet.");
       return;
     }
     if (!Number.isFinite(draft.price_pkr) || draft.price_pkr < 0) {
@@ -579,18 +586,12 @@ export function PerfumeEditor({
                 </select>
               </Field>
               <Field label="Maison / Brand">
-                <select
-                  className={inputCls}
+                <BrandSelect
+                  brands={brands}
                   value={draft.brand_id}
-                  onChange={(e) => set("brand_id", e.target.value)}
-                >
-                  <option value="">— none —</option>
-                  {brands.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(id) => set("brand_id", id)}
+                  onBrandCreated={onBrandCreated}
+                />
               </Field>
               <Field label="Gender / Presentation">
                 <select
