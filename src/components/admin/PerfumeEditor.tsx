@@ -4,6 +4,7 @@ import { X, Upload, Loader2, Plus, Trash2, ArrowUp, ArrowDown } from "lucide-rea
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadPerfumeImage, deletePerfumeImage } from "@/lib/api/admin.functions";
+import { optimizeImageForUpload } from "@/lib/image-optimize";
 import { useVariants, type Perfume, type Category, type Brand, type ProductVariant } from "@/lib/api/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatPKR } from "@/lib/format";
@@ -108,15 +109,6 @@ function splitNotes(s: string) {
     .split(",")
     .map((n) => n.trim())
     .filter(Boolean);
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve((reader.result as string).split(",")[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
 
 function RatingSlider({ label, value, onChange }: { label: string; value: number; onChange: (n: number) => void }) {
@@ -365,10 +357,8 @@ export function PerfumeEditor({
     setUploading(true);
     const previousPath = draft.image_storage_path;
     try {
-      const base64 = await fileToBase64(file);
-      const result = await uploadPerfumeImage({
-        data: { fileName: file.name, contentType: file.type, base64 },
-      });
+      const optimized = await optimizeImageForUpload(file);
+      const result = await uploadPerfumeImage({ data: optimized });
       setDraft((d) => ({ ...d, image_url: result.url, image_storage_path: result.path }));
       toast.success("Image uploaded");
       // Best-effort cleanup of the file being replaced — a failure here

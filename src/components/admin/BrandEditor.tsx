@@ -4,6 +4,7 @@ import { X, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadPerfumeImage, deletePerfumeImage } from "@/lib/api/admin.functions";
+import { optimizeImageForUpload } from "@/lib/image-optimize";
 import type { Brand } from "@/lib/api/queries";
 
 type Draft = {
@@ -94,13 +95,7 @@ export function BrandEditor({
     setUploading(true);
     const previousPath = logoPath;
     try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(",")[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const result = await uploadPerfumeImage({ data: { fileName: file.name, contentType: file.type, base64 } });
+      const result = await uploadPerfumeImage({ data: await optimizeImageForUpload(file) });
       set("logo_url", result.url);
       setLogoPath(result.path);
       toast.success("Logo uploaded");

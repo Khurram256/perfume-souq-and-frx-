@@ -32,12 +32,12 @@ export function Footer() {
         © The Perfume Souq · All rights reserved
       </p>
       <p className="mt-3 text-[9px] uppercase tracking-[0.3em]" style={{ color: "oklch(0.96 0.012 220 / 0.45)" }}>
-        Designed &amp; Developed by{" "}
+        Powered by{" "}
         <a
           href={DEVELOPER_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="transition-colors duration-300 hover:text-[var(--gold)] focus-visible:text-[var(--gold)] focus-visible:outline-none"
+          className="text-[var(--gold)] underline-offset-4 transition-colors duration-300 hover:underline focus-visible:underline focus-visible:outline-none"
         >
           {DEVELOPER_NAME}
         </a>

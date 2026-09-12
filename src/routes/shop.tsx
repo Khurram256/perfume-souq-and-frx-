@@ -51,7 +51,11 @@ export const Route = createFileRoute("/shop")({
     meta: [
       { title: "Shop — The Perfume Souq by Khurram Shabbir" },
       { name: "description", content: "Browse the full Perfume Souq catalogue — filter by gender, maison, fragrance family, and price." },
+      { property: "og:title", content: "Shop — The Perfume Souq by Khurram Shabbir" },
+      { property: "og:description", content: "Browse the full Perfume Souq catalogue — filter by gender, maison, fragrance family, and price." },
+      { property: "og:url", content: "https://theperfumesouq.pk/shop" },
     ],
+    links: [{ rel: "canonical", href: "https://theperfumesouq.pk/shop" }],
   }),
   component: ShopPage,
 });

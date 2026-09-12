@@ -9,7 +9,7 @@ export const CONTACT_PHONE_TEL = "+923228408507";
 // Single source of truth for the footer developer credit link — update here
 // once the agency site is live.
 export const DEVELOPER_NAME = "FRX Technologies";
-export const DEVELOPER_URL = "https://frxtechnologies.com";
+export const DEVELOPER_URL = "https://frxtechnologiesprv.netlify.app/";
 
 // wa.me requires the full international number (country code, no leading 0,
 // no +, no spaces). Pakistani mobile numbers are commonly entered in local

@@ -15,7 +15,11 @@ export const Route = createFileRoute("/brands")({
         name: "description",
         content: "Explore the maisons and houses carried by The Perfume Souq.",
       },
+      { property: "og:title", content: "Maisons — The Perfume Souq by Khurram Shabbir" },
+      { property: "og:description", content: "Explore the maisons and houses carried by The Perfume Souq." },
+      { property: "og:url", content: "https://theperfumesouq.pk/brands" },
     ],
+    links: [{ rel: "canonical", href: "https://theperfumesouq.pk/brands" }],
   }),
   component: BrandsPage,
 });

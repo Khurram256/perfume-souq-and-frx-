@@ -37,6 +37,7 @@ import type { Perfume } from "@/lib/api/queries";
 import { THEMES, applyTheme, DEFAULT_THEME } from "@/components/ThemeEngine";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { listAdminRoles, addAdminRole, removeAdminRole, uploadPerfumeImage, resetAnalytics } from "@/lib/api/admin.functions";
+import { optimizeImageForUpload } from "@/lib/image-optimize";
 
 export const Route = createFileRoute("/admin_/dashboard")({
   head: () => ({
@@ -622,13 +623,7 @@ function SouqInMotionPanel() {
     }
     setUploading(true);
     try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(",")[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const result = await uploadPerfumeImage({ data: { fileName: file.name, contentType: file.type, base64 } });
+      const result = await uploadPerfumeImage({ data: await optimizeImageForUpload(file) });
       const { error } = await supabase.from("media").insert({
         url: result.url,
         kind: "image",

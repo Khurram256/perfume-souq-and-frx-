@@ -95,6 +95,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "The Perfume Souq by Khurram Shabbir" },
       { property: "og:description", content: "A maison of rare olfactive composition." },
       { property: "og:type", content: "website" },
+      { property: "og:locale", content: "en_PK" },
+      // Absolute URL required by crawlers; product/brand pages override this
+      // with their own artwork where they have it.
+      { property: "og:image", content: `https://theperfumesouq.pk${logoMark}` },
+      { name: "twitter:image", content: `https://theperfumesouq.pk${logoMark}` },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "The Perfume Souq by Khurram Shabbir" },
       { name: "twitter:description", content: "A maison of rare olfactive composition." },

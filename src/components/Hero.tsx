@@ -164,9 +164,9 @@ export function Hero() {
               style={{ filter: "drop-shadow(0 0 16px oklch(0.66 0.12 74 / 0.5))" }}
             />
             <div className="leading-none">
-              <p className="title-shimmer font-display text-6xl italic tracking-[0.01em] sm:text-7xl lg:text-[5rem] xl:text-[6rem]">
+              <h1 className="title-shimmer font-display text-6xl italic tracking-[0.01em] sm:text-7xl lg:text-[5rem] xl:text-[6rem]">
                 The Perfume Souq
-              </p>
+              </h1>
               <p className="mt-3 text-[11px] uppercase tracking-[0.5em] text-foreground/60">
                 by Khurram Shabbir
               </p>

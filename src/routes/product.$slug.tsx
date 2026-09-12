@@ -66,6 +66,18 @@ export const Route = createFileRoute("/product/$slug")({
           : "https://schema.org/OutOfStock",
       },
     };
+    // Mirrors the breadcrumb trail the page actually renders above the title.
+    const breadcrumbLd = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Shop", item: "https://theperfumesouq.pk/shop" },
+        ...(loaderData.brand
+          ? [{ "@type": "ListItem", position: 2, name: (loaderData.brand as { name: string }).name }]
+          : []),
+        { "@type": "ListItem", position: loaderData.brand ? 3 : 2, name: loaderData.name, item: canonicalUrl },
+      ],
+    };
     return {
       meta: [
         { title },
@@ -74,8 +86,10 @@ export const Route = createFileRoute("/product/$slug")({
         { property: "og:description", content: description },
         ...(image ? [{ property: "og:image", content: image }] : []),
         { property: "og:type", content: "product" },
+        { property: "og:url", content: canonicalUrl },
         { name: "twitter:card", content: "summary_large_image" },
         { "script:ld+json": productLd },
+        { "script:ld+json": breadcrumbLd },
       ],
       links: [{ rel: "canonical", href: canonicalUrl }],
     };

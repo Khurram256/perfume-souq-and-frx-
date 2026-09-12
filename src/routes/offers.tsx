@@ -15,7 +15,11 @@ export const Route = createFileRoute("/offers")({
     meta: [
       { title: "Offers — The Perfume Souq by Khurram Shabbir" },
       { name: "description", content: "Current discounts and promotions from The Perfume Souq." },
+      { property: "og:title", content: "Offers — The Perfume Souq by Khurram Shabbir" },
+      { property: "og:description", content: "Current discounts and promotions from The Perfume Souq." },
+      { property: "og:url", content: "https://theperfumesouq.pk/offers" },
     ],
+    links: [{ rel: "canonical", href: "https://theperfumesouq.pk/offers" }],
   }),
   component: OffersPage,
 });
