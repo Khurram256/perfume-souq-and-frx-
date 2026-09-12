@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import { trackEvent } from "../lib/api/queries";
 
 import appCss from "../styles.css?url";
+import logoMark from "../assets/logo-mark.png";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { INSTAGRAM_URL } from "../lib/contact";
 import { Toaster } from "../components/ui/sonner";
@@ -120,6 +121,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
+      { rel: "icon", type: "image/png", href: logoMark },
+      { rel: "apple-touch-icon", href: logoMark },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
