@@ -6,6 +6,11 @@ export const INSTAGRAM_HANDLE = "@theperfumesouq.pk";
 export const CONTACT_PHONE_DISPLAY = "0322 8408507";
 export const CONTACT_PHONE_TEL = "+923228408507";
 
+// Single source of truth for the footer developer credit link — update here
+// once the agency site is live.
+export const DEVELOPER_NAME = "FRX Technologies";
+export const DEVELOPER_URL = "https://frxtechnologies.com";
+
 // wa.me requires the full international number (country code, no leading 0,
 // no +, no spaces). Pakistani mobile numbers are commonly entered in local
 // form (0XXXXXXXXXX, 11 digits) — normalize that case so a stored/typed

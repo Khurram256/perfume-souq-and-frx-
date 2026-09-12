@@ -1,5 +1,6 @@
 import { Logo } from "./Logo";
 import { Marquee } from "./Marquee";
+import { DEVELOPER_NAME, DEVELOPER_URL } from "../lib/contact";
 
 export function Footer() {
   return (
@@ -29,6 +30,17 @@ export function Footer() {
 
       <p className="mt-14 text-[10px] uppercase tracking-[0.4em]" style={{ color: "oklch(0.96 0.012 220 / 0.3)" }}>
         © The Perfume Souq · All rights reserved
+      </p>
+      <p className="mt-3 text-[9px] uppercase tracking-[0.3em]" style={{ color: "oklch(0.96 0.012 220 / 0.45)" }}>
+        Designed &amp; Developed by{" "}
+        <a
+          href={DEVELOPER_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="transition-colors duration-300 hover:text-[var(--gold)] focus-visible:text-[var(--gold)] focus-visible:outline-none"
+        >
+          {DEVELOPER_NAME}
+        </a>
       </p>
     </footer>
   );

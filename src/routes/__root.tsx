@@ -89,6 +89,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "The Perfume Souq by Khurram Shabbir — a maison of rare olfactive composition. Authentic and premium-inspired fragrances, hand-selected.",
       },
       { name: "author", content: "The Perfume Souq by Khurram Shabbir" },
+      { name: "developer", content: "FRX Technologies" },
       { property: "og:site_name", content: "The Perfume Souq by Khurram Shabbir" },
       { property: "og:title", content: "The Perfume Souq by Khurram Shabbir" },
       { property: "og:description", content: "A maison of rare olfactive composition." },
