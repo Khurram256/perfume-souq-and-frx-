@@ -10,6 +10,7 @@ import { ContactButton } from "@/components/ContactButton";
 import { useBrandBySlug, usePerfumes, useAllVariants, usePromotions } from "@/lib/api/queries";
 import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
+import { formatSizeList } from "@/lib/catalog";
 
 export const Route = createFileRoute("/brand/$slug")({
   loader: async ({ params }) => {
@@ -71,7 +72,8 @@ function BrandContent() {
       .filter((p) => p.brand_id === brand.id)
       .map((p) => {
         const pv = variants.filter((v) => v.perfume_id === p.id);
-        const dv = pv.find((v) => v.is_default) ?? pv[0];
+        // Price from the cheapest bottle — the smallest size is not always it.
+        const dv = pv.length ? pv.reduce((m, v) => (v.price_pkr < m.price_pkr ? v : m)) : undefined;
         const price = dv
           ? resolveVariantPrice(dv.price_pkr, promotions, {
               perfumeId: p.id,
@@ -85,7 +87,7 @@ function BrandContent() {
               discountAmount: 0,
               appliedPromotions: [],
             };
-        return { perfume: p, price };
+        return { perfume: p, price, sizes: formatSizeList(pv), multi: pv.length > 1 };
       });
   }, [brand, perfumes, variants, promotions]);
 
@@ -142,14 +144,14 @@ function BrandContent() {
         <div className="mx-auto max-w-7xl">
           <p className="label-eyebrow mb-8">Shop All From {brand.name}</p>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {products.map(({ perfume, price }) => (
+            {products.map(({ perfume, price, sizes, multi }) => (
               <Link
                 key={perfume.id}
                 to="/product/$slug"
                 params={{ slug: perfume.slug }}
                 className="glass-card flex flex-col items-center rounded-sm p-6 text-center transition-transform hover:-translate-y-1"
               >
-                {perfume.image_url && (
+                {perfume.image_url ? (
                   <img
                     src={perfume.image_url}
                     alt={perfume.name}
@@ -157,9 +159,15 @@ function BrandContent() {
                     decoding="async"
                     className="mb-4 h-56 w-auto object-contain"
                   />
+                ) : (
+                  <div className="mb-4 flex h-56 w-full items-center justify-center rounded-sm border border-dashed border-foreground/15 text-[9px] uppercase tracking-[0.3em] text-foreground/30">
+                    Image Coming Soon
+                  </div>
                 )}
                 <h3 className="font-display text-xl italic">{perfume.name}</h3>
+                {multi && sizes && <p className="mt-2 text-[10px] tracking-[0.2em] text-foreground/60">{sizes}</p>}
                 <span className="text-gradient-gold mt-3 font-display text-lg">
+                  {multi ? "From " : ""}
                   {formatPKR(price.finalPrice)}
                 </span>
               </Link>

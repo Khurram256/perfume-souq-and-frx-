@@ -31,7 +31,7 @@ const PUBLIC_PERFUME_COLUMNS =
   "rating_compliment,rating_uniqueness,rating_sweetness,rating_freshness,rating_warmth,best_season,occasion," +
   "tag_family,tag_intensity,tag_mood,tag_season,tag_occasion,tag_gender,sort_order,brand_id,gender,concentration," +
   "status,new_arrival,sku,meta_title,meta_description,og_image_url,main_accords,sale_price_pkr,stock_quantity," +
-  "image_status,image_storage_path";
+  "image_status,image_storage_path,launch_year,perfumer";
 
 export type Perfume = {
   id: string;
@@ -77,6 +77,8 @@ export type Perfume = {
   meta_description: string | null;
   og_image_url: string | null;
   main_accords: string[];
+  launch_year: number | null;
+  perfumer: string | null;
   sale_price_pkr: number | null;
   stock_quantity: number | null;
   image_status: "missing" | "uploaded";
@@ -199,6 +201,7 @@ export type ProductVariant = {
   id: string;
   perfume_id: string;
   size_label: string;
+  size_ml: number | null;
   price_pkr: number;
   sku: string | null;
   in_stock: boolean;

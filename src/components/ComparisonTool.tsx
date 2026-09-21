@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Plus, X } from "lucide-react";
 import {
   usePerfumes,
   useBrands,
@@ -10,6 +10,9 @@ import {
 } from "@/lib/api/queries";
 import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
+import { genderLabel, hasRatingData, sortedSizes } from "@/lib/catalog";
+
+const MAX_COMPARE = 3;
 
 // Plain-language labels for average shoppers — no raw "7/10" chemistry-lab
 // numbers, per the spec's explicit customer-friendly comparison requirement.
@@ -26,9 +29,7 @@ function longevityLabel(n: number): string {
 
 // Treats null/undefined/blank/whitespace-only/placeholder strings
 // ("-", "–", "—", "n/a") and empty arrays as "no data" — never invented,
-// only ever real stored values. Numeric ratings are excluded from this
-// check: every perfume row has a real NOT NULL rating value (defaulted at
-// creation, not fabricated per-comparison), so they're always shown.
+// only ever real stored values.
 function isValid(v: unknown): boolean {
   if (v === null || v === undefined) return false;
   if (Array.isArray(v)) return v.length > 0;
@@ -45,105 +46,139 @@ function Row({ label, value, missing }: { label: string; value?: React.ReactNode
   return (
     <div className="flex items-start justify-between gap-4 border-b border-border py-3 text-left last:border-b-0">
       <span className="text-[9px] uppercase tracking-[0.3em] text-foreground/40">{label}</span>
-      <span className={`max-w-[60%] text-right text-xs ${missing ? "italic text-foreground/35" : "text-foreground/80"}`}>
+      <span
+        className={`max-w-[62%] break-words text-right text-xs ${missing ? "italic text-foreground/35" : "text-foreground/80"}`}
+      >
         {missing ? "Not provided" : value}
       </span>
     </div>
   );
 }
 
-// Derived, always-visible fields (independent of the isValid/"Not provided"
-// system since availability, price and name are core to the card, not
-// optional fragrance data) plus every gate-able attribute this component
-// can show. Sizes/mainNotes are computed rather than raw columns, so they're
-// resolved once per perfume alongside the raw fields.
-function attributeValues(p: Perfume, variants: ReturnType<typeof useAllVariants>["data"]) {
+type Variants = ReturnType<typeof useAllVariants>["data"];
+type Promotions = ReturnType<typeof usePromotions>["data"];
+
+// Plain text values for every gate-able attribute. Sizes/prices and ratings
+// are rendered specially below, but still take part in the "does either
+// perfume have data for this row" decision.
+function attributeValues(p: Perfume, variants: Variants) {
   const pv = (variants ?? []).filter((v) => v.perfume_id === p.id);
-  const sizeRange = pv.length ? pv.map((v) => v.size_label).join(", ") : "";
-  const mainNotes = [...p.top_notes, ...p.heart_notes].slice(0, 4).join(", ");
   return {
-    gender: p.gender ? p.gender[0].toUpperCase() + p.gender.slice(1) : "",
+    gender: genderLabel(p.gender),
     family: p.family ?? "",
-    sizeRange,
-    mainNotes,
-    bestSeason: p.best_season ?? "",
-    occasion: p.occasion ?? "",
     concentration: p.concentration ?? "",
+    launchYear: p.launch_year ? String(p.launch_year) : "",
+    perfumer: p.perfumer ?? "",
+    sizes: pv.length ? pv.map((v) => v.size_label).join(", ") : "",
+    mainAccords: p.main_accords.join(", "),
     topNotes: p.top_notes.join(", "),
     heartNotes: p.heart_notes.join(", "),
     baseNotes: p.base_notes.join(", "),
+    bestSeason: p.best_season ?? "",
+    occasion: p.occasion ?? "",
+    // Only ever "present" when real rating data exists (see hasRatingData).
+    ratings: hasRatingData(p) ? "yes" : "",
   };
 }
 
-type AttrValues = ReturnType<typeof attributeValues>;
+type AttrKey = keyof ReturnType<typeof attributeValues>;
 
 function Side({
+  index,
+  groups,
   perfumes,
   brands,
   variants,
   promotions,
   value,
+  takenIds,
   onChange,
+  onRemove,
   visibleKeys,
 }: {
+  index: number;
+  groups: { brand: string; items: Perfume[] }[];
   perfumes: Perfume[];
   brands: ReturnType<typeof useBrands>["data"];
-  variants: ReturnType<typeof useAllVariants>["data"];
-  promotions: ReturnType<typeof usePromotions>["data"];
+  variants: Variants;
+  promotions: Promotions;
   value: string;
+  takenIds: string[];
   onChange: (id: string) => void;
-  visibleKeys: Set<keyof AttrValues>;
+  onRemove?: () => void;
+  visibleKeys: Set<AttrKey>;
 }) {
   const p = perfumes.find((x) => x.id === value) ?? perfumes[0];
   if (!p) return null;
 
   const brand = brands?.find((b) => b.id === p.brand_id);
-  const pv = (variants ?? []).filter((v) => v.perfume_id === p.id);
-  const defaultVariant = pv.find((v) => v.is_default) ?? pv[0];
-  const price = defaultVariant
-    ? resolveVariantPrice(defaultVariant.price_pkr, promotions ?? [], {
-        perfumeId: p.id,
-        variantId: defaultVariant.id,
-        brandId: p.brand_id,
-        categoryId: p.category_id,
-      })
-    : {
-        originalPrice: p.price_pkr,
-        finalPrice: p.price_pkr,
-        discountAmount: 0,
-        appliedPromotions: [],
-      };
+  const pv = sortedSizes((variants ?? []).filter((v) => v.perfume_id === p.id));
+  const multi = pv.length > 1;
+  const priceOf = (v: (typeof pv)[number]) =>
+    resolveVariantPrice(v.price_pkr, promotions ?? [], {
+      perfumeId: p.id,
+      variantId: v.id,
+      brandId: p.brand_id,
+      categoryId: p.category_id,
+    });
+  // Several sizes: lead with the cheapest ("From"); the full size/price list
+  // is in the table below. One size: that size's price.
+  const leadVariant = pv.length ? pv.reduce((m, v) => (v.price_pkr < m.price_pkr ? v : m)) : undefined;
+  const price = leadVariant
+    ? priceOf(leadVariant)
+    : { originalPrice: p.price_pkr, finalPrice: p.price_pkr, discountAmount: 0, appliedPromotions: [] };
   const inStock = pv.length ? pv.some((v) => v.in_stock) : p.in_stock;
   const values = attributeValues(p, variants);
 
-  // Renders nothing for a row the other perfume also has no data for
-  // (filtered out of visibleKeys upstream); shows "Not provided" only when
-  // the row is being kept because the other side does have real data.
-  const gated = (key: keyof AttrValues, label: string) => {
+  // Renders nothing for a row no compared perfume has data for (filtered out
+  // of visibleKeys upstream); shows "Not provided" only when the row is kept
+  // because another perfume does have real data for it.
+  const gated = (key: AttrKey, label: string, node?: React.ReactNode) => {
     if (!visibleKeys.has(key)) return null;
     const val = values[key];
-    return <Row key={key} label={label} value={val} missing={!isValid(val)} />;
+    return <Row key={key} label={label} value={node ?? val} missing={!isValid(val)} />;
   };
 
+  const ratedHere = hasRatingData(p);
+  const selectId = `compare-select-${index}`;
+
   return (
-    <div className="glass-card rounded-sm p-8">
-      <label className="mb-3 block text-[10px] uppercase tracking-[0.35em] text-gold/80">
-        Choose Another Perfume to Compare
-      </label>
+    <div className="glass-card rounded-sm p-6 sm:p-8">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <label htmlFor={selectId} className="block text-[10px] uppercase tracking-[0.35em] text-gold/80">
+          Choose a Perfume to Compare
+        </label>
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label="Remove this perfume from the comparison"
+            className="flex items-center gap-1 text-[9px] uppercase tracking-[0.3em] text-foreground/40 hover:text-gold"
+          >
+            <X className="h-3 w-3" /> Remove
+          </button>
+        )}
+      </div>
       <div className="relative mb-8">
         <select
+          id={selectId}
           value={p.id}
           onChange={(e) => onChange(e.target.value)}
           className="w-full cursor-pointer appearance-none rounded-sm border border-gold/50 bg-obsidian/60 px-4 py-3 pr-10 text-[11px] uppercase tracking-[0.3em] text-gold transition hover:border-gold focus:border-gold focus:outline-none"
         >
-          {perfumes.map((opt) => (
-            <option
-              key={opt.id}
-              value={opt.id}
-              style={{ background: "var(--obsidian)", color: "oklch(0.96 0.012 220)" }}
-            >
-              {opt.name}
-            </option>
+          {groups.map((g) => (
+            <optgroup key={g.brand} label={g.brand} style={{ background: "var(--obsidian)", color: "oklch(0.96 0.012 220)" }}>
+              {g.items.map((opt) => (
+                <option
+                  key={opt.id}
+                  value={opt.id}
+                  disabled={opt.id !== p.id && takenIds.includes(opt.id)}
+                  style={{ background: "var(--obsidian)", color: "oklch(0.96 0.012 220)" }}
+                >
+                  {opt.name}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gold" />
@@ -153,24 +188,21 @@ function Side({
         {p.image_url && (
           <img
             src={p.image_url}
-            alt={p.name}
+            alt={`${p.name}${brand ? ` by ${brand.name}` : ""}`}
             loading="lazy"
             decoding="async"
             className="h-32 w-24 flex-shrink-0 object-contain"
           />
         )}
-        <div className="flex-1">
-          {brand && (
-            <p className="text-[9px] uppercase tracking-[0.4em] text-gold/70">{brand.name}</p>
-          )}
+        <div className="min-w-0 flex-1">
+          {brand && <p className="text-[9px] uppercase tracking-[0.4em] text-gold/70">{brand.name}</p>}
           <h3 className="font-display text-2xl italic">{p.name}</h3>
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             {price.discountAmount > 0 && (
-              <span className="text-[10px] text-foreground/40 line-through">
-                {formatPKR(price.originalPrice)}
-              </span>
+              <span className="text-[10px] text-foreground/40 line-through">{formatPKR(price.originalPrice)}</span>
             )}
             <span className="text-gradient-gold font-display text-lg">
+              {multi ? "From " : ""}
               {formatPKR(price.finalPrice)}
             </span>
           </div>
@@ -178,10 +210,7 @@ function Side({
       </div>
 
       <div className="mt-6">
-        <Row
-          label="Availability"
-          value={inStock ? <span className="text-gold">In Stock</span> : "Out of Stock"}
-        />
+        <Row label="Availability" value={inStock ? <span className="text-gold">In Stock</span> : "Out of Stock"} />
         {price.discountAmount > 0 && (
           <Row
             label="Discount"
@@ -189,30 +218,58 @@ function Side({
           />
         )}
         {gated("gender", "Gender")}
-        {gated("family", "Scent Style")}
-        {gated("sizeRange", "Available Sizes")}
-        {gated("mainNotes", "Main Notes")}
-        <Row label="Projection" value={strengthLabel(p.rating_projection)} />
-        <Row label="Longevity" value={longevityLabel(p.rating_longevity)} />
+        {gated("family", "Fragrance Family")}
+        {gated("concentration", "Concentration")}
+        {gated("launchYear", "Launch Year")}
+        {gated(
+          "perfumer",
+          "Perfumer",
+        )}
+        {gated(
+          "sizes",
+          "Sizes & Prices",
+          pv.length ? (
+            <span className="flex flex-col items-end gap-1">
+              {pv.map((v) => (
+                <span key={v.id}>
+                  {v.size_label} — {formatPKR(priceOf(v).finalPrice)}
+                </span>
+              ))}
+            </span>
+          ) : undefined,
+        )}
+        {gated(
+          "mainAccords",
+          "Main Accords",
+          p.main_accords.length ? <span className="capitalize">{p.main_accords.join(", ")}</span> : undefined,
+        )}
+        {gated("topNotes", "Top Notes")}
+        {gated("heartNotes", "Heart Notes")}
+        {gated("baseNotes", "Base Notes")}
         {gated("bestSeason", "Best Season")}
         {gated("occasion", "Best Occasion")}
-        <Row label="Day or Night" value={p.rating_sillage >= 7 ? "Evening" : "Day-friendly"} />
-        <Row
-          label="Formal or Casual"
-          value={p.occasion?.toLowerCase().includes("formal") ? "Formal" : "Everyday / Casual"}
-        />
+        {visibleKeys.has("ratings") &&
+          (ratedHere ? (
+            <>
+              <Row label="Projection" value={strengthLabel(p.rating_projection)} />
+              <Row label="Longevity" value={longevityLabel(p.rating_longevity)} />
+              <Row label="Day or Night" value={p.rating_sillage >= 7 ? "Evening" : "Day-friendly"} />
+              <Row
+                label="Formal or Casual"
+                value={p.occasion?.toLowerCase().includes("formal") ? "Formal" : "Everyday / Casual"}
+              />
+            </>
+          ) : (
+            <Row label="Projection & Longevity" missing />
+          ))}
       </div>
 
-      {(visibleKeys.has("concentration") || visibleKeys.has("topNotes") || visibleKeys.has("heartNotes") || visibleKeys.has("baseNotes")) && (
+      {ratedHere && (
         <details className="mt-6">
           <summary className="cursor-pointer text-[9px] uppercase tracking-[0.3em] text-foreground/40 hover:text-gold">
             Advanced fragrance details
           </summary>
           <div className="mt-3">
-            {gated("concentration", "Concentration")}
-            {gated("topNotes", "Top Notes")}
-            {gated("heartNotes", "Heart Notes")}
-            {gated("baseNotes", "Base Notes")}
             <Row label="Sillage (raw)" value={`${p.rating_sillage}/10`} />
             <Row label="Longevity (raw)" value={`${p.rating_longevity}/10`} />
           </div>
@@ -227,76 +284,111 @@ export function ComparisonTool() {
   const { data: brands = [] } = useBrands();
   const { data: variants = [] } = useAllVariants();
   const { data: promotions = [] } = usePromotions();
-  const [a, setA] = useState<string>("");
-  const [b, setB] = useState<string>("");
+  const [ids, setIds] = useState<string[]>([]);
 
+  const groups = useMemo(() => {
+    const nameById = new Map(brands.map((b) => [b.id, b.name]));
+    const map = new Map<string, Perfume[]>();
+    for (const p of perfumes) {
+      const brand = nameById.get(p.brand_id ?? "") ?? "Other";
+      map.set(brand, [...(map.get(brand) ?? []), p]);
+    }
+    return [...map.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([brand, items]) => ({ brand, items: [...items].sort((a, b) => a.name.localeCompare(b.name)) }));
+  }, [perfumes, brands]);
+
+  // Default to two perfumes from different houses so the first thing a
+  // visitor sees is a genuinely comparable pair; drop any selection that no
+  // longer exists in the catalogue.
   useEffect(() => {
     if (!perfumes.length) return;
-    if (!a || !perfumes.some((p) => p.id === a)) setA(perfumes[0].id);
-    if (!b || !perfumes.some((p) => p.id === b)) setB((perfumes[1] ?? perfumes[0]).id);
-  }, [perfumes, a, b]);
-
-  const selectA = (id: string) => {
-    setA(id);
-    trackEvent("compare_add", { perfumeId: id });
-  };
-  const selectB = (id: string) => {
-    setB(id);
-    trackEvent("compare_add", { perfumeId: id });
-  };
-
-  // A row is only worth showing at all if at least one of the two selected
-  // perfumes has real data for it — otherwise the whole row (both cards)
-  // is skipped, per the "remove the entire attribute row" requirement.
-  // Recomputed whenever the selection changes so the table adapts per pair.
-  const visibleKeys = useMemo(() => {
-    const pA = perfumes.find((p) => p.id === a) ?? perfumes[0];
-    const pB = perfumes.find((p) => p.id === b) ?? perfumes[0];
-    const keys = new Set<keyof AttrValues>();
-    if (!pA || !pB) return keys;
-    const valuesA = attributeValues(pA, variants);
-    const valuesB = attributeValues(pB, variants);
-    (Object.keys(valuesA) as (keyof AttrValues)[]).forEach((key) => {
-      if (isValid(valuesA[key]) || isValid(valuesB[key])) keys.add(key);
+    setIds((prev) => {
+      const valid = prev.filter((id) => perfumes.some((p) => p.id === id));
+      if (valid.length >= 2) return valid.length === prev.length ? prev : valid;
+      const first = valid[0] ?? perfumes[0].id;
+      const firstBrand = perfumes.find((p) => p.id === first)?.brand_id;
+      const other =
+        perfumes.find((p) => p.brand_id !== firstBrand && p.id !== first) ??
+        perfumes.find((p) => p.id !== first) ??
+        perfumes[0];
+      return [first, other.id];
     });
-    return keys;
-  }, [perfumes, variants, a, b]);
+  }, [perfumes]);
 
-  if (perfumes.length < 1) return null;
+  const setAt = (index: number, id: string) => {
+    setIds((prev) => prev.map((x, i) => (i === index ? id : x)));
+    trackEvent("compare_add", { perfumeId: id });
+  };
+  const addThird = () => {
+    const free = perfumes.find((p) => !ids.includes(p.id));
+    if (free) {
+      setIds((prev) => [...prev, free.id]);
+      trackEvent("compare_add", { perfumeId: free.id });
+    }
+  };
+
+  // A row is only worth showing at all if at least one of the compared
+  // perfumes has real data for it — otherwise the whole row is skipped.
+  // Recomputed whenever the selection changes so the table adapts per set.
+  const visibleKeys = useMemo(() => {
+    const keys = new Set<AttrKey>();
+    for (const id of ids) {
+      const p = perfumes.find((x) => x.id === id);
+      if (!p) continue;
+      const values = attributeValues(p, variants);
+      (Object.keys(values) as AttrKey[]).forEach((key) => {
+        if (isValid(values[key])) keys.add(key);
+      });
+    }
+    return keys;
+  }, [perfumes, variants, ids]);
+
+  if (perfumes.length < 1 || ids.length < 1) return null;
 
   return (
     <section id="comparison" className="section-pad relative px-6 lg:px-16">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <div className="mb-16 grid grid-cols-1 items-end gap-6 lg:grid-cols-[auto_1fr]">
           <span className="section-index text-[14vw] leading-none md:text-[6vw]">06</span>
           <div>
             <p className="label-eyebrow mb-5">Side by Side</p>
             <h2 className="heading-section" style={{ fontSize: "clamp(2rem, 5vw, 4.5rem)" }}>
-              Compare <span className="text-gradient-gold">Two Perfumes</span>
+              Compare <span className="text-gradient-gold">Perfumes</span>
             </h2>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <Side
-            perfumes={perfumes}
-            brands={brands}
-            variants={variants}
-            promotions={promotions}
-            value={a}
-            onChange={selectA}
-            visibleKeys={visibleKeys}
-          />
-          <Side
-            perfumes={perfumes}
-            brands={brands}
-            variants={variants}
-            promotions={promotions}
-            value={b}
-            onChange={selectB}
-            visibleKeys={visibleKeys}
-          />
+        <div className={`grid grid-cols-1 gap-6 md:grid-cols-2 ${ids.length === 3 ? "lg:grid-cols-3" : ""}`}>
+          {ids.map((id, i) => (
+            <Side
+              key={i}
+              index={i}
+              groups={groups}
+              perfumes={perfumes}
+              brands={brands}
+              variants={variants}
+              promotions={promotions}
+              value={id}
+              takenIds={ids}
+              onChange={(next) => setAt(i, next)}
+              onRemove={ids.length > 2 && i === ids.length - 1 ? () => setIds((prev) => prev.slice(0, -1)) : undefined}
+              visibleKeys={visibleKeys}
+            />
+          ))}
         </div>
+
+        {ids.length < MAX_COMPARE && perfumes.length > ids.length && (
+          <div className="mt-8 flex justify-center">
+            <button
+              type="button"
+              onClick={addThird}
+              className="flex items-center gap-2 rounded-full border border-gold/40 px-6 py-3 text-[10px] uppercase tracking-[0.35em] text-gold hover:bg-gold/10"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add a third perfume
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

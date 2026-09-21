@@ -25,7 +25,7 @@ export type FlyEvent = { id: number; img: string; fromX: number; fromY: number }
 
 type CartCtx = {
   items: CartItem[];
-  add: (item: Omit<CartItem, "qty">, fromRect?: DOMRect | null) => void;
+  add: (item: Omit<CartItem, "qty">, fromRect?: DOMRect | null, qty?: number) => void;
   remove: (id: string) => void;
   setQty: (id: string, qty: number) => void;
   clear: () => void;
@@ -60,11 +60,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [items]);
 
-  const addItem = useCallback((item: Omit<CartItem, "qty">) => {
+  const addItem = useCallback((item: Omit<CartItem, "qty">, qty = 1) => {
     setItems((prev) => {
       const existing = prev.find((p) => p.id === item.id);
-      if (existing) return prev.map((p) => (p.id === item.id ? { ...p, qty: p.qty + 1 } : p));
-      return [...prev, { ...item, qty: 1 }];
+      if (existing) return prev.map((p) => (p.id === item.id ? { ...p, qty: p.qty + qty } : p));
+      return [...prev, { ...item, qty }];
     });
   }, []);
 
@@ -79,7 +79,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       open: () => setOpen(true),
       close: () => setOpen(false),
       toggle: () => setOpen((v) => !v),
-      add: (item, fromRect) => {
+      add: (item, fromRect, qty = 1) => {
         if (fromRect) {
           setFly({
             id: Date.now(),
@@ -89,11 +89,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
           });
           // Defer add to land roughly when flight ends so the cart count "lands" with it
           setTimeout(() => {
-            addItem(item);
+            addItem(item, qty);
             setOpen(true);
           }, 900);
         } else {
-          addItem(item);
+          addItem(item, qty);
           setOpen(true);
         }
       },

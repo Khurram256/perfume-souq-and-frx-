@@ -1,5 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Minus, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -19,6 +20,7 @@ import {
 } from "@/lib/api/queries";
 import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
+import { genderLabel, sortedSizes } from "@/lib/catalog";
 import { waLink } from "@/lib/contact";
 import { toast } from "sonner";
 
@@ -27,18 +29,28 @@ export const Route = createFileRoute("/product/$slug")({
     const { data } = await supabase
       .from("perfumes")
       .select(
-        "name,tagline,description,meta_title,meta_description,og_image_url,image_url,price_pkr,in_stock,concentration,brand:brands(name)",
+        "id,name,tagline,description,meta_title,meta_description,og_image_url,image_url,price_pkr,in_stock,concentration,family,brand:brands(name)",
       )
       .eq("slug", params.slug)
       .maybeSingle();
-    return data;
+    if (!data) return null;
+    // Sizes feed the structured data, so search engines see every real
+    // bottle size and price instead of a single flat number.
+    const { data: variants } = await supabase
+      .from("product_variants")
+      .select("size_label,size_ml,price_pkr,in_stock")
+      .eq("perfume_id", data.id)
+      .order("sort_order");
+    return { ...data, variants: variants ?? [] };
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) {
       return { meta: [{ title: "Product Not Found — The Perfume Souq" }] };
     }
+    const brandName = (loaderData.brand as { name: string } | null)?.name;
     const title =
-      loaderData.meta_title || `${loaderData.name} — The Perfume Souq by Khurram Shabbir`;
+      loaderData.meta_title ||
+      `${loaderData.name}${brandName ? ` by ${brandName}` : ""} — The Perfume Souq`;
     const description =
       loaderData.meta_description ||
       loaderData.tagline ||
@@ -46,6 +58,38 @@ export const Route = createFileRoute("/product/$slug")({
       `Shop ${loaderData.name} at The Perfume Souq.`;
     const image = loaderData.og_image_url || loaderData.image_url || undefined;
     const canonicalUrl = `https://theperfumesouq.pk/product/${params.slug}`;
+
+    const availability = (inStock: boolean) =>
+      inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
+    const variants = loaderData.variants;
+    const offerFor = (v: { size_label: string; price_pkr: number; in_stock: boolean }, named: boolean) => ({
+      "@type": "Offer",
+      url: canonicalUrl,
+      ...(named ? { name: v.size_label } : {}),
+      priceCurrency: "PKR",
+      price: v.price_pkr,
+      availability: availability(v.in_stock),
+    });
+    let offers: Record<string, unknown>;
+    if (variants.length > 1) {
+      const prices = variants.map((v) => v.price_pkr);
+      offers = {
+        "@type": "AggregateOffer",
+        priceCurrency: "PKR",
+        lowPrice: Math.min(...prices),
+        highPrice: Math.max(...prices),
+        offerCount: variants.length,
+        offers: variants.map((v) => offerFor(v, true)),
+      };
+    } else if (variants.length === 1) {
+      offers = offerFor(variants[0], false);
+    } else {
+      offers = offerFor(
+        { size_label: "", price_pkr: loaderData.price_pkr, in_stock: loaderData.in_stock },
+        false,
+      );
+    }
+
     // Only real, verified fields — no fabricated ratings, reviews, or
     // shipping claims (per the explicit "no fake reviews" requirement).
     const productLd: Record<string, unknown> = {
@@ -55,16 +99,9 @@ export const Route = createFileRoute("/product/$slug")({
       description: loaderData.description || loaderData.tagline || undefined,
       url: canonicalUrl,
       ...(image ? { image } : {}),
-      ...(loaderData.brand ? { brand: { "@type": "Brand", name: (loaderData.brand as { name: string }).name } } : {}),
-      offers: {
-        "@type": "Offer",
-        url: canonicalUrl,
-        priceCurrency: "PKR",
-        price: loaderData.price_pkr,
-        availability: loaderData.in_stock
-          ? "https://schema.org/InStock"
-          : "https://schema.org/OutOfStock",
-      },
+      ...(brandName ? { brand: { "@type": "Brand", name: brandName } } : {}),
+      ...(loaderData.family ? { category: loaderData.family } : {}),
+      offers,
     };
     // Mirrors the breadcrumb trail the page actually renders above the title.
     const breadcrumbLd = {
@@ -72,10 +109,8 @@ export const Route = createFileRoute("/product/$slug")({
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "Shop", item: "https://theperfumesouq.pk/shop" },
-        ...(loaderData.brand
-          ? [{ "@type": "ListItem", position: 2, name: (loaderData.brand as { name: string }).name }]
-          : []),
-        { "@type": "ListItem", position: loaderData.brand ? 3 : 2, name: loaderData.name, item: canonicalUrl },
+        ...(brandName ? [{ "@type": "ListItem", position: 2, name: brandName }] : []),
+        { "@type": "ListItem", position: brandName ? 3 : 2, name: loaderData.name, item: canonicalUrl },
       ],
     };
     return {
@@ -112,6 +147,19 @@ function ProductPage() {
   );
 }
 
+const chipCls =
+  "rounded-full border border-border px-4 py-1.5 text-[9px] uppercase tracking-[0.3em] text-foreground/60";
+
+function NoteTier({ label, notes }: { label: string; notes: string[] }) {
+  if (!notes.length) return null;
+  return (
+    <div>
+      <p className="text-[8px] uppercase tracking-[0.4em] text-foreground/40">{label}</p>
+      <p className="text-sm text-foreground/75">{notes.join(" · ")}</p>
+    </div>
+  );
+}
+
 function ProductContent() {
   const { slug } = Route.useParams();
   const { data: perfume, isLoading } = usePerfumeBySlug(slug);
@@ -124,31 +172,57 @@ function ProductContent() {
   const { add } = useCart();
 
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [qty, setQty] = useState(1);
+  const [sizeError, setSizeError] = useState(false);
   const [notifyEmail, setNotifyEmail] = useState("");
+  const sizeGroupRef = useRef<HTMLDivElement>(null);
 
+  // A different product is a fresh decision: never carry a size (or
+  // quantity) chosen on the previous perfume across to this one.
   useEffect(() => {
-    if (variants.length && !selectedVariantId) {
-      setSelectedVariantId((variants.find((v) => v.is_default) ?? variants[0]).id);
-    }
-  }, [variants, selectedVariantId]);
+    setSelectedVariantId(null);
+    setQty(1);
+    setSizeError(false);
+  }, [perfume?.id]);
 
   useEffect(() => {
     if (perfume)
       trackEvent("product_view", { perfumeId: perfume.id, sourcePath: `/product/${perfume.slug}` });
   }, [perfume]);
 
+  const sizes = useMemo(() => sortedSizes(variants), [variants]);
+  const isMulti = sizes.length > 1;
   const brand = brands.find((b) => b.id === perfume?.brand_id);
-  const selectedVariant = variants.find((v) => v.id === selectedVariantId) ?? variants[0];
 
+  // One size is simply the product; several sizes must be chosen explicitly
+  // so nobody can end up buying a bottle they didn't pick.
+  const selectedVariant = isMulti
+    ? (sizes.find((v) => v.id === selectedVariantId) ?? null)
+    : (sizes[0] ?? null);
+  const needsSize = isMulti && !selectedVariant;
+
+  const priceFor = (variant: (typeof sizes)[number]) =>
+    resolveVariantPrice(variant.price_pkr, promotions, {
+      perfumeId: perfume?.id ?? "",
+      variantId: variant.id,
+      brandId: perfume?.brand_id ?? null,
+      categoryId: perfume?.category_id ?? null,
+    });
+
+  const cheapest = useMemo(
+    () => (sizes.length ? sizes.reduce((m, v) => (v.price_pkr < m.price_pkr ? v : m)) : null),
+    [sizes],
+  );
   const price = useMemo(() => {
-    if (!perfume || !selectedVariant) return null;
-    return resolveVariantPrice(selectedVariant.price_pkr, promotions, {
+    const v = selectedVariant ?? cheapest;
+    if (!perfume || !v) return null;
+    return resolveVariantPrice(v.price_pkr, promotions, {
       perfumeId: perfume.id,
-      variantId: selectedVariant.id,
+      variantId: v.id,
       brandId: perfume.brand_id,
       categoryId: perfume.category_id,
     });
-  }, [perfume, selectedVariant, promotions]);
+  }, [perfume, selectedVariant, cheapest, promotions]);
 
   const related = useMemo(() => {
     if (!perfume) return [];
@@ -156,10 +230,14 @@ function ProductContent() {
       .filter((p) => p.id !== perfume.id)
       .map((p) => {
         let score = 0;
-        if (p.category_id && p.category_id === perfume.category_id) score += 3;
-        if (p.gender && p.gender === perfume.gender) score += 2;
+        if (p.category_id && p.category_id === perfume.category_id) score += 2;
+        if (p.gender && p.gender === perfume.gender) score += 1;
         if (p.brand_id && p.brand_id === perfume.brand_id) score += 2;
-        if (p.tag_family && p.tag_family === perfume.tag_family) score += 1;
+        if (p.family && p.family === perfume.family) score += 2;
+        // Overlapping main accords are the strongest real signal that two
+        // fragrances smell alike.
+        const shared = p.main_accords.filter((a) => perfume.main_accords.includes(a)).length;
+        score += Math.min(shared, 5);
         return { p, score };
       })
       .filter((x) => x.score > 0)
@@ -179,13 +257,23 @@ function ProductContent() {
     throw notFound();
   }
 
-  const inStock = selectedVariant ? selectedVariant.in_stock : perfume.in_stock;
+  const inStock = selectedVariant
+    ? selectedVariant.in_stock
+    : sizes.length
+      ? sizes.some((v) => v.in_stock)
+      : perfume.in_stock;
 
   const whatsappNumber = settings?.whatsapp_number ?? "923228408507";
   const productUrl =
     typeof window !== "undefined"
       ? window.location.href
       : `https://theperfumesouq.pk/product/${perfume.slug}`;
+
+  const promptSize = () => {
+    setSizeError(true);
+    toast.error("Please choose a size first.");
+    sizeGroupRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   const buildOrderMessage = () => {
     const lines = [
@@ -194,6 +282,7 @@ function ProductContent() {
       `Product: ${perfume.name}${brand ? ` (${brand.name})` : ""}`,
     ];
     if (selectedVariant) lines.push(`Size: ${selectedVariant.size_label}`);
+    lines.push(`Quantity: ${qty}`);
     if (price) {
       if (price.discountAmount > 0) {
         lines.push(`Original Price: ${formatPKR(price.originalPrice)}`);
@@ -204,6 +293,7 @@ function ProductContent() {
       } else {
         lines.push(`Price: ${formatPKR(price.finalPrice)}`);
       }
+      if (qty > 1) lines.push(`Total: ${formatPKR(price.finalPrice * qty)}`);
     }
     lines.push(``, `Link: ${productUrl}`, ``, `Please confirm availability. Thank you!`);
     return lines.join("\n");
@@ -211,20 +301,29 @@ function ProductContent() {
 
   const handleAdd = () => {
     if (!inStock) return;
-    add({
-      id: selectedVariant?.id ?? perfume.id,
-      perfumeId: perfume.id,
-      variantId: selectedVariant?.id,
-      sizeLabel: selectedVariant?.size_label,
-      name: perfume.name,
-      price: price ? price.finalPrice : perfume.price_pkr,
-      originalPrice: price && price.discountAmount > 0 ? price.originalPrice : undefined,
-      promotionName: price?.appliedPromotions[0]?.name,
-      img: perfume.image_url || "",
-    });
+    if (needsSize) return promptSize();
+    add(
+      {
+        id: selectedVariant?.id ?? perfume.id,
+        perfumeId: perfume.id,
+        variantId: selectedVariant?.id,
+        sizeLabel: selectedVariant?.size_label,
+        name: perfume.name,
+        price: price ? price.finalPrice : perfume.price_pkr,
+        originalPrice: price && price.discountAmount > 0 ? price.originalPrice : undefined,
+        promotionName: price?.appliedPromotions[0]?.name,
+        img: perfume.image_url || "",
+      },
+      null,
+      qty,
+    );
   };
 
-  const handleOrder = () => {
+  const handleOrder = (e: React.MouseEvent) => {
+    if (needsSize) {
+      e.preventDefault();
+      return promptSize();
+    }
     trackEvent("whatsapp_click", {
       perfumeId: perfume.id,
       variantId: selectedVariant?.id,
@@ -249,20 +348,22 @@ function ProductContent() {
     }
   };
 
+  const hasNotes = perfume.top_notes.length + perfume.heart_notes.length + perfume.base_notes.length > 0;
+
   return (
     <main className="section-pad relative px-6 pt-32 lg:px-16">
       <div className="mx-auto max-w-6xl">
-        <nav className="mb-10 flex gap-2 text-[10px] uppercase tracking-[0.35em] text-foreground/40">
+        <nav aria-label="Breadcrumb" className="mb-10 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.35em] text-foreground/40">
           <Link to="/shop" className="hover:text-gold">
             Shop
           </Link>
-          <span>/</span>
+          <span aria-hidden="true">/</span>
           {brand && (
             <>
               <Link to="/brand/$slug" params={{ slug: brand.slug }} className="hover:text-gold">
                 {brand.name}
               </Link>
-              <span>/</span>
+              <span aria-hidden="true">/</span>
             </>
           )}
           <span className="text-foreground/70">{perfume.name}</span>
@@ -273,7 +374,7 @@ function ProductContent() {
             {perfume.image_url ? (
               <img
                 src={perfume.image_url}
-                alt={perfume.name}
+                alt={`${perfume.name}${brand ? ` by ${brand.name}` : ""}`}
                 fetchPriority="high"
                 decoding="async"
                 className={`max-h-[560px] w-auto ${inStock ? "" : "opacity-50"}`}
@@ -297,13 +398,14 @@ function ProductContent() {
               <p className="mt-3 text-sm italic text-foreground/60">{perfume.tagline}</p>
             )}
 
-            <div className="mt-6 flex items-center gap-3">
+            <div className="mt-6 flex flex-wrap items-center gap-3">
               {price && price.discountAmount > 0 && (
                 <span className="text-sm text-foreground/40 line-through">
                   {formatPKR(price.originalPrice)}
                 </span>
               )}
               <span className="text-gradient-gold font-display text-3xl">
+                {needsSize ? "From " : ""}
                 {price ? formatPKR(price.finalPrice) : formatPKR(perfume.price_pkr)}
               </span>
               {price?.appliedPromotions[0]?.badge_text && (
@@ -313,73 +415,98 @@ function ProductContent() {
               )}
             </div>
 
-            {variants.length > 0 && (
-              <div className="mt-8">
+            {sizes.length > 0 && (
+              <div className="mt-8" id="size" ref={sizeGroupRef}>
                 <p className="mb-3 text-[9px] uppercase tracking-[0.4em] text-foreground/50">
-                  Size
+                  {isMulti ? "Choose a size" : "Size"}
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {variants.map((v) => (
-                    <button
-                      key={v.id}
-                      onClick={() => setSelectedVariantId(v.id)}
-                      disabled={!v.in_stock}
-                      className={`rounded-full border px-5 py-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                        selectedVariantId === v.id
-                          ? "border-gold bg-gold text-obsidian"
-                          : "border-gold/25 text-foreground/70 hover:border-gold/60"
-                      }`}
-                    >
-                      {v.size_label}
-                      {!v.in_stock && " (Out of Stock)"}
-                    </button>
-                  ))}
+                <div role="radiogroup" aria-label="Choose a size" className="flex flex-wrap gap-2">
+                  {sizes.map((v) => {
+                    const selected = selectedVariant?.id === v.id;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => {
+                          setSelectedVariantId(v.id);
+                          setSizeError(false);
+                        }}
+                        disabled={!v.in_stock}
+                        className={`rounded-full border px-5 py-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                          selected
+                            ? "border-gold bg-gold text-obsidian"
+                            : sizeError
+                              ? "border-destructive/70 text-foreground/70 hover:border-gold"
+                              : "border-gold/25 text-foreground/70 hover:border-gold/60"
+                        }`}
+                      >
+                        {v.size_label}
+                        {isMulti && (
+                          <span className={`ml-2 ${selected ? "opacity-80" : "opacity-60"}`}>
+                            {formatPKR(priceFor(v).finalPrice)}
+                          </span>
+                        )}
+                        {!v.in_stock && " (Out of Stock)"}
+                      </button>
+                    );
+                  })}
                 </div>
+                {sizeError && needsSize && (
+                  <p role="alert" className="mt-3 text-xs text-destructive">
+                    Please choose a size to continue.
+                  </p>
+                )}
               </div>
             )}
 
             <div className="mt-8 flex flex-wrap gap-3">
-              {perfume.gender && (
-                <span className="rounded-full border border-border px-4 py-1.5 text-[9px] uppercase tracking-[0.3em] text-foreground/60">
-                  {perfume.gender}
-                </span>
-              )}
-              {perfume.concentration && (
-                <span className="rounded-full border border-border px-4 py-1.5 text-[9px] uppercase tracking-[0.3em] text-foreground/60">
-                  {perfume.concentration}
-                </span>
-              )}
-              {perfume.family && (
-                <span className="rounded-full border border-border px-4 py-1.5 text-[9px] uppercase tracking-[0.3em] text-foreground/60">
-                  {perfume.family}
-                </span>
-              )}
+              {perfume.gender && <span className={chipCls}>{genderLabel(perfume.gender)}</span>}
+              {perfume.concentration && <span className={chipCls}>{perfume.concentration}</span>}
+              {perfume.family && <span className={chipCls}>{perfume.family}</span>}
             </div>
 
-            <div className="mt-10 space-y-3 border-l border-gold/20 pl-5">
-              <div>
-                <p className="text-[8px] uppercase tracking-[0.4em] text-foreground/40">
-                  Top Notes
-                </p>
-                <p className="text-sm text-foreground/75">{perfume.top_notes.join(" · ") || "—"}</p>
+            {(perfume.launch_year || perfume.perfumer) && (
+              <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+                {perfume.launch_year && (
+                  <>
+                    <dt className="text-[8px] uppercase tracking-[0.4em] text-foreground/40">Launched</dt>
+                    <dd className="text-foreground/75">{perfume.launch_year}</dd>
+                  </>
+                )}
+                {perfume.perfumer && (
+                  <>
+                    <dt className="text-[8px] uppercase tracking-[0.4em] text-foreground/40">Perfumer</dt>
+                    <dd className="text-foreground/75">{perfume.perfumer}</dd>
+                  </>
+                )}
+              </dl>
+            )}
+
+            {perfume.main_accords.length > 0 && (
+              <div className="mt-8">
+                <p className="mb-3 text-[9px] uppercase tracking-[0.4em] text-foreground/50">Main Accords</p>
+                <ul className="flex flex-wrap gap-2">
+                  {perfume.main_accords.map((a) => (
+                    <li
+                      key={a}
+                      className="rounded-full border border-gold/25 px-3 py-1 text-[10px] capitalize tracking-[0.15em] text-foreground/70"
+                    >
+                      {a}
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <div>
-                <p className="text-[8px] uppercase tracking-[0.4em] text-foreground/40">
-                  Heart Notes
-                </p>
-                <p className="text-sm text-foreground/75">
-                  {perfume.heart_notes.join(" · ") || "—"}
-                </p>
+            )}
+
+            {hasNotes && (
+              <div className="mt-10 space-y-3 border-l border-gold/20 pl-5">
+                <NoteTier label="Top Notes" notes={perfume.top_notes} />
+                <NoteTier label="Heart Notes" notes={perfume.heart_notes} />
+                <NoteTier label="Base Notes" notes={perfume.base_notes} />
               </div>
-              <div>
-                <p className="text-[8px] uppercase tracking-[0.4em] text-foreground/40">
-                  Base Notes
-                </p>
-                <p className="text-sm text-foreground/75">
-                  {perfume.base_notes.join(" · ") || "—"}
-                </p>
-              </div>
-            </div>
+            )}
 
             {perfume.description && (
               <p className="mt-8 text-sm font-light leading-relaxed text-foreground/70">
@@ -387,18 +514,49 @@ function ProductContent() {
               </p>
             )}
 
-            <div className="mt-10 flex flex-wrap items-center gap-4">
+            {inStock && (
+              <div className="mt-10 flex items-center gap-4">
+                <span className="text-[9px] uppercase tracking-[0.4em] text-foreground/50">Quantity</span>
+                <div className="flex items-center rounded-full border border-gold/25">
+                  <button
+                    type="button"
+                    aria-label="Decrease quantity"
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                    disabled={qty <= 1}
+                    className="px-3 py-2 text-foreground/70 hover:text-gold disabled:opacity-30"
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <span aria-live="polite" className="min-w-[2rem] text-center text-sm">
+                    {qty}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Increase quantity"
+                    onClick={() => setQty((q) => Math.min(10, q + 1))}
+                    disabled={qty >= 10}
+                    className="px-3 py-2 text-foreground/70 hover:text-gold disabled:opacity-30"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6 flex flex-wrap items-center gap-4">
               {inStock ? (
                 <>
                   <button
+                    type="button"
                     onClick={handleAdd}
-                    className="btn-gold inline-block px-10 py-4 text-[10px] uppercase tracking-[0.4em]"
+                    aria-disabled={needsSize}
+                    className={`btn-gold inline-block px-10 py-4 text-[10px] uppercase tracking-[0.4em] ${needsSize ? "opacity-70" : ""}`}
                   >
-                    Add to Cart
+                    {needsSize ? "Select a Size" : "Add to Cart"}
                   </button>
                   <a
-                    href={waLink(whatsappNumber, buildOrderMessage())}
-                    target="_blank"
+                    href={needsSize ? "#size" : waLink(whatsappNumber, buildOrderMessage())}
+                    target={needsSize ? undefined : "_blank"}
                     rel="noopener noreferrer"
                     onClick={handleOrder}
                     className="link-underline inline-flex items-center px-2 text-[10px] uppercase tracking-[0.35em] text-gold/80"
@@ -411,12 +569,12 @@ function ProductContent() {
                   Currently Out of Stock
                 </span>
               )}
-              <Link
-                to="/shop"
+              <a
+                href="/#comparison"
                 className="link-underline inline-flex items-center px-2 text-[10px] uppercase tracking-[0.35em] text-gold/80"
               >
                 Compare with others
-              </Link>
+              </a>
             </div>
 
             {!inStock && (
@@ -426,6 +584,7 @@ function ProductContent() {
                   required
                   value={notifyEmail}
                   onChange={(e) => setNotifyEmail(e.target.value)}
+                  aria-label="Email for back-in-stock alert"
                   placeholder="Your email for a back-in-stock alert"
                   className="min-w-[240px] flex-1 rounded-sm border border-border bg-transparent px-4 py-3 text-sm text-foreground placeholder:text-foreground/40"
                 />
@@ -442,7 +601,7 @@ function ProductContent() {
 
         {related.length > 0 && (
           <div className="mt-24">
-            <p className="label-eyebrow mb-6">You May Also Like</p>
+            <h2 className="label-eyebrow mb-6">You May Also Like</h2>
             <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
               {related.map((p) => (
                 <Link

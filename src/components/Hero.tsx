@@ -47,7 +47,7 @@ export function Hero() {
       )[0];
     if (!p) return null;
     const pv = variants.filter((v) => v.perfume_id === p.id);
-    const dv = pv.find((v) => v.is_default) ?? pv[0];
+    const dv = pv.length ? pv.reduce((m, v) => (v.price_pkr < m.price_pkr ? v : m)) : undefined;
     const inStock = pv.length ? pv.some((v) => v.in_stock) : p.in_stock;
     const price = dv
       ? resolveVariantPrice(dv.price_pkr, promotions, {

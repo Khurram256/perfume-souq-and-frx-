@@ -565,6 +565,8 @@ export type Database = {
           image_storage_path: string | null;
           in_stock: boolean;
           main_accords: string[];
+          launch_year: number | null;
+          perfumer: string | null;
           meta_description: string | null;
           meta_title: string | null;
           name: string;
@@ -620,6 +622,8 @@ export type Database = {
           image_storage_path?: string | null;
           in_stock?: boolean;
           main_accords?: string[];
+          launch_year?: number | null;
+          perfumer?: string | null;
           meta_description?: string | null;
           meta_title?: string | null;
           name: string;
@@ -675,6 +679,8 @@ export type Database = {
           image_storage_path?: string | null;
           in_stock?: boolean;
           main_accords?: string[];
+          launch_year?: number | null;
+          perfumer?: string | null;
           meta_description?: string | null;
           meta_title?: string | null;
           name?: string;
@@ -736,6 +742,7 @@ export type Database = {
           perfume_id: string;
           price_pkr: number;
           size_label: string;
+          size_ml: number | null;
           sku: string | null;
           sort_order: number;
           stock_quantity: number | null;
@@ -749,6 +756,7 @@ export type Database = {
           perfume_id: string;
           price_pkr: number;
           size_label: string;
+          size_ml?: number | null;
           sku?: string | null;
           sort_order?: number;
           stock_quantity?: number | null;
@@ -762,6 +770,7 @@ export type Database = {
           perfume_id?: string;
           price_pkr?: number;
           size_label?: string;
+          size_ml?: number | null;
           sku?: string | null;
           sort_order?: number;
           stock_quantity?: number | null;

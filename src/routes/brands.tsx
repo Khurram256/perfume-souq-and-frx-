@@ -5,7 +5,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { CartDrawer } from "@/components/CartDrawer";
 import { FlyToCart } from "@/components/FlyToCart";
 import { ContactButton } from "@/components/ContactButton";
-import { useBrands } from "@/lib/api/queries";
+import { useBrands, usePerfumes } from "@/lib/api/queries";
 
 export const Route = createFileRoute("/brands")({
   head: () => ({
@@ -25,7 +25,14 @@ export const Route = createFileRoute("/brands")({
 });
 
 function BrandsPage() {
-  const { data: brands = [], isLoading } = useBrands();
+  const { data: allBrands = [], isLoading: brandsLoading } = useBrands();
+  const { data: perfumes = [], isLoading: perfumesLoading } = usePerfumes();
+  const isLoading = brandsLoading || perfumesLoading;
+  // A maison with nothing in the catalogue is not "a house we carry" — list
+  // only those with at least one perfume, and show how many.
+  const counts = new Map<string, number>();
+  for (const p of perfumes) if (p.brand_id) counts.set(p.brand_id, (counts.get(p.brand_id) ?? 0) + 1);
+  const brands = allBrands.filter((b) => counts.has(b.id));
   return (
     <CartProvider>
       <div className="min-h-screen">
@@ -60,6 +67,9 @@ function BrandsPage() {
                     />
                   )}
                   <h2 className="font-display text-xl italic">{b.name}</h2>
+                  <p className="mt-2 text-[9px] uppercase tracking-[0.3em] text-foreground/45">
+                    {counts.get(b.id)} {counts.get(b.id) === 1 ? "fragrance" : "fragrances"}
+                  </p>
                   {b.origin_country && (
                     <p className="mt-2 text-[9px] uppercase tracking-[0.3em] text-foreground/45">
                       {b.origin_country}

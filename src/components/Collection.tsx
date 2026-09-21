@@ -14,6 +14,7 @@ import {
 } from "@/lib/api/queries";
 import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
+import { formatSizeList } from "@/lib/catalog";
 import { SplitHeading } from "./SplitHeading";
 import { BackInStockButton } from "./BackInStockButton";
 import { Slider } from "./ui/slider";
@@ -25,11 +26,17 @@ function ProductCard({
   variant,
   promotions,
   multipleSizes,
+  sizes,
+  brandName,
+  anySizeInStock,
 }: {
   p: Perfume;
   variant?: ProductVariant;
   promotions: ReturnType<typeof usePromotions>["data"];
   multipleSizes?: boolean;
+  sizes?: string;
+  brandName?: string;
+  anySizeInStock?: boolean;
 }) {
   const { add } = useCart();
   const imgRef = useRef<HTMLImageElement>(null);
@@ -48,7 +55,7 @@ function ProductCard({
         discountAmount: 0,
         appliedPromotions: [],
       };
-  const inStock = variant ? variant.in_stock : p.in_stock;
+  const inStock = anySizeInStock ?? (variant ? variant.in_stock : p.in_stock);
 
   // Luxury-subtle tilt — max ~3° per the design direction (nothing exaggerated).
   const rx = useMotionValue(0);
@@ -140,7 +147,7 @@ function ProductCard({
         )}
       </div>
 
-      <p className="label-eyebrow mb-3 text-[9px]">{p.family}</p>
+      <p className="label-eyebrow mb-3 text-[9px]">{[brandName, p.family].filter(Boolean).join(" · ")}</p>
       <h3 className="font-display text-3xl italic">{p.name}</h3>
       {p.tagline && (
         <p className="mt-3 max-w-xs text-xs font-light leading-relaxed text-foreground/55">
@@ -180,6 +187,11 @@ function ProductCard({
             {formatPKR(price.finalPrice)}
           </span>
         </span>
+        {multipleSizes && sizes && (
+          <p className="mt-2 text-[10px] tracking-[0.2em] text-foreground/60" aria-label={`Available sizes: ${sizes}`}>
+            {sizes}
+          </p>
+        )}
 
         {/* Add to Cart and View Details are two distinct, always-available
             actions — Add to Cart works whether or not this perfume has a
@@ -187,13 +199,24 @@ function ProductCard({
             in favour of View Details. */}
         <div className="mt-4 flex items-center justify-center gap-5">
           {inStock ? (
-            <button
-              onClick={handleAdd}
-              className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
-            >
-              <Plus className="h-3 w-3" />
-              Add to Cart
-            </button>
+            multipleSizes ? (
+              <Link
+                to="/product/$slug"
+                params={{ slug: p.slug }}
+                hash="size"
+                className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
+              >
+                Choose Size
+              </Link>
+            ) : (
+              <button
+                onClick={handleAdd}
+                className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
+              >
+                <Plus className="h-3 w-3" />
+                Add to Cart
+              </button>
+            )
           ) : (
             <BackInStockButton
               perfumeId={p.id}
@@ -251,13 +274,15 @@ export function Collection() {
   // brand added twice with different casing (e.g. "Gucci" / "gucci") never
   // shows up as two separate filter options.
   const sortedBrands = useMemo(() => {
+    const used = new Set(perfumes.map((p) => p.brand_id));
     const seen = new Map<string, { id: string; name: string }>();
     for (const b of brands) {
+      if (!used.has(b.id)) continue;
       const key = b.name.trim().toLowerCase();
       if (!seen.has(key)) seen.set(key, { id: b.id, name: b.name });
     }
     return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [brands]);
+  }, [brands, perfumes]);
 
   const filtered = useMemo(() => {
     let list = perfumes;
@@ -401,14 +426,19 @@ export function Collection() {
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {visible.map((p) => {
             const pv = variants.filter((v) => v.perfume_id === p.id);
-            const defaultVariant = pv.find((v) => v.is_default) ?? pv[0];
+            // Several sizes: price the card from the cheapest bottle (the
+            // smallest size is not always the cheapest). One size: that size.
+            const priced = pv.length ? pv.reduce((m, v) => (v.price_pkr < m.price_pkr ? v : m)) : undefined;
             return (
               <ProductCard
                 key={p.id}
                 p={p}
-                variant={defaultVariant}
+                variant={priced}
                 promotions={promotions.data}
                 multipleSizes={pv.length > 1}
+                sizes={formatSizeList(pv)}
+                anySizeInStock={pv.length ? pv.some((v) => v.in_stock) : undefined}
+                brandName={brands.find((b) => b.id === p.brand_id)?.name}
               />
             );
           })}

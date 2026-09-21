@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { CartProvider, useCart } from "@/contexts/CartContext";
@@ -21,10 +21,16 @@ import {
 } from "@/lib/api/queries";
 import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
+import { formatSizeList, genderLabel, matchesQuery, searchHaystack } from "@/lib/catalog";
 
 function clampPrice(n: number, bounds: { min: number; max: number }) {
   if (Number.isNaN(n)) return bounds.min;
   return Math.min(bounds.max, Math.max(bounds.min, n));
+}
+
+function toList(v: unknown): string[] | undefined {
+  if (Array.isArray(v)) return v.map(String);
+  return v ? [String(v)] : undefined;
 }
 
 type ShopSearch = {
@@ -35,6 +41,9 @@ type ShopSearch = {
   max?: number;
   inStock?: boolean;
   sort?: "price-asc" | "price-desc" | "name";
+  q?: string;
+  families?: string[];
+  accords?: string[];
 };
 
 export const Route = createFileRoute("/shop")({
@@ -46,6 +55,9 @@ export const Route = createFileRoute("/shop")({
     max: search.max !== undefined ? Number(search.max) : undefined,
     inStock: search.inStock === true || search.inStock === "true" ? true : undefined,
     sort: search.sort as ShopSearch["sort"],
+    q: typeof search.q === "string" && search.q.trim() ? search.q.trim().slice(0, 80) : undefined,
+    families: toList(search.families),
+    accords: toList(search.accords),
   }),
   head: () => ({
     meta: [
@@ -114,6 +126,24 @@ function ShopContent() {
   const [priceDraft, setPriceDraft] = useState<[number, number] | null>(null);
   const sliderValue = priceDraft ?? [minInput, maxInput];
 
+  // Filter options come from the live catalogue (never a hardcoded list), so a
+  // fragrance added in the admin panel is filterable the moment it exists.
+  const brandsWithPerfumes = useMemo(() => {
+    const used = new Set(perfumes.map((p) => p.brand_id));
+    return brands.filter((b) => used.has(b.id));
+  }, [brands, perfumes]);
+  const familyOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of perfumes) if (p.family) counts.set(p.family, (counts.get(p.family) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name);
+  }, [perfumes]);
+  const accordOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of perfumes) for (const a of p.main_accords) counts.set(a, (counts.get(a) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 30).map(([name]) => name);
+  }, [perfumes]);
+  const brandNameById = useMemo(() => new Map(brands.map((b) => [b.id, b.name])), [brands]);
+
   const priced = useMemo(() => {
     return perfumes.map((p) => {
       const perfumeVariants = variants.filter((v) => v.perfume_id === p.id);
@@ -137,10 +167,12 @@ function ShopContent() {
         price: resolved,
         inStock,
         sizeCount: perfumeVariants.length,
+        sizes: formatSizeList(perfumeVariants),
         variantId: cheapest?.id,
+        haystack: searchHaystack(p, brandNameById.get(p.brand_id ?? "")),
       };
     });
-  }, [perfumes, variants, promotions]);
+  }, [perfumes, variants, promotions, brandNameById]);
 
   const filtered = useMemo(() => {
     let list = priced;
@@ -150,6 +182,10 @@ function ShopContent() {
     if (search.min !== undefined) list = list.filter((x) => x.price.finalPrice >= search.min!);
     if (search.max !== undefined) list = list.filter((x) => x.price.finalPrice <= search.max!);
     if (search.inStock) list = list.filter((x) => x.inStock);
+    if (search.q) list = list.filter((x) => matchesQuery(x.haystack, search.q!));
+    if (search.families?.length) list = list.filter((x) => x.perfume.family && search.families!.includes(x.perfume.family));
+    // Accords narrow the list: a perfume must carry every selected accord.
+    if (search.accords?.length) list = list.filter((x) => search.accords!.every((a) => x.perfume.main_accords.includes(a)));
 
     const sorted = [...list];
     if (search.sort === "price-asc") sorted.sort((a, b) => a.price.finalPrice - b.price.finalPrice);
@@ -172,11 +208,40 @@ function ShopContent() {
     patch({ brands: next.length ? next : undefined });
   };
 
+  const toggleIn = (key: "families" | "accords", value: string) => {
+    const current = search[key] ?? [];
+    const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+    patch({ [key]: next.length ? next : undefined } as Partial<ShopSearch>);
+  };
+
+  // The box edits a local draft that is pushed to the URL after a short pause.
+  // lastPushedQ stops a slow URL round-trip from overwriting text typed in the
+  // meantime, while still letting an external change ("Clear all") reset it.
+  const [qDraft, setQDraft] = useState(search.q ?? "");
+  const lastPushedQ = useRef<string | undefined>(search.q);
+  useEffect(() => {
+    if (search.q !== lastPushedQ.current) {
+      lastPushedQ.current = search.q;
+      setQDraft(search.q ?? "");
+    }
+  }, [search.q]);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const next = qDraft.trim() || undefined;
+      if (next !== lastPushedQ.current) {
+        lastPushedQ.current = next;
+        patch({ q: next });
+      }
+    }, 250);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qDraft]);
+
   const clearFilters = () => navigate({ search: {} });
 
   const activeFilterCount =
     (search.gender ? 1 : 0) + (search.brands?.length ?? 0) + (search.category ? 1 : 0) + (search.inStock ? 1 : 0) +
-    (search.min !== undefined || search.max !== undefined ? 1 : 0);
+    (search.min !== undefined || search.max !== undefined ? 1 : 0) + (search.q ? 1 : 0) + (search.families?.length ?? 0) + (search.accords?.length ?? 0);
 
   return (
     <main className="section-pad relative px-6 pt-32 lg:px-16">
@@ -215,18 +280,66 @@ function ShopContent() {
             <div>
               <p className="label-eyebrow mb-4 text-[9px]">Maison</p>
               <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                {brands.map((b) => (
+                {brandsWithPerfumes.map((b) => (
                   <label key={b.id} className="flex items-center gap-3 text-sm cursor-pointer">
                     <Checkbox checked={search.brands?.includes(b.id) ?? false} onCheckedChange={() => toggleBrand(b.id)} />
                     <span className="text-foreground/75">{b.name}</span>
                   </label>
                 ))}
-                {!brands.length && <p className="text-xs text-foreground/40">No maisons added yet.</p>}
+                {!brandsWithPerfumes.length && <p className="text-xs text-foreground/40">No maisons added yet.</p>}
               </div>
             </div>
 
+            {familyOptions.length > 0 && (
+              <div>
+                <p className="label-eyebrow mb-4 text-[9px]">Fragrance Family</p>
+                <div className="flex max-h-56 flex-wrap gap-2 overflow-y-auto pr-1">
+                  {familyOptions.map((fam) => {
+                    const on = search.families?.includes(fam) ?? false;
+                    return (
+                      <button
+                        key={fam}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => toggleIn("families", fam)}
+                        className={`rounded-full border px-3 py-1.5 text-[9px] uppercase tracking-[0.25em] transition-colors ${
+                          on ? "border-gold bg-gold text-obsidian" : "border-gold/25 text-foreground/60 hover:border-gold/60"
+                        }`}
+                      >
+                        {fam}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {accordOptions.length > 0 && (
+              <div>
+                <p className="label-eyebrow mb-4 text-[9px]">Main Accords</p>
+                <div className="flex max-h-56 flex-wrap gap-2 overflow-y-auto pr-1">
+                  {accordOptions.map((acc) => {
+                    const on = search.accords?.includes(acc) ?? false;
+                    return (
+                      <button
+                        key={acc}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => toggleIn("accords", acc)}
+                        className={`rounded-full border px-3 py-1.5 text-[9px] capitalize tracking-[0.15em] transition-colors ${
+                          on ? "border-gold bg-gold text-obsidian" : "border-gold/25 text-foreground/60 hover:border-gold/60"
+                        }`}
+                      >
+                        {acc}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div>
-              <p className="label-eyebrow mb-4 text-[9px]">Fragrance Family</p>
+              <p className="label-eyebrow mb-4 text-[9px]">Collection</p>
               <div className="flex flex-wrap gap-2">
                 {categories.map((c) => (
                   <button
@@ -293,8 +406,21 @@ function ShopContent() {
 
           {/* Results */}
           <div>
+            <div className="relative mb-6">
+              <Search aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
+              <input
+                type="search"
+                value={qDraft}
+                onChange={(e) => setQDraft(e.target.value)}
+                aria-label="Search perfumes by name, brand, note or accord"
+                placeholder="Search by perfume, brand, note or accord — e.g. oud, vanilla, Creed"
+                maxLength={80}
+                className="w-full rounded-sm border border-border bg-transparent py-3 pl-11 pr-4 text-sm text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
+              />
+            </div>
+
             <div className="mb-8 flex items-center justify-between">
-              <p className="text-xs text-foreground/50">{filtered.length} result{filtered.length === 1 ? "" : "s"}</p>
+              <p className="text-xs text-foreground/50" aria-live="polite">{filtered.length} result{filtered.length === 1 ? "" : "s"}</p>
               <select
                 value={search.sort ?? ""}
                 onChange={(e) => patch({ sort: (e.target.value || undefined) as ShopSearch["sort"] })}
@@ -310,7 +436,7 @@ function ShopContent() {
             {isLoading && <p className="text-sm text-foreground/50">Loading the collection…</p>}
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {filtered.map(({ perfume, price, inStock, sizeCount, variantId }) => (
+              {filtered.map(({ perfume, price, inStock, sizeCount, sizes, variantId }) => (
                 <ShopCard
                   key={perfume.id}
                   perfume={perfume}
@@ -318,6 +444,7 @@ function ShopContent() {
                   inStock={inStock}
                   variantId={variantId}
                   multipleSizes={sizeCount > 1}
+                  sizes={sizes}
                   brandName={brands.find((b) => b.id === perfume.brand_id)?.name}
                 />
               ))}
@@ -342,6 +469,7 @@ function ShopCard({
   variantId,
   brandName,
   multipleSizes,
+  sizes,
 }: {
   perfume: Perfume;
   price: { originalPrice: number; finalPrice: number; discountAmount: number };
@@ -349,14 +477,18 @@ function ShopCard({
   variantId?: string;
   brandName?: string;
   multipleSizes?: boolean;
+  sizes?: string;
 }) {
   const { add } = useCart();
 
+  // Only ever reached for single-size perfumes — several sizes go through the
+  // product page, where the customer must pick one.
   const handleAdd = () => {
     add({
       id: variantId ?? perfume.id,
       perfumeId: perfume.id,
       variantId,
+      sizeLabel: sizes || undefined,
       name: perfume.name,
       price: price.finalPrice,
       originalPrice: price.discountAmount > 0 ? price.originalPrice : undefined,
@@ -397,6 +529,16 @@ function ShopCard({
         </div>
         {brandName && <p className="label-eyebrow mb-2 text-[8px]">{brandName}</p>}
         <h3 className="font-display text-2xl italic">{perfume.name}</h3>
+        {(perfume.family || perfume.gender) && (
+          <p className="mt-2 text-[9px] uppercase tracking-[0.25em] text-foreground/45">
+            {[perfume.family, genderLabel(perfume.gender)].filter(Boolean).join(" · ")}
+          </p>
+        )}
+        {multipleSizes && sizes && (
+          <p className="mt-2 text-[10px] tracking-[0.2em] text-foreground/60" aria-label={`Available sizes: ${sizes}`}>
+            {sizes}
+          </p>
+        )}
         <div className="mt-4 flex flex-col items-center gap-1">
           <div className="flex items-center gap-2">
             {price.discountAmount > 0 && (
@@ -412,12 +554,23 @@ function ShopCard({
 
       <div className="mt-5 flex items-center gap-5 border-t border-border pt-5">
         {inStock ? (
-          <button
-            onClick={handleAdd}
-            className="text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
-          >
-            Add to Cart
-          </button>
+          multipleSizes ? (
+            <Link
+              to="/product/$slug"
+              params={{ slug: perfume.slug }}
+              hash="size"
+              className="text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
+            >
+              Choose Size
+            </Link>
+          ) : (
+            <button
+              onClick={handleAdd}
+              className="text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
+            >
+              Add to Cart
+            </button>
+          )
         ) : (
           <BackInStockButton
             perfumeId={perfume.id}

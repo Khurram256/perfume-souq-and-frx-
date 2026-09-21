@@ -12,51 +12,89 @@ import {
 import { resolveVariantPrice } from "@/lib/pricing";
 import { useCart } from "@/contexts/CartContext";
 import { formatPKR } from "@/lib/format";
+import { titleCase } from "@/lib/catalog";
 import { Slider } from "./ui/slider";
 import { Magnetic } from "./Magnetic";
 import { BackInStockButton } from "./BackInStockButton";
 
-type TagKey = "tag_gender" | "tag_family" | "tag_occasion";
+type StepKey = "gender" | "accords" | "family";
 // Answers are always arrays, even for single-select questions (length <= 1)
 // — one uniform shape rather than a string for single-select and a string[]
 // for multi-select, which would need two branches everywhere they're read.
-type Answers = Partial<Record<TagKey, string[]>> & { budget?: [number, number] };
+type Answers = Partial<Record<StepKey, string[]>> & { budget?: [number, number] };
 
-// A data-driven property of the question, not a hardcoded UI branch: which
-// questions allow several answers is a deliberate content decision (a scent
-// can suit more than one occasion or mood, but not more than one target
-// audience), so it lives next to the question text rather than in JSX.
-const STEP_META: { key: TagKey; question: string; selectionMode: "single" | "multiple" }[] = [
-  { key: "tag_gender", question: "Who is this scent for?", selectionMode: "single" },
-  { key: "tag_family", question: "Which moods draw you in?", selectionMode: "multiple" },
-  { key: "tag_occasion", question: "Which occasions call for it?", selectionMode: "multiple" },
-];
+const GENDER_LABELS: Record<string, string> = { men: "Masculine", women: "Feminine", unisex: "Unisex" };
 
-function titleCase(s: string) {
-  return s.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+// How many choices each multi-select question offers. The choices themselves
+// are the most common accords / families found in the live catalogue, so a
+// fragrance added in the admin panel is matchable immediately and no
+// perfume is ever named in this file.
+const ACCORD_CHOICES = 14;
+const FAMILY_CHOICES = 10;
+
+function topByFrequency(values: Iterable<string>, limit: number): string[] {
+  const counts = new Map<string, number>();
+  for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([v]) => v);
 }
 
-function scoreMatch(p: Perfume, a: Answers, priceForBudget?: number) {
+// Scores one perfume against the answers using only stored fragrance data:
+// gender, main accords, the three note tiers, family and real variant prices.
+// `matched` is what the customer sees as the reason it was chosen.
+function scoreMatch(p: Perfume, a: Answers, variantPrices: number[]) {
   const matched: string[] = [];
   let s = 0;
-  const gender = a.tag_gender?.[0];
-  if (gender && (p.tag_gender === gender || p.tag_gender === "unisex")) {
-    s += 3;
-    matched.push(titleCase(gender));
-  }
-  if (a.tag_family?.length && p.tag_family && a.tag_family.includes(p.tag_family)) {
-    s += 4;
-    matched.push(titleCase(p.tag_family));
-  }
-  if (a.tag_occasion?.length && p.tag_occasion && a.tag_occasion.includes(p.tag_occasion)) {
-    s += 2;
-    matched.push(titleCase(p.tag_occasion));
-  }
-  if (a.budget && priceForBudget !== undefined) {
-    const [lo, hi] = a.budget;
-    if (priceForBudget >= lo && priceForBudget <= hi) {
+
+  const gender = a.gender?.[0];
+  if (gender) {
+    if (gender === "unisex") {
+      if (p.gender === "unisex") {
+        s += 2;
+        matched.push("Women & Men");
+      }
+    } else if (p.gender === gender) {
+      s += 4;
+      matched.push(gender === "men" ? "For men" : "For women");
+    } else if (p.gender === "unisex") {
       s += 3;
-      matched.push("Within Budget");
+      matched.push("Women & Men");
+    } else {
+      // Made for the other audience — never recommend it.
+      return { score: -100, matched };
+    }
+  }
+
+  const notes = [...p.top_notes, ...p.heart_notes, ...p.base_notes].map((n) => n.toLowerCase());
+  for (const accord of a.accords ?? []) {
+    if (p.main_accords.includes(accord)) {
+      s += 3;
+      matched.push(`${titleCase(accord)} accord`);
+    } else if (notes.some((n) => n.includes(accord))) {
+      s += 1;
+      matched.push(`${titleCase(accord)} note`);
+    }
+  }
+
+  const family = p.family;
+  if (family && a.family?.length) {
+    if (a.family.includes(family)) {
+      s += 3;
+      matched.push(family);
+    } else if (a.family.some((f) => f.split(" ")[0] === family.split(" ")[0])) {
+      s += 1;
+    }
+  }
+
+  if (a.budget && variantPrices.length) {
+    const [lo, hi] = a.budget;
+    if (variantPrices.some((price) => price >= lo && price <= hi)) {
+      s += 3;
+      matched.push("Within budget");
+    } else {
+      s -= 4;
     }
   }
   return { score: s, matched };
@@ -74,19 +112,41 @@ export function FragranceQuiz() {
     return { min: Math.min(...prices), max: Math.max(...prices) };
   }, [variants]);
 
-  const steps = useMemo(
-    () =>
-      STEP_META.map((meta) => ({
-        ...meta,
-        options: Array.from(
-          new Set(inStock.map((p) => p[meta.key]).filter(Boolean) as string[]),
-        ).map((v) => ({
-          label: titleCase(v),
-          value: v,
-        })),
-      })).filter((s) => s.options.length > 0),
-    [inStock],
-  );
+  const steps = useMemo(() => {
+    const defs: {
+      key: StepKey;
+      question: string;
+      selectionMode: "single" | "multiple";
+      options: { label: string; value: string }[];
+    }[] = [
+      {
+        key: "gender",
+        question: "Who is this scent for?",
+        selectionMode: "single",
+        options: [...new Set(inStock.map((p) => p.gender).filter(Boolean) as string[])]
+          .sort()
+          .map((g) => ({ label: GENDER_LABELS[g] ?? titleCase(g), value: g })),
+      },
+      {
+        key: "accords",
+        question: "Which scent characters draw you in?",
+        selectionMode: "multiple",
+        options: topByFrequency(
+          inStock.flatMap((p) => p.main_accords),
+          ACCORD_CHOICES,
+        ).map((v) => ({ label: titleCase(v), value: v })),
+      },
+      {
+        key: "family",
+        question: "Which fragrance styles appeal to you?",
+        selectionMode: "multiple",
+        options: topByFrequency(inStock.map((p) => p.family).filter(Boolean) as string[], FAMILY_CHOICES).map(
+          (v) => ({ label: v, value: v }),
+        ),
+      },
+    ];
+    return defs.filter((s) => s.options.length > 0);
+  }, [inStock]);
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
@@ -106,49 +166,57 @@ export function FragranceQuiz() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [done]);
 
-  const priceByPerfumeId = useMemo(() => {
+  // Per-perfume: every real variant price, and the cheapest bottle priced
+  // through the live promotions engine (what a customer would pay "from").
+  const pricing = useMemo(() => {
     const map = new Map<
       string,
       {
-        originalPrice: number;
-        finalPrice: number;
-        discountAmount: number;
-        appliedPromotions: { name: string; badge_text: string | null }[];
+        prices: number[];
+        multi: boolean;
+        single?: (typeof variants)[number];
+        lead: {
+          originalPrice: number;
+          finalPrice: number;
+          discountAmount: number;
+          appliedPromotions: { name: string; badge_text: string | null }[];
+        };
       }
     >();
     for (const p of perfumes) {
       const pv = variants.filter((v) => v.perfume_id === p.id);
-      const dv = pv.find((v) => v.is_default) ?? pv[0];
-      const basePrice = dv?.price_pkr ?? p.price_pkr;
-      const resolved = dv
+      const cheapest = pv.length ? pv.reduce((m, v) => (v.price_pkr < m.price_pkr ? v : m)) : undefined;
+      const basePrice = cheapest?.price_pkr ?? p.price_pkr;
+      const lead = cheapest
         ? resolveVariantPrice(basePrice, promotions, {
             perfumeId: p.id,
-            variantId: dv.id,
+            variantId: cheapest.id,
             brandId: p.brand_id,
             categoryId: p.category_id,
           })
-        : {
-            originalPrice: basePrice,
-            finalPrice: basePrice,
-            discountAmount: 0,
-            appliedPromotions: [],
-          };
-      map.set(p.id, resolved);
+        : { originalPrice: basePrice, finalPrice: basePrice, discountAmount: 0, appliedPromotions: [] };
+      map.set(p.id, {
+        prices: pv.length ? pv.map((v) => v.price_pkr) : [p.price_pkr],
+        multi: pv.length > 1,
+        single: pv.length === 1 ? pv[0] : undefined,
+        lead,
+      });
     }
     return map;
   }, [perfumes, variants, promotions]);
 
   const results = useMemo(() => {
     if (!done || !inStock.length) return [];
-    return [...inStock]
+    return inStock
       .map((p) => {
-        const price = priceByPerfumeId.get(p.id);
-        const { score, matched } = scoreMatch(p, ans, price?.finalPrice);
-        return { p, score, matched, price };
+        const info = pricing.get(p.id);
+        const { score, matched } = scoreMatch(p, ans, info?.prices ?? [p.price_pkr]);
+        return { p, score, matched, info };
       })
-      .sort((a, b) => b.score - a.score)
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score || b.matched.length - a.matched.length || a.p.name.localeCompare(b.p.name))
       .slice(0, 3);
-  }, [done, ans, inStock, priceByPerfumeId]);
+  }, [done, ans, inStock, pricing]);
 
   const reset = () => {
     setOpen(false);
@@ -331,94 +399,102 @@ export function FragranceQuiz() {
                     Your Signature Selection
                   </h3>
                   <div className="space-y-4">
-                    {results.map(({ p, matched, price }) => (
-                      <div
-                        key={p.id}
-                        className="flex items-center gap-4 border-b border-border pb-4 last:border-b-0"
-                      >
-                        {p.image_url && (
-                          <img
-                            src={p.image_url}
-                            alt={p.name}
-                            loading="lazy"
-                            decoding="async"
-                            className="h-20 w-16 object-contain"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <p className="text-[9px] uppercase tracking-[0.4em] text-gold/80">
-                            {p.family}
-                          </p>
-                          <h4 className="font-display text-xl italic">{p.name}</h4>
-                          {matched.length > 0 && (
-                            <p className="mt-1 text-[10px] text-foreground/45">
-                              Matched: {matched.join(" · ")}
-                            </p>
+                    {results.map(({ p, matched, info }) => {
+                      const price = info?.lead;
+                      const single = info?.single;
+                      return (
+                        <div
+                          key={p.id}
+                          className="flex items-center gap-4 border-b border-border pb-4 last:border-b-0"
+                        >
+                          {p.image_url && (
+                            <img
+                              src={p.image_url}
+                              alt={p.name}
+                              loading="lazy"
+                              decoding="async"
+                              className="h-20 w-16 object-contain"
+                            />
                           )}
-                        </div>
-                        <div className="text-right">
-                          {price && price.discountAmount > 0 && (
-                            <p className="text-[10px] text-foreground/40 line-through">
-                              {formatPKR(price.originalPrice)}
+                          <div className="flex-1">
+                            <p className="text-[9px] uppercase tracking-[0.4em] text-gold/80">
+                              {p.family}
                             </p>
-                          )}
-                          <p className="text-gradient-gold font-display text-lg">
-                            {formatPKR(price?.finalPrice ?? p.price_pkr)}
-                          </p>
-                          {(() => {
-                            const pv =
-                              variants.find((v) => v.perfume_id === p.id && v.is_default) ??
-                              variants.find((v) => v.perfume_id === p.id);
-                            return (
-                              <div className="mt-2 flex flex-col items-end gap-1.5">
-                                {p.in_stock ? (
-                                  <button
-                                    onClick={() => {
-                                      add({
-                                        id: pv?.id ?? p.id,
-                                        perfumeId: p.id,
-                                        variantId: pv?.id,
-                                        sizeLabel: pv?.size_label,
-                                        name: p.name,
-                                        price: price?.finalPrice ?? p.price_pkr,
-                                        originalPrice:
-                                          price && price.discountAmount > 0
-                                            ? price.originalPrice
-                                            : undefined,
-                                        img: p.image_url || "",
-                                      });
-                                      trackEvent("whatsapp_click", {
-                                        perfumeId: p.id,
-                                        variantId: pv?.id,
-                                        sourcePath: "/quiz",
-                                      });
-                                    }}
-                                    data-magnetic
-                                    className="text-[9px] font-semibold uppercase tracking-[0.35em] text-gold hover-underline"
-                                  >
-                                    Add to Cart
-                                  </button>
-                                ) : (
-                                  <BackInStockButton
-                                    perfumeId={p.id}
-                                    variantId={pv?.id}
-                                    className="text-[9px] uppercase tracking-[0.35em] text-gold hover-underline"
-                                  />
-                                )}
+                            <h4 className="font-display text-xl italic">{p.name}</h4>
+                            {matched.length > 0 && (
+                              <p className="mt-1 text-[10px] text-foreground/45">
+                                Why it matched: {matched.join(" · ")}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            {price && price.discountAmount > 0 && (
+                              <p className="text-[10px] text-foreground/40 line-through">
+                                {formatPKR(price.originalPrice)}
+                              </p>
+                            )}
+                            <p className="text-gradient-gold font-display text-lg">
+                              {info?.multi ? "From " : ""}
+                              {formatPKR(price?.finalPrice ?? p.price_pkr)}
+                            </p>
+                            <div className="mt-2 flex flex-col items-end gap-1.5">
+                              {info?.multi ? (
                                 <Link
                                   to="/product/$slug"
                                   params={{ slug: p.slug }}
+                                  hash="size"
                                   data-magnetic
-                                  className="text-[9px] uppercase tracking-[0.3em] text-foreground/50 hover-underline hover:text-gold"
+                                  className="text-[9px] font-semibold uppercase tracking-[0.35em] text-gold hover-underline"
                                 >
-                                  View Details
+                                  Choose Size
                                 </Link>
-                              </div>
-                            );
-                          })()}
+                              ) : p.in_stock ? (
+                                <button
+                                  onClick={() => {
+                                    add({
+                                      id: single?.id ?? p.id,
+                                      perfumeId: p.id,
+                                      variantId: single?.id,
+                                      sizeLabel: single?.size_label,
+                                      name: p.name,
+                                      price: price?.finalPrice ?? p.price_pkr,
+                                      originalPrice:
+                                        price && price.discountAmount > 0
+                                          ? price.originalPrice
+                                          : undefined,
+                                      img: p.image_url || "",
+                                    });
+                                    trackEvent("whatsapp_click", {
+                                      perfumeId: p.id,
+                                      variantId: single?.id,
+                                      sourcePath: "/quiz",
+                                    });
+                                  }}
+                                  data-magnetic
+                                  className="text-[9px] font-semibold uppercase tracking-[0.35em] text-gold hover-underline"
+                                >
+                                  Add to Cart
+                                </button>
+                              ) : (
+                                <BackInStockButton
+                                  perfumeId={p.id}
+                                  variantId={single?.id}
+                                  className="text-[9px] uppercase tracking-[0.35em] text-gold hover-underline"
+                                />
+                              )}
+                              <Link
+                                to="/product/$slug"
+                                params={{ slug: p.slug }}
+                                data-magnetic
+                                className="text-[9px] uppercase tracking-[0.3em] text-foreground/50 hover-underline hover:text-gold"
+                              >
+                                View Details
+                              </Link>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {!results.length && (
                       <p className="py-6 text-center text-sm text-foreground/50">
                         The collection is still being prepared for this ritual. Please check back

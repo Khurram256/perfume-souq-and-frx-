@@ -9,6 +9,7 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
+    "seed:catalog": "node --env-file=.env scripts/seed-catalog.mjs",
     "format": "prettier --write ."
   },
   "dependencies": {

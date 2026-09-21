@@ -65,8 +65,31 @@ export const recordOrderIntent = createServerFn({ method: "POST" })
     const phone = normalizePhone(data.phone);
     if (phone.length < 10) throw new Error("Please enter a valid phone number.");
 
-    const variantItems = data.items.filter((i) => i.variantId);
-    const plainItems = data.items.filter((i) => !i.variantId);
+    // A line with no size can only mean "the perfume's one and only size".
+    // If the perfume has several sizes the price is ambiguous — the base
+    // price on the perfumes row is just the cheapest bottle — so refuse the
+    // line rather than let anyone pay the cheapest price for a larger size.
+    const bareIds = [...new Set(data.items.filter((i) => !i.variantId).map((i) => i.perfumeId))];
+    const soleVariant = new Map<string, string>();
+    if (bareIds.length) {
+      const { data: sized, error: sErr } = await supabaseAdmin
+        .from("product_variants")
+        .select("id, perfume_id")
+        .in("perfume_id", bareIds);
+      if (sErr) throw new Error(sErr.message);
+      const byPerfume = new Map<string, string[]>();
+      for (const v of sized ?? []) byPerfume.set(v.perfume_id, [...(byPerfume.get(v.perfume_id) ?? []), v.id]);
+      for (const [perfumeId, ids] of byPerfume) {
+        if (ids.length > 1) throw new Error("Please choose a size for every multi-size perfume before ordering.");
+        soleVariant.set(perfumeId, ids[0]);
+      }
+    }
+    const items = data.items.map((i) =>
+      !i.variantId && soleVariant.has(i.perfumeId) ? { ...i, variantId: soleVariant.get(i.perfumeId) } : i,
+    );
+
+    const variantItems = items.filter((i) => i.variantId);
+    const plainItems = items.filter((i) => !i.variantId);
 
     const variantIds = [...new Set(variantItems.map((i) => i.variantId as string))];
     const { data: variants, error: vErr } = variantIds.length

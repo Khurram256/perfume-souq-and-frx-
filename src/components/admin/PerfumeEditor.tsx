@@ -16,6 +16,8 @@ type Draft = {
   tagline: string;
   description: string;
   family: string;
+  launch_year: string;
+  perfumer: string;
   category_id: string;
   brand_id: string;
   gender: string;
@@ -59,6 +61,8 @@ function toDraft(p?: Perfume | null): Draft {
     tagline: p?.tagline ?? "",
     description: p?.description ?? "",
     family: p?.family ?? "",
+    launch_year: p?.launch_year ? String(p.launch_year) : "",
+    perfumer: p?.perfumer ?? "",
     category_id: p?.category_id ?? "",
     brand_id: p?.brand_id ?? "",
     gender: p?.gender ?? "",
@@ -145,6 +149,12 @@ const inputCls =
 // Size/variant management — add, edit, reorder and delete product_variants
 // rows for this perfume. Sizes can only be added once the perfume itself has
 // been saved (a variant needs a real perfume_id to attach to).
+// "50ml" -> 50. Anything not written as plain millilitres has no numeric size.
+function parseSizeMl(label: string): number | null {
+  const m = label.trim().match(/^(\d+)\s*ml$/i);
+  return m ? Number(m[1]) : null;
+}
+
 function VariantsSection({ perfumeId }: { perfumeId: string }) {
   const { data: variants = [], refetch } = useVariants(perfumeId);
   const qc = useQueryClient();
@@ -165,6 +175,7 @@ function VariantsSection({ perfumeId }: { perfumeId: string }) {
     const { error } = await supabase.from("product_variants").insert({
       perfume_id: perfumeId,
       size_label: draft.size_label.trim(),
+      size_ml: parseSizeMl(draft.size_label),
       price_pkr: draft.price_pkr,
       is_default: variants.length === 0,
       sort_order: variants.length,
@@ -180,7 +191,9 @@ function VariantsSection({ perfumeId }: { perfumeId: string }) {
   };
 
   const updateVariant = async (id: string, patch: Partial<ProductVariant>) => {
-    const { error } = await supabase.from("product_variants").update(patch).eq("id", id);
+    const withSize =
+      patch.size_label !== undefined ? { ...patch, size_ml: parseSizeMl(patch.size_label) } : patch;
+    const { error } = await supabase.from("product_variants").update(withSize).eq("id", id);
     if (error) toast.error(error.message);
     else refresh();
   };
@@ -397,6 +410,13 @@ export function PerfumeEditor({
       toast.error("Slug is required.");
       return;
     }
+    if (draft.launch_year.trim()) {
+      const y = Number(draft.launch_year);
+      if (!Number.isInteger(y) || y < 1700 || y > 2100) {
+        toast.error("Launch year must be a four-digit year, e.g. 2018.");
+        return;
+      }
+    }
     if (!draft.brand_id) {
       toast.error("Select a brand — use \"+ Add New Brand\" if it isn't in the list yet.");
       return;
@@ -422,6 +442,8 @@ export function PerfumeEditor({
         tagline: draft.tagline.trim() || null,
         description: draft.description.trim() || null,
         family: draft.family.trim() || cat?.name || null,
+        launch_year: draft.launch_year.trim() ? Number(draft.launch_year) : null,
+        perfumer: draft.perfumer.trim() || null,
         category_id: draft.category_id || null,
         brand_id: draft.brand_id || null,
         gender: draft.gender || null,
@@ -560,6 +582,20 @@ export function PerfumeEditor({
               </Field>
               <Field label="Family (e.g. Oriental Woody)">
                 <input className={inputCls} value={draft.family} onChange={(e) => set("family", e.target.value)} />
+              </Field>
+              <Field label="Launch Year">
+                <input
+                  className={inputCls}
+                  type="number"
+                  min={1700}
+                  max={2100}
+                  value={draft.launch_year}
+                  onChange={(e) => set("launch_year", e.target.value)}
+                  placeholder="e.g. 2018"
+                />
+              </Field>
+              <Field label="Perfumer (comma-separated if several)">
+                <input className={inputCls} value={draft.perfumer} onChange={(e) => set("perfumer", e.target.value)} />
               </Field>
               <Field label="Category">
                 <select

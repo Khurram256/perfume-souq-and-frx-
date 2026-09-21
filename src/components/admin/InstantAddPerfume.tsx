@@ -331,6 +331,7 @@ export function InstantAddPerfume({
           .map((v, i) => ({
             perfume_id: created.id,
             size_label: v.size_label.trim(),
+            size_ml: Number(v.size_label.trim().match(/^(\d+)\s*ml$/i)?.[1]) || null,
             price_pkr: v.price_pkr,
             is_default: i === 0,
             sort_order: i,
