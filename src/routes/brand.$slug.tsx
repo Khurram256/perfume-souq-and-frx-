@@ -1,4 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { canonicalLink, ogUrlMeta } from "@/lib/site";
 import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/brand/$slug")({
       .select("name,story,meta_title,meta_description,hero_image_url,logo_url")
       .eq("slug", params.slug)
       .maybeSingle();
+    if (!data) throw notFound();
     return data;
   },
   head: ({ loaderData, params }) => {
@@ -37,8 +39,9 @@ export const Route = createFileRoute("/brand/$slug")({
         { property: "og:title", content: title },
         { property: "og:description", content: description },
         ...(image ? [{ property: "og:image", content: image }] : []),
+        ...ogUrlMeta(`/brand/${params.slug}`),
       ],
-      links: [{ rel: "canonical", href: `https://theperfumesouq.pk/brand/${params.slug}` }],
+      links: canonicalLink(`/brand/${params.slug}`),
     };
   },
   component: BrandPage,

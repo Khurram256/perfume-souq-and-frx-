@@ -204,14 +204,14 @@ function ProductCard({
                 to="/product/$slug"
                 params={{ slug: p.slug }}
                 hash="size"
-                className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
+                className="tap-target flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
               >
                 Choose Size
               </Link>
             ) : (
               <button
                 onClick={handleAdd}
-                className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
+                className="tap-target flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
               >
                 <Plus className="h-3 w-3" />
                 Add to Cart
@@ -221,13 +221,13 @@ function ProductCard({
             <BackInStockButton
               perfumeId={p.id}
               variantId={variant?.id}
-              className="text-[10px] uppercase tracking-[0.35em] text-gold hover:text-gold/80"
+              className="tap-target text-[10px] uppercase tracking-[0.35em] text-gold hover:text-gold/80"
             />
           )}
           <Link
             to="/product/$slug"
             params={{ slug: p.slug }}
-            className="link-underline text-[10px] uppercase tracking-[0.35em] text-foreground/60 hover:text-gold"
+            className="tap-target link-underline text-[10px] uppercase tracking-[0.35em] text-foreground/60 hover:text-gold"
           >
             View Details
           </Link>
@@ -268,7 +268,11 @@ export function Collection() {
   }, [priceByPerfumeId]);
 
   const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
-  const activePriceRange = priceRange ?? [priceBounds.min, priceBounds.max];
+  // Plain numbers (not a fresh array each render) so the memo/effect below
+  // only re-run when the range actually changes.
+  const priceLo = priceRange?.[0] ?? priceBounds.min;
+  const priceHi = priceRange?.[1] ?? priceBounds.max;
+  const activePriceRange: [number, number] = [priceLo, priceHi];
 
   // Brands sorted alphabetically and de-duplicated case-insensitively so a
   // brand added twice with different casing (e.g. "Gucci" / "gucci") never
@@ -293,17 +297,17 @@ export function Collection() {
     if (brandFilter) list = list.filter((p) => p.brand_id === brandFilter);
     list = list.filter((p) => {
       const price = priceByPerfumeId.get(p.id) ?? 0;
-      return price >= activePriceRange[0] && price <= activePriceRange[1];
+      return price >= priceLo && price <= priceHi;
     });
     return list;
-  }, [filter, brandFilter, activePriceRange, perfumes, categories, priceByPerfumeId]);
+  }, [filter, brandFilter, priceLo, priceHi, perfumes, categories, priceByPerfumeId]);
 
   // Visible-count resets to the first page whenever any filter changes —
   // otherwise "Show More" state from a previous, larger filtered list would
   // leak into a new, smaller one.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [filter, brandFilter, activePriceRange[0], activePriceRange[1]]);
+  }, [filter, brandFilter, priceLo, priceHi]);
 
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;

@@ -60,7 +60,7 @@ export function BackInStockButton({
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Your email"
         aria-label="Email for back-in-stock alert"
-        className="min-w-0 flex-1 rounded-sm border border-border bg-transparent px-2 py-1.5 text-xs text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
+        className="min-w-0 flex-1 rounded-sm border border-border bg-transparent px-2 py-1.5 text-base text-foreground sm:text-xs placeholder:text-foreground/40 focus:border-gold focus:outline-none"
       />
       <button
         type="submit"

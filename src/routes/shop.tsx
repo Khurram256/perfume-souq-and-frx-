@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { canonicalLink, ogUrlMeta } from "@/lib/site";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Search, X } from "lucide-react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { CartProvider, useCart } from "@/contexts/CartContext";
@@ -21,7 +22,7 @@ import {
 } from "@/lib/api/queries";
 import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
-import { formatSizeList, genderLabel, matchesQuery, searchHaystack } from "@/lib/catalog";
+import { formatSizeList, genderLabel, matchesQuery, searchHaystack, searchRelevance } from "@/lib/catalog";
 
 function clampPrice(n: number, bounds: { min: number; max: number }) {
   if (Number.isNaN(n)) return bounds.min;
@@ -65,9 +66,9 @@ export const Route = createFileRoute("/shop")({
       { name: "description", content: "Browse the full Perfume Souq catalogue — filter by gender, maison, fragrance family, and price." },
       { property: "og:title", content: "Shop — The Perfume Souq by Khurram Shabbir" },
       { property: "og:description", content: "Browse the full Perfume Souq catalogue — filter by gender, maison, fragrance family, and price." },
-      { property: "og:url", content: "https://theperfumesouq.pk/shop" },
+      ...ogUrlMeta("/shop"),
     ],
-    links: [{ rel: "canonical", href: "https://theperfumesouq.pk/shop" }],
+    links: canonicalLink("/shop"),
   }),
   component: ShopPage,
 });
@@ -191,8 +192,23 @@ function ShopContent() {
     if (search.sort === "price-asc") sorted.sort((a, b) => a.price.finalPrice - b.price.finalPrice);
     else if (search.sort === "price-desc") sorted.sort((a, b) => b.price.finalPrice - a.price.finalPrice);
     else if (search.sort === "name") sorted.sort((a, b) => a.perfume.name.localeCompare(b.perfume.name));
+    else if (search.q) {
+      // No explicit sort while searching: best matches first (stable sort
+      // keeps the featured order among equally relevant results).
+      const score = new Map(
+        sorted.map((x) => [
+          x.perfume.id,
+          searchRelevance(
+            x.perfume.name,
+            x.perfume.brand_id ? brandNameById.get(x.perfume.brand_id) : undefined,
+            search.q!,
+          ),
+        ]),
+      );
+      sorted.sort((a, b) => (score.get(b.perfume.id) ?? 0) - (score.get(a.perfume.id) ?? 0));
+    }
     return sorted;
-  }, [priced, search]);
+  }, [priced, search, brandNameById]);
 
   // resetScroll defaults to true on every navigate() call in this router —
   // without disabling it, clicking any filter chip (and every pixel of a
@@ -218,6 +234,15 @@ function ShopContent() {
   // lastPushedQ stops a slow URL round-trip from overwriting text typed in the
   // meantime, while still letting an external change ("Clear all") reset it.
   const [qDraft, setQDraft] = useState(search.q ?? "");
+  // Phones/tablets: the filter panel is collapsed behind a button so search
+  // and products come first (it was ~1,250px of filters above the results).
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  // Header search icon links to /shop#search — land with the box focused.
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (window.location.hash === "#search") searchRef.current?.focus();
+  }, []);
   const lastPushedQ = useRef<string | undefined>(search.q);
   useEffect(() => {
     if (search.q !== lastPushedQ.current) {
@@ -251,9 +276,40 @@ function ShopContent() {
           <h1 className="heading-section">Shop the Souq</h1>
         </div>
 
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-[260px_1fr]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr] lg:gap-12">
+          <div className="flex items-center justify-between gap-3 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((v) => !v)}
+              aria-expanded={filtersOpen}
+              aria-controls="shop-filters"
+              className="flex min-h-11 items-center gap-2 rounded-sm border border-gold/40 px-4 text-[10px] uppercase tracking-[0.35em] text-gold"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+              {filtersOpen ? "Hide Filters" : "Filters"}
+              {activeFilterCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1 text-[9px] text-obsidian">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="min-h-11 px-2 text-[10px] uppercase tracking-[0.35em] text-foreground/60 hover:text-gold"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+
           {/* Filters */}
-          <aside className="space-y-8">
+          <aside
+            id="shop-filters"
+            aria-label="Filters"
+            className={`space-y-8 lg:block ${filtersOpen ? "block" : "hidden"}`}
+          >
             {activeFilterCount > 0 && (
               <button onClick={clearFilters} className="flex items-center gap-2 text-[10px] uppercase tracking-[0.35em] text-gold">
                 <X className="h-3 w-3" /> Clear all ({activeFilterCount})
@@ -370,30 +426,22 @@ function ShopContent() {
                 className="mb-4"
               />
               <div className="flex items-center justify-between text-xs text-foreground/60">
-                <input
-                  type="number"
-                  min={priceBounds.min}
-                  max={priceBounds.max}
+                <PriceInput
                   value={sliderValue[0]}
-                  onChange={(e) => {
-                    const lo = clampPrice(Number(e.target.value), priceBounds);
+                  label="Minimum price"
+                  onCommit={(n) => {
+                    const lo = clampPrice(n, priceBounds);
                     patch({ min: lo, max: Math.max(lo, sliderValue[1]) });
                   }}
-                  className="w-24 rounded-sm border border-border bg-transparent px-2 py-1 text-foreground"
-                  aria-label="Minimum price"
                 />
                 <span>—</span>
-                <input
-                  type="number"
-                  min={priceBounds.min}
-                  max={priceBounds.max}
+                <PriceInput
                   value={sliderValue[1]}
-                  onChange={(e) => {
-                    const hi = clampPrice(Number(e.target.value), priceBounds);
+                  label="Maximum price"
+                  onCommit={(n) => {
+                    const hi = clampPrice(n, priceBounds);
                     patch({ max: hi, min: Math.min(hi, sliderValue[0]) });
                   }}
-                  className="w-24 rounded-sm border border-border bg-transparent px-2 py-1 text-foreground"
-                  aria-label="Maximum price"
                 />
               </div>
             </div>
@@ -402,20 +450,34 @@ function ShopContent() {
               <Checkbox checked={search.inStock ?? false} onCheckedChange={(v) => patch({ inStock: v ? true : undefined })} />
               <span className="text-foreground/75">In stock only</span>
             </label>
+
+            <button
+              type="button"
+              onClick={() => {
+                setFiltersOpen(false);
+                resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+              className="btn-gold w-full py-3.5 text-[10px] uppercase tracking-[0.4em] lg:hidden"
+            >
+              Show {filtered.length} result{filtered.length === 1 ? "" : "s"}
+            </button>
           </aside>
 
           {/* Results */}
-          <div>
+          <div ref={resultsRef} className="scroll-mt-28">
+            <h2 className="sr-only">Perfumes</h2>
             <div className="relative mb-6">
               <Search aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
               <input
+                id="search"
+                ref={searchRef}
                 type="search"
                 value={qDraft}
                 onChange={(e) => setQDraft(e.target.value)}
                 aria-label="Search perfumes by name, brand, note or accord"
                 placeholder="Search by perfume, brand, note or accord — e.g. oud, vanilla, Creed"
                 maxLength={80}
-                className="w-full rounded-sm border border-border bg-transparent py-3 pl-11 pr-4 text-sm text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
+                className="w-full rounded-sm border border-border bg-transparent py-3 pl-11 pr-4 text-base text-foreground placeholder:text-foreground/40 sm:text-sm focus:border-gold focus:outline-none"
               />
             </div>
 
@@ -424,7 +486,7 @@ function ShopContent() {
               <select
                 value={search.sort ?? ""}
                 onChange={(e) => patch({ sort: (e.target.value || undefined) as ShopSearch["sort"] })}
-                className="rounded-sm border border-border bg-transparent px-3 py-2 text-xs text-foreground"
+                className="rounded-sm border border-border bg-background px-3 py-2 text-base text-foreground sm:text-xs"
               >
                 <option value="">Featured order</option>
                 <option value="price-asc">Price: Low to High</option>
@@ -451,14 +513,65 @@ function ShopContent() {
             </div>
 
             {!isLoading && !filtered.length && (
-              <p className="mt-16 text-center text-sm font-light text-foreground/50">
-                No perfumes match these filters yet. Try widening your search.
-              </p>
+              <div className="mt-16 text-center">
+                <p className="text-sm font-light text-foreground/60">
+                  No perfumes match {search.q ? `“${search.q}”` : "these filters"}.
+                </p>
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearFilters();
+                      setQDraft("");
+                    }}
+                    className="mt-5 min-h-11 rounded-sm border border-gold/50 px-6 text-[10px] uppercase tracking-[0.35em] text-gold hover:bg-gold/10"
+                  >
+                    Clear search &amp; filters
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
       </div>
     </main>
+  );
+}
+
+// Typed prices are committed on Enter/blur — clamping on every keystroke
+// made it impossible to type a number (the first digit snapped to the minimum).
+function PriceInput({
+  value,
+  label,
+  onCommit,
+}: {
+  value: number;
+  label: string;
+  onCommit: (n: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+  const commit = () => {
+    const n = Number(draft.replace(/[^0-9]/g, ""));
+    if (!draft.trim() || !Number.isFinite(n) || n <= 0) {
+      setDraft(String(value));
+      return;
+    }
+    if (n !== value) onCommit(n);
+  };
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+      aria-label={label}
+      className="w-24 rounded-sm border border-border bg-transparent px-2 py-1.5 text-base text-foreground sm:text-xs"
+    />
   );
 }
 
@@ -559,14 +672,14 @@ function ShopCard({
               to="/product/$slug"
               params={{ slug: perfume.slug }}
               hash="size"
-              className="text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
+              className="tap-target text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
             >
               Choose Size
             </Link>
           ) : (
             <button
               onClick={handleAdd}
-              className="text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
+              className="tap-target text-[10px] font-semibold uppercase tracking-[0.35em] text-gold hover:text-gold/80"
             >
               Add to Cart
             </button>
@@ -575,13 +688,13 @@ function ShopCard({
           <BackInStockButton
             perfumeId={perfume.id}
             variantId={variantId}
-            className="text-[10px] uppercase tracking-[0.35em] text-gold hover:text-gold/80"
+            className="tap-target text-[10px] uppercase tracking-[0.35em] text-gold hover:text-gold/80"
           />
         )}
         <Link
           to="/product/$slug"
           params={{ slug: perfume.slug }}
-          className="link-underline text-[10px] uppercase tracking-[0.35em] text-foreground/60 hover:text-gold"
+          className="tap-target link-underline text-[10px] uppercase tracking-[0.35em] text-foreground/60 hover:text-gold"
         >
           View Details
         </Link>

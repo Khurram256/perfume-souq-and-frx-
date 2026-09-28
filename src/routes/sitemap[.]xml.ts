@@ -1,11 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { SITE_URL } from "@/lib/site";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const origin = new URL(request.url).origin;
+        // Prefer the configured public address so every URL matches the
+        // canonical tags; fall back to whichever host served the request.
+        const origin = SITE_URL || new URL(request.url).origin;
 
         const [{ data: perfumes }, { data: brands }] = await Promise.all([
           supabase.from("perfumes").select("slug,updated_at").eq("status", "published").eq("archived", false),

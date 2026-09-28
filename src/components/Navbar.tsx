@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
-import { Menu } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { Menu, Search } from "lucide-react";
 import { Logo } from "./Logo";
 import { CartButton } from "./CartDrawer";
 import { AccountMenu } from "./AccountMenu";
@@ -27,6 +27,8 @@ const ANCHOR_LINKS = [
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [menuQuery, setMenuQuery] = useState("");
+  const navigate = useNavigate();
   useEffect(() => {
     const on = () => setScrolled(window.scrollY > 60);
     on();
@@ -47,8 +49,8 @@ export function Navbar() {
       className={`fixed inset-x-0 top-0 z-50 transition-all duration-700 ${scrolled ? "backdrop-blur-xl border-b border-gold/15 py-3" : "bg-transparent py-6"}`}
       style={scrolled ? { background: "oklch(0.11 0.03 258 / 0.82)" } : undefined}
     >
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 lg:px-12">
-        <div className="flex-1">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 sm:px-6 lg:px-12">
+        <div className="min-w-0 flex-1">
           <Logo forceLight={scrolled} />
         </div>
 
@@ -81,8 +83,19 @@ export function Navbar() {
           ))}
         </div>
 
-        <div className="flex flex-1 items-center justify-end gap-3">
-          <ThemeToggle forceLight={scrolled} />
+        <div className="flex flex-shrink-0 items-center justify-end gap-2 sm:flex-1 sm:gap-3">
+          <Link
+            to="/shop"
+            hash="search"
+            aria-label="Search perfumes"
+            style={linkColor}
+            className={`hidden h-9 w-9 items-center justify-center rounded-full border border-gold/25 transition hover:border-gold/60 hover:text-gold sm:flex ${scrolled ? "" : "text-foreground/70"}`}
+          >
+            <Search className="h-3.5 w-3.5" />
+          </Link>
+          <div className="hidden sm:block">
+            <ThemeToggle forceLight={scrolled} />
+          </div>
           <AccountMenu />
           <CartButton />
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -90,7 +103,7 @@ export function Navbar() {
               <button
                 aria-label="Open menu"
                 style={linkColor}
-                className={`flex h-9 w-9 items-center justify-center rounded-full border border-gold/25 lg:hidden ${scrolled ? "" : "text-foreground/70"}`}
+                className={`flex h-11 w-11 items-center justify-center rounded-full border border-gold/25 lg:hidden ${scrolled ? "" : "text-foreground/70"}`}
               >
                 <Menu className="h-4 w-4" />
               </button>
@@ -99,7 +112,32 @@ export function Navbar() {
               side="right"
               className="w-full max-w-xs border-l border-border bg-background"
             >
-              <div className="mt-10 flex flex-col gap-6">
+              <form
+                role="search"
+                className="relative mt-10"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const q = menuQuery.trim();
+                  setMobileOpen(false);
+                  navigate({ to: "/shop", search: q ? { q } : {} });
+                }}
+              >
+                <Search
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40"
+                />
+                <input
+                  type="search"
+                  enterKeyHint="search"
+                  value={menuQuery}
+                  onChange={(e) => setMenuQuery(e.target.value)}
+                  placeholder="Search perfumes or brands"
+                  aria-label="Search perfumes or brands"
+                  maxLength={80}
+                  className="w-full rounded-sm border border-border bg-background py-3 pl-10 pr-3 text-base text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
+                />
+              </form>
+              <div className="mt-8 flex flex-col gap-6">
                 {NAV_LINKS.map((l) => (
                   <Link
                     key={l.label}
@@ -121,6 +159,12 @@ export function Navbar() {
                     {l.label}
                   </a>
                 ))}
+                <div className="mt-2 flex items-center gap-3 border-t border-border pt-6 sm:hidden">
+                  <ThemeToggle />
+                  <span className="text-[10px] uppercase tracking-[0.3em] text-foreground/60">
+                    Light / Dark
+                  </span>
+                </div>
               </div>
             </SheetContent>
           </Sheet>

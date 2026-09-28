@@ -15,13 +15,20 @@ export function ThemeToggle({ forceLight }: { forceLight?: boolean } = {}) {
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    setIsDark(document.documentElement.getAttribute("data-theme") === DARK_THEME);
+    const root = document.documentElement;
+    const sync = () => setIsDark(root.getAttribute("data-theme") === DARK_THEME);
+    sync();
+    // The header and the mobile menu each render a toggle; keep both icons
+    // in step with whichever one was pressed.
+    const observer = new MutationObserver(sync);
+    observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
   }, []);
 
   const toggle = () => {
-    const next = isDark ? DEFAULT_THEME : DARK_THEME;
-    applyTheme(next);
-    setIsDark(!isDark);
+    const dark = document.documentElement.getAttribute("data-theme") === DARK_THEME;
+    applyTheme(dark ? DEFAULT_THEME : DARK_THEME);
+    setIsDark(!dark);
   };
 
   return (

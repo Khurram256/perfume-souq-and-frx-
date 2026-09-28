@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { canonicalLink, ogUrlMeta } from "@/lib/site";
 import { useMemo } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -17,9 +18,9 @@ export const Route = createFileRoute("/offers")({
       { name: "description", content: "Current discounts and promotions from The Perfume Souq." },
       { property: "og:title", content: "Offers — The Perfume Souq by Khurram Shabbir" },
       { property: "og:description", content: "Current discounts and promotions from The Perfume Souq." },
-      { property: "og:url", content: "https://theperfumesouq.pk/offers" },
+      ...ogUrlMeta("/offers"),
     ],
-    links: [{ rel: "canonical", href: "https://theperfumesouq.pk/offers" }],
+    links: canonicalLink("/offers"),
   }),
   component: OffersPage,
 });
@@ -40,7 +41,7 @@ function OffersPage() {
 }
 
 function OffersContent() {
-  const { data: promotions = [] } = usePromotions();
+  const { data: promotions = [], isLoading } = usePromotions();
   const { data: perfumes = [] } = usePerfumes();
   const { data: variants = [] } = useAllVariants();
 
@@ -52,8 +53,18 @@ function OffersContent() {
         <p className="label-eyebrow mb-4">Current Offers</p>
         <h1 className="heading-section mb-16">Souq Offers</h1>
 
-        {!livePromotions.length && (
-          <p className="text-sm font-light text-foreground/50">No active offers right now — check back soon.</p>
+        {isLoading && <p className="text-sm text-foreground/50">Loading offers…</p>}
+
+        {!isLoading && !livePromotions.length && (
+          <div>
+            <p className="text-sm font-light text-foreground/60">No active offers right now — check back soon.</p>
+            <Link
+              to="/shop"
+              className="btn-gold mt-8 inline-block px-8 py-3.5 text-[10px] uppercase tracking-[0.4em]"
+            >
+              Browse the Collection
+            </Link>
+          </div>
         )}
 
         {livePromotions.length > 0 && (

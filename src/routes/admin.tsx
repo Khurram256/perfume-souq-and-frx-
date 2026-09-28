@@ -109,7 +109,7 @@ function AdminGate() {
 
           {isClaimed && (
             <p className="mt-6 rounded-sm border border-gold/20 bg-obsidian/60 px-4 py-3 text-center text-[10px] uppercase tracking-[0.3em] text-gold/80">
-              Locked to <span className="text-gold">{claimedEmail}</span>
+              Locked to <span className="break-all text-gold">{claimedEmail}</span>
             </p>
           )}
           {!isClaimed && (
@@ -139,7 +139,7 @@ function AdminGate() {
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-sm border border-border bg-transparent px-4 py-3 text-sm outline-none focus:border-gold"
+                className="w-full rounded-sm border border-border bg-transparent px-4 py-3 text-base outline-none focus:border-gold sm:text-sm"
               />
               <input
                 type="password"
@@ -148,7 +148,7 @@ function AdminGate() {
                 placeholder="Password (min 8)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-sm border border-border bg-transparent px-4 py-3 text-sm outline-none focus:border-gold"
+                className="w-full rounded-sm border border-border bg-transparent px-4 py-3 text-base outline-none focus:border-gold sm:text-sm"
               />
               <button
                 disabled={busy}

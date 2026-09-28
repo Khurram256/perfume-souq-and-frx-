@@ -6,6 +6,11 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+// Public site address for canonical URLs, Open Graph and structured data.
+// An explicit VITE_SITE_URL wins; otherwise Netlify's build-time URL (the
+// site's primary address, i.e. the custom domain once it is attached).
+const siteUrl = process.env.VITE_SITE_URL || process.env.URL || "";
+
 export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
@@ -15,4 +20,9 @@ export default defineConfig({
   // Pin the deploy target explicitly instead of relying on Nitro's
   // env-based auto-detection — the project is deployed to Netlify.
   nitro: { preset: "netlify" },
+  vite: {
+    define: {
+      "import.meta.env.VITE_SITE_URL": JSON.stringify(siteUrl),
+    },
+  },
 });

@@ -164,7 +164,7 @@ function Side({
           id={selectId}
           value={p.id}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full cursor-pointer appearance-none rounded-sm border border-gold/50 bg-obsidian/60 px-4 py-3 pr-10 text-[11px] uppercase tracking-[0.3em] text-gold transition hover:border-gold focus:border-gold focus:outline-none"
+          className="w-full cursor-pointer appearance-none rounded-sm border border-gold/50 bg-obsidian/60 px-4 py-3 pr-10 text-base uppercase tracking-[0.08em] text-gold sm:text-[11px] sm:tracking-[0.3em] transition hover:border-gold focus:border-gold focus:outline-none"
         >
           {groups.map((g) => (
             <optgroup key={g.brand} label={g.brand} style={{ background: "var(--obsidian)", color: "oklch(0.96 0.012 220)" }}>
@@ -279,6 +279,179 @@ function Side({
   );
 }
 
+// Labels for the aligned phone layout, in display order. Ratings are left to
+// the desktop cards (they only appear when real rating data exists).
+const MOBILE_ROWS: { key: AttrKey; label: string }[] = [
+  { key: "gender", label: "Gender" },
+  { key: "family", label: "Fragrance Family" },
+  { key: "concentration", label: "Concentration" },
+  { key: "launchYear", label: "Launch Year" },
+  { key: "perfumer", label: "Perfumer" },
+  { key: "sizes", label: "Sizes & Prices" },
+  { key: "mainAccords", label: "Main Accords" },
+  { key: "topNotes", label: "Top Notes" },
+  { key: "heartNotes", label: "Heart Notes" },
+  { key: "baseNotes", label: "Base Notes" },
+  { key: "bestSeason", label: "Best Season" },
+  { key: "occasion", label: "Best Occasion" },
+];
+
+// Phones: stacking one full card per perfume meant scrolling a whole screen
+// between the things being compared. Here each attribute is one row with the
+// perfumes in aligned columns, so values sit genuinely side by side.
+function MobileComparison({
+  ids,
+  groups,
+  perfumes,
+  brands,
+  variants,
+  promotions,
+  onChange,
+  onRemove,
+  visibleKeys,
+}: {
+  ids: string[];
+  groups: { brand: string; items: Perfume[] }[];
+  perfumes: Perfume[];
+  brands: ReturnType<typeof useBrands>["data"];
+  variants: Variants;
+  promotions: Promotions;
+  onChange: (index: number, id: string) => void;
+  onRemove: () => void;
+  visibleKeys: Set<AttrKey>;
+}) {
+  const picked = ids.map((id) => perfumes.find((x) => x.id === id)).filter((p): p is Perfume => !!p);
+  const cols = { gridTemplateColumns: `repeat(${picked.length}, minmax(0, 1fr))` };
+  const info = picked.map((p) => {
+    const pv = sortedSizes((variants ?? []).filter((v) => v.perfume_id === p.id));
+    const priceOf = (v: (typeof pv)[number]) =>
+      resolveVariantPrice(v.price_pkr, promotions ?? [], {
+        perfumeId: p.id,
+        variantId: v.id,
+        brandId: p.brand_id,
+        categoryId: p.category_id,
+      }).finalPrice;
+    const lowest = pv.length ? Math.min(...pv.map(priceOf)) : p.price_pkr;
+    return {
+      p,
+      brand: brands?.find((b) => b.id === p.brand_id)?.name,
+      pv,
+      priceOf,
+      lowest,
+      multi: pv.length > 1,
+      values: attributeValues(p, variants),
+    };
+  });
+
+  return (
+    <div className="md:hidden">
+      <div className="space-y-3">
+        {ids.map((id, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <label htmlFor={`compare-m-${i}`} className="sr-only">
+                Perfume {i + 1}
+              </label>
+              <select
+                id={`compare-m-${i}`}
+                value={id}
+                onChange={(e) => onChange(i, e.target.value)}
+                className="w-full appearance-none truncate rounded-sm border border-gold/50 bg-obsidian/60 py-3 pl-3 pr-9 text-base text-gold focus:border-gold focus:outline-none"
+              >
+                {groups.map((g) => (
+                  <optgroup
+                    key={g.brand}
+                    label={g.brand}
+                    style={{ background: "var(--obsidian)", color: "oklch(0.96 0.012 220)" }}
+                  >
+                    {g.items.map((opt) => (
+                      <option
+                        key={opt.id}
+                        value={opt.id}
+                        disabled={opt.id !== id && ids.includes(opt.id)}
+                        style={{ background: "var(--obsidian)", color: "oklch(0.96 0.012 220)" }}
+                      >
+                        {opt.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gold" />
+            </div>
+            {ids.length > 2 && i === ids.length - 1 && (
+              <button
+                type="button"
+                onClick={onRemove}
+                aria-label="Remove this perfume from the comparison"
+                className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-sm border border-border text-foreground/50 hover:text-gold"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="glass-card mt-6 rounded-sm p-4">
+        <div className="grid gap-3 border-b border-border pb-4" style={cols}>
+          {info.map(({ p, brand, lowest, multi }) => (
+            <div key={p.id} className="min-w-0 text-center">
+              <div className="mx-auto flex h-20 items-center justify-center">
+                {p.image_url ? (
+                  <img
+                    src={p.image_url}
+                    alt={p.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-20 w-auto max-w-full object-contain"
+                  />
+                ) : (
+                  <span className="text-[8px] uppercase tracking-[0.2em] text-foreground/30">No image yet</span>
+                )}
+              </div>
+              {brand && (
+                <p className="mt-2 truncate text-[8px] uppercase tracking-[0.25em] text-gold/70">{brand}</p>
+              )}
+              <p className="mt-1 break-words font-display text-base italic leading-tight">{p.name}</p>
+              <p className="text-gradient-gold mt-1 font-display text-sm">
+                {multi ? "From " : ""}
+                {formatPKR(lowest)}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {MOBILE_ROWS.filter((r) => visibleKeys.has(r.key)).map((r) => (
+          <div key={r.key} className="border-b border-border py-3 last:border-b-0">
+            <p className="mb-2 text-center text-[9px] uppercase tracking-[0.3em] text-foreground/45">{r.label}</p>
+            <div className="grid gap-3" style={cols}>
+              {info.map(({ p, values, pv, priceOf }) => (
+                <div
+                  key={p.id}
+                  className="min-w-0 break-words text-center text-xs leading-relaxed text-foreground/80"
+                >
+                  {r.key === "sizes" && pv.length ? (
+                    pv.map((v) => (
+                      <span key={v.id} className="block">
+                        {v.size_label} · {formatPKR(priceOf(v))}
+                      </span>
+                    ))
+                  ) : isValid(values[r.key]) ? (
+                    <span className={r.key === "mainAccords" ? "capitalize" : undefined}>{values[r.key]}</span>
+                  ) : (
+                    <span className="text-foreground/30">—</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ComparisonTool() {
   const { data: perfumes = [] } = usePerfumes();
   const { data: brands = [] } = useBrands();
@@ -349,7 +522,7 @@ export function ComparisonTool() {
   return (
     <section id="comparison" className="section-pad relative px-6 lg:px-16">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-16 grid grid-cols-1 items-end gap-6 lg:grid-cols-[auto_1fr]">
+        <div className="mb-10 grid grid-cols-1 items-end gap-6 md:mb-16 lg:grid-cols-[auto_1fr]">
           <span className="section-index text-[14vw] leading-none md:text-[6vw]">06</span>
           <div>
             <p className="label-eyebrow mb-5">Side by Side</p>
@@ -359,7 +532,19 @@ export function ComparisonTool() {
           </div>
         </div>
 
-        <div className={`grid grid-cols-1 gap-6 md:grid-cols-2 ${ids.length === 3 ? "lg:grid-cols-3" : ""}`}>
+        <MobileComparison
+          ids={ids}
+          groups={groups}
+          perfumes={perfumes}
+          brands={brands}
+          variants={variants}
+          promotions={promotions}
+          onChange={setAt}
+          onRemove={() => setIds((prev) => prev.slice(0, -1))}
+          visibleKeys={visibleKeys}
+        />
+
+        <div className={`hidden gap-6 md:grid md:grid-cols-2 ${ids.length === 3 ? "lg:grid-cols-3" : ""}`}>
           {ids.map((id, i) => (
             <Side
               key={i}

@@ -93,3 +93,22 @@ export function matchesQuery(haystack: string, query: string): boolean {
   const tokens = normalizeText(query).split(/\s+/).filter(Boolean);
   return tokens.every((t) => haystack.includes(t));
 }
+
+/**
+ * How well a perfume matches a search, for ordering results: a hit in the
+ * perfume's own name beats one in the brand, which beats a hit that only
+ * appears in its notes/accords (so "aven" lists Aventus before lavender).
+ */
+export function searchRelevance(name: string, brandName: string | undefined, query: string): number {
+  const q = normalizeText(query);
+  if (!q) return 0;
+  const n = normalizeText(name);
+  const b = normalizeText(brandName ?? "");
+  if (n === q) return 100;
+  if (n.startsWith(q)) return 80;
+  if (n.split(/\s+/).some((w) => w.startsWith(q))) return 70;
+  if (n.includes(q)) return 60;
+  if (`${b} ${n}`.includes(q)) return 50;
+  if (b.includes(q)) return 40;
+  return 0;
+}

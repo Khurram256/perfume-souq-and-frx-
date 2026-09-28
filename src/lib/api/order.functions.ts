@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { resolveVariantPrice, isPromotionLiveNow, type Promotion } from "@/lib/pricing";
+import { ORDER_UNAVAILABLE_MESSAGE, OrderInputError } from "@/lib/order-errors";
 
 // variantId is optional: a perfume with no configured size still has a real,
 // server-trusted price on the perfumes table itself, and must be orderable —
@@ -60,10 +61,22 @@ export type RecordedOrderLine = {
 export const recordOrderIntent = createServerFn({ method: "POST" })
   .inputValidator(inputSchema)
   .handler(async ({ data }) => {
+    try {
+      return await createOrderIntent(data);
+    } catch (e) {
+      // Customer-fixable problems keep their message; anything internal is
+      // logged server-side and replaced with a safe, generic one.
+      if (e instanceof OrderInputError) throw new Error(e.message);
+      console.error("[recordOrderIntent]", e);
+      throw new Error(ORDER_UNAVAILABLE_MESSAGE);
+    }
+  });
+
+async function createOrderIntent(data: z.infer<typeof inputSchema>) {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const phone = normalizePhone(data.phone);
-    if (phone.length < 10) throw new Error("Please enter a valid phone number.");
+    if (phone.length < 10) throw new OrderInputError("Please enter a valid phone number.");
 
     // A line with no size can only mean "the perfume's one and only size".
     // If the perfume has several sizes the price is ambiguous — the base
@@ -80,7 +93,7 @@ export const recordOrderIntent = createServerFn({ method: "POST" })
       const byPerfume = new Map<string, string[]>();
       for (const v of sized ?? []) byPerfume.set(v.perfume_id, [...(byPerfume.get(v.perfume_id) ?? []), v.id]);
       for (const [perfumeId, ids] of byPerfume) {
-        if (ids.length > 1) throw new Error("Please choose a size for every multi-size perfume before ordering.");
+        if (ids.length > 1) throw new OrderInputError("Please choose a size for every multi-size perfume before ordering.");
         soleVariant.set(perfumeId, ids[0]);
       }
     }
@@ -129,8 +142,8 @@ export const recordOrderIntent = createServerFn({ method: "POST" })
       const v = variantById.get(item.variantId as string) as
         | { id: string; size_label: string; price_pkr: number; in_stock: boolean; perfume: { id: string; name: string; brand_id: string | null; category_id: string | null } | null }
         | undefined;
-      if (!v || !v.perfume) throw new Error("One or more items are no longer available.");
-      if (!v.in_stock) throw new Error(`"${v.perfume.name}" (${v.size_label}) is out of stock.`);
+      if (!v || !v.perfume) throw new OrderInputError("One or more items are no longer available.");
+      if (!v.in_stock) throw new OrderInputError(`"${v.perfume.name}" (${v.size_label}) is out of stock.`);
 
       const priced = resolveVariantPrice(v.price_pkr, promotions, {
         perfumeId: v.perfume.id,
@@ -161,8 +174,8 @@ export const recordOrderIntent = createServerFn({ method: "POST" })
     // and the line is labelled "Standard" since there's no real size.
     for (const item of plainItems) {
       const p = perfumeById.get(item.perfumeId);
-      if (!p) throw new Error("One or more items are no longer available.");
-      if (!p.in_stock) throw new Error(`"${p.name}" is out of stock.`);
+      if (!p) throw new OrderInputError("One or more items are no longer available.");
+      if (!p.in_stock) throw new OrderInputError(`"${p.name}" is out of stock.`);
 
       const priced = resolveVariantPrice(p.price_pkr, promotions, {
         perfumeId: p.id,
@@ -220,4 +233,4 @@ export const recordOrderIntent = createServerFn({ method: "POST" })
     if (!orderRef) throw new Error(lastErr ?? "Could not create the order reference. Please try again.");
 
     return { orderRef, phone, address: data.address ?? null, locationLink: data.locationLink ?? null, lines, subtotal, discount, total };
-  });
+}

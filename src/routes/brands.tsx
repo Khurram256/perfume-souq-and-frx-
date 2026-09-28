@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { canonicalLink, ogUrlMeta } from "@/lib/site";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { CartProvider } from "@/contexts/CartContext";
@@ -17,9 +18,9 @@ export const Route = createFileRoute("/brands")({
       },
       { property: "og:title", content: "Maisons — The Perfume Souq by Khurram Shabbir" },
       { property: "og:description", content: "Explore the maisons and houses carried by The Perfume Souq." },
-      { property: "og:url", content: "https://theperfumesouq.pk/brands" },
+      ...ogUrlMeta("/brands"),
     ],
-    links: [{ rel: "canonical", href: "https://theperfumesouq.pk/brands" }],
+    links: canonicalLink("/brands"),
   }),
   component: BrandsPage,
 });

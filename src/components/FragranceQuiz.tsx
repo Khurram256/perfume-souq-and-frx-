@@ -337,7 +337,7 @@ export function FragranceQuiz() {
                       <button
                         onClick={() => setStep((s) => Math.max(0, s - 1))}
                         disabled={step === 0}
-                        className="text-[10px] uppercase tracking-[0.4em] text-foreground/50 hover:text-gold disabled:opacity-0"
+                        className="-ml-2 min-h-11 px-2 text-[10px] uppercase tracking-[0.4em] text-foreground/50 hover:text-gold disabled:opacity-0"
                       >
                         ← Back
                       </button>
@@ -378,7 +378,7 @@ export function FragranceQuiz() {
                     </div>
                     <button
                       onClick={() => setStep((s) => Math.max(0, s - 1))}
-                      className="mb-4 text-[10px] uppercase tracking-[0.4em] text-foreground/50 hover:text-gold"
+                      className="-ml-2 mb-4 min-h-11 px-2 text-[10px] uppercase tracking-[0.4em] text-foreground/50 hover:text-gold"
                     >
                       ← Back
                     </button>
@@ -437,14 +437,14 @@ export function FragranceQuiz() {
                               {info?.multi ? "From " : ""}
                               {formatPKR(price?.finalPrice ?? p.price_pkr)}
                             </p>
-                            <div className="mt-2 flex flex-col items-end gap-1.5">
+                            <div className="mt-2 flex flex-col items-end gap-3">
                               {info?.multi ? (
                                 <Link
                                   to="/product/$slug"
                                   params={{ slug: p.slug }}
                                   hash="size"
                                   data-magnetic
-                                  className="text-[9px] font-semibold uppercase tracking-[0.35em] text-gold hover-underline"
+                                  className="tap-target-sm text-[9px] font-semibold uppercase tracking-[0.35em] text-gold hover-underline"
                                 >
                                   Choose Size
                                 </Link>
@@ -471,7 +471,7 @@ export function FragranceQuiz() {
                                     });
                                   }}
                                   data-magnetic
-                                  className="text-[9px] font-semibold uppercase tracking-[0.35em] text-gold hover-underline"
+                                  className="tap-target-sm text-[9px] font-semibold uppercase tracking-[0.35em] text-gold hover-underline"
                                 >
                                   Add to Cart
                                 </button>
@@ -479,14 +479,14 @@ export function FragranceQuiz() {
                                 <BackInStockButton
                                   perfumeId={p.id}
                                   variantId={single?.id}
-                                  className="text-[9px] uppercase tracking-[0.35em] text-gold hover-underline"
+                                  className="tap-target-sm text-[9px] uppercase tracking-[0.35em] text-gold hover-underline"
                                 />
                               )}
                               <Link
                                 to="/product/$slug"
                                 params={{ slug: p.slug }}
                                 data-magnetic
-                                className="text-[9px] uppercase tracking-[0.3em] text-foreground/50 hover-underline hover:text-gold"
+                                className="tap-target-sm text-[9px] uppercase tracking-[0.3em] text-foreground/50 hover-underline hover:text-gold"
                               >
                                 View Details
                               </Link>

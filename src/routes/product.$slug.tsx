@@ -22,6 +22,16 @@ import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
 import { genderLabel, sortedSizes } from "@/lib/catalog";
 import { waLink } from "@/lib/contact";
+import { absoluteUrl, canonicalLink, ogUrlMeta } from "@/lib/site";
+
+const withItem = (url: string | undefined) => (url ? { item: url } : {});
+
+// Search engines show ~155 characters; cut on a word boundary.
+function clampDescription(text: string, max = 158) {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= max) return clean;
+  return clean.slice(0, clean.lastIndexOf(" ", max - 1)).replace(/[,;:.\s]+$/, "") + "…";
+}
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/product/$slug")({
@@ -29,11 +39,13 @@ export const Route = createFileRoute("/product/$slug")({
     const { data } = await supabase
       .from("perfumes")
       .select(
-        "id,name,tagline,description,meta_title,meta_description,og_image_url,image_url,price_pkr,in_stock,concentration,family,brand:brands(name)",
+        "id,name,tagline,description,meta_title,meta_description,og_image_url,image_url,price_pkr,in_stock,concentration,family,brand:brands(name,slug)",
       )
       .eq("slug", params.slug)
       .maybeSingle();
-    if (!data) return null;
+    // A real 404 status (not a 200 "not found" page) so search engines drop
+    // dead product URLs instead of indexing them.
+    if (!data) throw notFound();
     // Sizes feed the structured data, so search engines see every real
     // bottle size and price instead of a single flat number.
     const { data: variants } = await supabase
@@ -47,24 +59,26 @@ export const Route = createFileRoute("/product/$slug")({
     if (!loaderData) {
       return { meta: [{ title: "Product Not Found — The Perfume Souq" }] };
     }
-    const brandName = (loaderData.brand as { name: string } | null)?.name;
+    const brandRow = loaderData.brand as { name: string; slug: string } | null;
+    const brandName = brandRow?.name;
     const title =
       loaderData.meta_title ||
       `${loaderData.name}${brandName ? ` by ${brandName}` : ""} — The Perfume Souq`;
-    const description =
+    const description = clampDescription(
       loaderData.meta_description ||
-      loaderData.tagline ||
-      loaderData.description ||
-      `Shop ${loaderData.name} at The Perfume Souq.`;
+        loaderData.tagline ||
+        loaderData.description ||
+        `Shop ${loaderData.name}${brandName ? ` by ${brandName}` : ""} at The Perfume Souq.`,
+    );
     const image = loaderData.og_image_url || loaderData.image_url || undefined;
-    const canonicalUrl = `https://theperfumesouq.pk/product/${params.slug}`;
+    const canonicalUrl = absoluteUrl(`/product/${params.slug}`);
 
     const availability = (inStock: boolean) =>
       inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
     const variants = loaderData.variants;
     const offerFor = (v: { size_label: string; price_pkr: number; in_stock: boolean }, named: boolean) => ({
       "@type": "Offer",
-      url: canonicalUrl,
+      ...(canonicalUrl ? { url: canonicalUrl } : {}),
       ...(named ? { name: v.size_label } : {}),
       priceCurrency: "PKR",
       price: v.price_pkr,
@@ -97,7 +111,7 @@ export const Route = createFileRoute("/product/$slug")({
       "@type": "Product",
       name: loaderData.name,
       description: loaderData.description || loaderData.tagline || undefined,
-      url: canonicalUrl,
+      ...(canonicalUrl ? { url: canonicalUrl } : {}),
       ...(image ? { image } : {}),
       ...(brandName ? { brand: { "@type": "Brand", name: brandName } } : {}),
       ...(loaderData.family ? { category: loaderData.family } : {}),
@@ -108,9 +122,11 @@ export const Route = createFileRoute("/product/$slug")({
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Shop", item: "https://theperfumesouq.pk/shop" },
-        ...(brandName ? [{ "@type": "ListItem", position: 2, name: brandName }] : []),
-        { "@type": "ListItem", position: brandName ? 3 : 2, name: loaderData.name, item: canonicalUrl },
+        { "@type": "ListItem", position: 1, name: "Shop", ...withItem(absoluteUrl("/shop")) },
+        ...(brandRow
+          ? [{ "@type": "ListItem", position: 2, name: brandRow.name, ...withItem(absoluteUrl(`/brand/${brandRow.slug}`)) }]
+          : []),
+        { "@type": "ListItem", position: brandRow ? 3 : 2, name: loaderData.name, ...withItem(canonicalUrl) },
       ],
     };
     return {
@@ -121,12 +137,12 @@ export const Route = createFileRoute("/product/$slug")({
         { property: "og:description", content: description },
         ...(image ? [{ property: "og:image", content: image }] : []),
         { property: "og:type", content: "product" },
-        { property: "og:url", content: canonicalUrl },
+        ...ogUrlMeta(`/product/${params.slug}`),
         { name: "twitter:card", content: "summary_large_image" },
         { "script:ld+json": productLd },
         { "script:ld+json": breadcrumbLd },
       ],
-      links: [{ rel: "canonical", href: canonicalUrl }],
+      links: canonicalLink(`/product/${params.slug}`),
     };
   },
   component: ProductPage,
@@ -267,7 +283,7 @@ function ProductContent() {
   const productUrl =
     typeof window !== "undefined"
       ? window.location.href
-      : `https://theperfumesouq.pk/product/${perfume.slug}`;
+      : (absoluteUrl(`/product/${perfume.slug}`) ?? `/product/${perfume.slug}`);
 
   const promptSize = () => {
     setSizeError(true);
@@ -353,7 +369,7 @@ function ProductContent() {
   return (
     <main className="section-pad relative px-6 pt-32 lg:px-16">
       <div className="mx-auto max-w-6xl">
-        <nav aria-label="Breadcrumb" className="mb-10 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.35em] text-foreground/40">
+        <nav aria-label="Breadcrumb" className="mb-6 flex flex-wrap sm:mb-10 gap-2 text-[10px] uppercase tracking-[0.35em] text-foreground/40">
           <Link to="/shop" className="hover:text-gold">
             Shop
           </Link>
@@ -369,18 +385,18 @@ function ProductContent() {
           <span className="text-foreground/70">{perfume.name}</span>
         </nav>
 
-        <div className="grid grid-cols-1 gap-16 lg:grid-cols-2">
-          <div className="relative flex min-h-[320px] items-center justify-center">
+        <div className="grid grid-cols-1 gap-8 sm:gap-12 lg:grid-cols-2 lg:gap-16">
+          <div className="relative flex min-h-[240px] items-center justify-center sm:min-h-[320px]">
             {perfume.image_url ? (
               <img
                 src={perfume.image_url}
                 alt={`${perfume.name}${brand ? ` by ${brand.name}` : ""}`}
                 fetchPriority="high"
                 decoding="async"
-                className={`max-h-[560px] w-auto ${inStock ? "" : "opacity-50"}`}
+                className={`max-h-[48vh] w-auto max-w-full object-contain sm:max-h-[560px] ${inStock ? "" : "opacity-50"}`}
               />
             ) : (
-              <div className="flex h-80 w-full max-w-sm items-center justify-center rounded-sm border border-dashed border-foreground/15 text-[10px] uppercase tracking-[0.3em] text-foreground/30">
+              <div className="flex h-60 w-full max-w-sm items-center justify-center rounded-sm border border-dashed sm:h-80 border-foreground/15 text-[10px] uppercase tracking-[0.3em] text-foreground/30">
                 Image Coming Soon
               </div>
             )}
@@ -434,7 +450,7 @@ function ProductContent() {
                           setSizeError(false);
                         }}
                         disabled={!v.in_stock}
-                        className={`rounded-full border px-5 py-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                        className={`min-h-10 rounded-full border px-5 py-2.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                           selected
                             ? "border-gold bg-gold text-obsidian"
                             : sizeError
@@ -461,61 +477,9 @@ function ProductContent() {
               </div>
             )}
 
-            <div className="mt-8 flex flex-wrap gap-3">
-              {perfume.gender && <span className={chipCls}>{genderLabel(perfume.gender)}</span>}
-              {perfume.concentration && <span className={chipCls}>{perfume.concentration}</span>}
-              {perfume.family && <span className={chipCls}>{perfume.family}</span>}
-            </div>
-
-            {(perfume.launch_year || perfume.perfumer) && (
-              <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-                {perfume.launch_year && (
-                  <>
-                    <dt className="text-[8px] uppercase tracking-[0.4em] text-foreground/40">Launched</dt>
-                    <dd className="text-foreground/75">{perfume.launch_year}</dd>
-                  </>
-                )}
-                {perfume.perfumer && (
-                  <>
-                    <dt className="text-[8px] uppercase tracking-[0.4em] text-foreground/40">Perfumer</dt>
-                    <dd className="text-foreground/75">{perfume.perfumer}</dd>
-                  </>
-                )}
-              </dl>
-            )}
-
-            {perfume.main_accords.length > 0 && (
-              <div className="mt-8">
-                <p className="mb-3 text-[9px] uppercase tracking-[0.4em] text-foreground/50">Main Accords</p>
-                <ul className="flex flex-wrap gap-2">
-                  {perfume.main_accords.map((a) => (
-                    <li
-                      key={a}
-                      className="rounded-full border border-gold/25 px-3 py-1 text-[10px] capitalize tracking-[0.15em] text-foreground/70"
-                    >
-                      {a}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {hasNotes && (
-              <div className="mt-10 space-y-3 border-l border-gold/20 pl-5">
-                <NoteTier label="Top Notes" notes={perfume.top_notes} />
-                <NoteTier label="Heart Notes" notes={perfume.heart_notes} />
-                <NoteTier label="Base Notes" notes={perfume.base_notes} />
-              </div>
-            )}
-
-            {perfume.description && (
-              <p className="mt-8 text-sm font-light leading-relaxed text-foreground/70">
-                {perfume.description}
-              </p>
-            )}
 
             {inStock && (
-              <div className="mt-10 flex items-center gap-4">
+              <div className="mt-8 flex items-center gap-4">
                 <span className="text-[9px] uppercase tracking-[0.4em] text-foreground/50">Quantity</span>
                 <div className="flex items-center rounded-full border border-gold/25">
                   <button
@@ -523,7 +487,7 @@ function ProductContent() {
                     aria-label="Decrease quantity"
                     onClick={() => setQty((q) => Math.max(1, q - 1))}
                     disabled={qty <= 1}
-                    className="px-3 py-2 text-foreground/70 hover:text-gold disabled:opacity-30"
+                    className="flex h-10 w-10 items-center justify-center text-foreground/70 hover:text-gold disabled:opacity-30"
                   >
                     <Minus className="h-3.5 w-3.5" />
                   </button>
@@ -535,7 +499,7 @@ function ProductContent() {
                     aria-label="Increase quantity"
                     onClick={() => setQty((q) => Math.min(10, q + 1))}
                     disabled={qty >= 10}
-                    className="px-3 py-2 text-foreground/70 hover:text-gold disabled:opacity-30"
+                    className="flex h-10 w-10 items-center justify-center text-foreground/70 hover:text-gold disabled:opacity-30"
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </button>
@@ -586,7 +550,7 @@ function ProductContent() {
                   onChange={(e) => setNotifyEmail(e.target.value)}
                   aria-label="Email for back-in-stock alert"
                   placeholder="Your email for a back-in-stock alert"
-                  className="min-w-[240px] flex-1 rounded-sm border border-border bg-transparent px-4 py-3 text-sm text-foreground placeholder:text-foreground/40"
+                  className="min-w-0 flex-1 basis-60 rounded-sm border border-border bg-transparent px-4 py-3 text-base text-foreground sm:text-sm placeholder:text-foreground/40"
                 />
                 <button
                   type="submit"
@@ -596,6 +560,66 @@ function ProductContent() {
                 </button>
               </form>
             )}
+
+            {/* Fragrance details come after the purchase controls so size ->
+                quantity -> Add to Cart stay together on phones. */}
+            <section aria-labelledby="fragrance-profile" className="mt-12 border-t border-gold/15 pt-8">
+              <h2 id="fragrance-profile" className="text-[10px] uppercase tracking-[0.4em] text-gold">
+                Fragrance Profile
+              </h2>
+              <div className="mt-6 flex flex-wrap gap-3">
+                {perfume.gender && <span className={chipCls}>{genderLabel(perfume.gender)}</span>}
+                {perfume.concentration && <span className={chipCls}>{perfume.concentration}</span>}
+                {perfume.family && <span className={chipCls}>{perfume.family}</span>}
+              </div>
+
+              {(perfume.launch_year || perfume.perfumer) && (
+                <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+                  {perfume.launch_year && (
+                    <>
+                      <dt className="text-[8px] uppercase tracking-[0.4em] text-foreground/40">Launched</dt>
+                      <dd className="text-foreground/75">{perfume.launch_year}</dd>
+                    </>
+                  )}
+                  {perfume.perfumer && (
+                    <>
+                      <dt className="text-[8px] uppercase tracking-[0.4em] text-foreground/40">Perfumer</dt>
+                      <dd className="text-foreground/75">{perfume.perfumer}</dd>
+                    </>
+                  )}
+                </dl>
+              )}
+
+              {perfume.main_accords.length > 0 && (
+                <div className="mt-8">
+                  <p className="mb-3 text-[9px] uppercase tracking-[0.4em] text-foreground/50">Main Accords</p>
+                  <ul className="flex flex-wrap gap-2">
+                    {perfume.main_accords.map((a) => (
+                      <li
+                        key={a}
+                        className="rounded-full border border-gold/25 px-3 py-1 text-[10px] capitalize tracking-[0.15em] text-foreground/70"
+                      >
+                        {a}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {hasNotes && (
+                <div className="mt-10 space-y-3 border-l border-gold/20 pl-5">
+                  <NoteTier label="Top Notes" notes={perfume.top_notes} />
+                  <NoteTier label="Heart Notes" notes={perfume.heart_notes} />
+                  <NoteTier label="Base Notes" notes={perfume.base_notes} />
+                </div>
+              )}
+
+              {perfume.description && (
+                <p className="mt-8 text-sm font-light leading-relaxed text-foreground/70">
+                  {perfume.description}
+                </p>
+              )}
+            </section>
           </div>
         </div>
 
@@ -610,7 +634,7 @@ function ProductContent() {
                   params={{ slug: p.slug }}
                   className="glass-card flex flex-col items-center rounded-sm p-4 text-center"
                 >
-                  {p.image_url && (
+                  {p.image_url ? (
                     <img
                       src={p.image_url}
                       alt={p.name}
@@ -618,6 +642,10 @@ function ProductContent() {
                       decoding="async"
                       className="mb-3 h-32 w-auto object-contain"
                     />
+                  ) : (
+                    <div className="mb-3 flex h-32 w-full items-center justify-center text-[9px] uppercase tracking-[0.3em] text-foreground/30">
+                      Image coming soon
+                    </div>
                   )}
                   <p className="font-display text-sm italic">{p.name}</p>
                 </Link>

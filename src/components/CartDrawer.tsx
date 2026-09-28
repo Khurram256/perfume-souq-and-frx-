@@ -1,24 +1,36 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Link } from "@tanstack/react-router";
 import { Minus, MessageCircle, Phone, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { useCart } from "@/contexts/CartContext";
-import { CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL, waLink } from "@/lib/contact";
+import { useCart, type CartItem } from "@/contexts/CartContext";
+import { CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL, WHATSAPP_NUMBER, waLink } from "@/lib/contact";
 import { useSettings, trackEvent, getSessionId } from "@/lib/api/queries";
-import { recordOrderIntent, type RecordedOrderLine } from "@/lib/api/order.functions";
+import { recordOrderIntent } from "@/lib/api/order.functions";
+import { ORDER_UNAVAILABLE_MESSAGE } from "@/lib/order-errors";
 import { formatPKR } from "@/lib/format";
 
-// Builds the WhatsApp message from server-recomputed, trusted totals — never
-// from client-held prices. Includes the unique order reference + customer
-// phone so the maison can look the intent up in the admin dashboard.
+type InvoiceLine = {
+  name: string;
+  sizeLabel: string;
+  quantity: number;
+  originalPrice: number;
+  finalPrice: number;
+  lineTotal: number;
+  promotionName: string | null;
+};
+
+// Builds the WhatsApp message. Normally from server-recomputed, trusted
+// totals with the unique order reference; if the order service is down it is
+// built from the cart instead and says so, so the maison knows to confirm.
 function buildInvoice(opts: {
-  orderRef: string;
+  orderRef?: string;
   phone: string;
   name?: string;
   address?: string;
   locationLink?: string;
   note?: string;
-  lines: RecordedOrderLine[];
+  lines: InvoiceLine[];
   subtotal: number;
   discount: number;
   total: number;
@@ -34,7 +46,7 @@ function buildInvoice(opts: {
     "*THE PERFUME SOUQ*",
     "_by Khurram Shabbir_",
     "",
-    `Order: *${opts.orderRef}*`,
+    opts.orderRef ? `Order: *${opts.orderRef}*` : "Order: (reference to be confirmed)",
     `Date: ${date}`,
     `Phone: ${opts.phone}`,
     ...(opts.name ? [`Name: ${opts.name}`] : []),
@@ -47,7 +59,8 @@ function buildInvoice(opts: {
       const priceLine = discounted
         ? `Qty ${i.quantity} × ${formatPKR(i.finalPrice)} (was ${formatPKR(i.originalPrice)}${i.promotionName ? `, ${i.promotionName}` : ""}) = ${formatPKR(i.lineTotal)}`
         : `Qty ${i.quantity} × ${formatPKR(i.finalPrice)} = ${formatPKR(i.lineTotal)}`;
-      return `${idx + 1}. ${i.name} (${i.sizeLabel})\n    ${priceLine}`;
+      const size = i.sizeLabel ? ` (${i.sizeLabel})` : "";
+      return `${idx + 1}. ${i.name}${size}\n    ${priceLine}`;
     }),
     "",
     ...(opts.discount > 0
@@ -56,9 +69,52 @@ function buildInvoice(opts: {
     `*Total: ${formatPKR(opts.total)}*`,
     ...(opts.note ? ["", `Note: ${opts.note}`] : []),
     "",
-    "Kindly confirm this order. Thank you.",
+    opts.orderRef
+      ? "Kindly confirm this order. Thank you."
+      : "Kindly confirm availability and final prices. Thank you.",
   ];
   return out.join("\n");
+}
+
+function cartToInvoiceLines(items: CartItem[]): InvoiceLine[] {
+  return items.map((i) => ({
+    name: i.name,
+    sizeLabel: i.sizeLabel ?? "",
+    quantity: i.qty,
+    originalPrice: i.originalPrice ?? i.price,
+    finalPrice: i.price,
+    lineTotal: i.price * i.qty,
+    promotionName: i.promotionName ?? null,
+  }));
+}
+
+// Touch devices hand off to the WhatsApp app by navigating the current tab
+// (the most reliable path on iOS and Android — pop-ups opened after a network
+// call get blocked there). Desktop keeps the shop open and uses a new tab for
+// WhatsApp Web, opened synchronously within the click so it isn't blocked.
+function isTouchDevice() {
+  return typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
+}
+
+function openPendingWindow(): Window | null {
+  if (isTouchDevice()) return null;
+  const win = window.open("", "_blank");
+  if (!win) return null;
+  try {
+    win.opener = null;
+    win.document.title = "Opening WhatsApp…";
+    win.document.body.style.cssText =
+      "margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center;font-family:system-ui,sans-serif;background:#f8f4ee;color:#6b5a3e";
+    win.document.body.textContent = "Preparing your order for WhatsApp…";
+  } catch {
+    // Cross-browser quirk writing to a blank tab — harmless, it still navigates.
+  }
+  return win;
+}
+
+function goTo(url: string, win: Window | null) {
+  if (win && !win.closed) win.location.href = url;
+  else window.location.href = url;
 }
 
 export function CartButton() {
@@ -89,10 +145,20 @@ export function CartButton() {
 
 const PHONE_STORAGE_KEY = "tps_customer_phone_v1";
 
+// 16px text on inputs stops iOS Safari from zooming the page on focus.
+const inputCls =
+  "w-full rounded-sm border border-border bg-background px-3 py-3 text-base text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none sm:text-sm";
+const labelCls = "mb-1 block text-[10px] uppercase tracking-[0.3em] text-foreground/55";
+
 export function CartDrawer() {
   const { items, isOpen, close, setQty, remove, total, clear } = useCart();
   const { data: settings } = useSettings();
-  const waNumber = settings?.whatsapp_number || "923228408507";
+  const waNumber = settings?.whatsapp_number || WHATSAPP_NUMBER;
+  const closeRef = useRef<HTMLButtonElement>(null);
+  // close() is recreated whenever the cart changes; keep the latest in a ref
+  // so the modal effect below only runs on open/close, not on every qty tap.
+  const closeFnRef = useRef(close);
+  closeFnRef.current = close;
 
   const [phone, setPhone] = useState(() => {
     try {
@@ -109,6 +175,31 @@ export function CartDrawer() {
 
   const phoneValid = phone.replace(/[^0-9]/g, "").length >= 10;
 
+  // Modal behaviour: lock the page behind the drawer (otherwise it scrolls
+  // under your thumb on phones), close on Escape, and move focus inside.
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeFnRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    closeRef.current?.focus();
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [isOpen]);
+
+  const resetAfterSend = () => {
+    clear();
+    setNote("");
+    setAddress("");
+    setLocationLink("");
+    close();
+  };
+
   const handleCheckout = async () => {
     if (!items.length || submitting) return;
     if (!name.trim()) {
@@ -121,21 +212,24 @@ export function CartDrawer() {
     }
 
     setSubmitting(true);
-    // Open the tab synchronously so mobile popup blockers allow it; we set its
-    // URL once the server has recorded the intent and returned trusted totals.
-    const win = window.open("", "_blank");
+    const win = openPendingWindow();
+    const customer = {
+      name: name.trim() || undefined,
+      address: address.trim() || undefined,
+      locationLink: locationLink.trim() || undefined,
+      note: note.trim() || undefined,
+    };
     try {
-      try {
-        localStorage.setItem(PHONE_STORAGE_KEY, phone);
-      } catch {}
+      localStorage.setItem(PHONE_STORAGE_KEY, phone);
+    } catch {
+      // Private browsing — the number just won't be remembered next time.
+    }
 
+    try {
       const result = await recordOrderIntent({
         data: {
           phone,
-          name: name.trim() || undefined,
-          address: address.trim() || undefined,
-          locationLink: locationLink.trim() || undefined,
-          note: note.trim() || undefined,
+          ...customer,
           sessionId: getSessionId(),
           items: items.map((i) => ({ perfumeId: i.perfumeId, variantId: i.variantId, quantity: i.qty })),
         },
@@ -152,30 +246,38 @@ export function CartDrawer() {
       const msg = buildInvoice({
         orderRef: result.orderRef,
         phone: result.phone,
-        name: name.trim() || undefined,
-        address: address.trim() || undefined,
-        locationLink: locationLink.trim() || undefined,
-        note: note.trim() || undefined,
+        ...customer,
         lines: result.lines,
         subtotal: result.subtotal,
         discount: result.discount,
         total: result.total,
       });
-      const url = waLink(waNumber, msg);
-      if (win) win.location.href = url;
-      else window.location.href = url;
-
-      toast.success(`Order ${result.orderRef} sent to WhatsApp.`);
-      clear();
-      setNote("");
-      setAddress("");
-      setLocationLink("");
-      close();
+      toast.success(`Order ${result.orderRef} ready — opening WhatsApp.`);
+      goTo(waLink(waNumber, msg), win);
+      resetAfterSend();
     } catch (e) {
-      if (win) win.close();
-      toast.error(
-        e instanceof Error ? e.message : "Could not create your order. Please try again.",
-      );
+      const message = e instanceof Error ? e.message : "";
+      const serviceDown = message === ORDER_UNAVAILABLE_MESSAGE || e instanceof TypeError || !message;
+      if (serviceDown) {
+        // Never lose a sale to a server hiccup: send the cart as it stands and
+        // let the maison confirm the final prices on WhatsApp.
+        const lines = cartToInvoiceLines(items);
+        const subtotal = lines.reduce((s, l) => s + l.originalPrice * l.quantity, 0);
+        const msg = buildInvoice({
+          phone,
+          ...customer,
+          lines,
+          subtotal,
+          discount: Math.max(0, subtotal - total),
+          total,
+        });
+        toast.message("Opening WhatsApp — we'll confirm your order there.");
+        goTo(waLink(waNumber, msg), win);
+        resetAfterSend();
+      } else {
+        if (win) win.close();
+        toast.error(message);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -193,204 +295,238 @@ export function CartDrawer() {
             className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm"
           />
           <motion.aside
+            role="dialog"
+            aria-modal="true"
+            aria-label="Your cart"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", stiffness: 280, damping: 32 }}
-            className="fixed right-0 top-0 z-[130] flex h-full w-full max-w-md flex-col border-l border-border bg-background"
+            className="fixed right-0 top-0 z-[130] flex h-[100dvh] w-full max-w-md flex-col border-l border-border bg-background"
           >
-            <header className="flex items-center justify-between border-b border-border px-6 py-5">
+            <header className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6 sm:py-5">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.5em] text-gold">Your Cart</p>
-                <h3 className="mt-1 font-display text-2xl italic">Le Souq</h3>
+                <h2 className="mt-1 font-display text-2xl italic">Le Souq</h2>
               </div>
-              <button onClick={close} className="text-foreground/60 hover:text-foreground">
+              <button
+                ref={closeRef}
+                onClick={close}
+                aria-label="Close cart"
+                className="-mr-2 flex h-11 w-11 items-center justify-center text-foreground/60 hover:text-foreground"
+              >
                 <X className="h-5 w-5" />
               </button>
             </header>
 
-            <div className="flex-1 overflow-y-auto px-6 py-6">
+            {/* One scroll area for items AND the order form — a separately
+                scrolling item list got squeezed to a sliver on small phones
+                once the form took the rest of the height. */}
+            <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
               {items.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center text-center">
+                <div className="flex min-h-full flex-col items-center justify-center py-10 text-center">
                   <ShoppingBag className="h-12 w-12 text-foreground/20" />
                   <p className="mt-6 font-display text-xl italic text-foreground/60">
                     Your cart awaits its first flacon.
                   </p>
+                  <Link
+                    to="/shop"
+                    onClick={close}
+                    className="btn-gold mt-8 inline-block px-8 py-3.5 text-[10px] uppercase tracking-[0.4em]"
+                  >
+                    Browse the Collection
+                  </Link>
                 </div>
               ) : (
-                <ul className="space-y-6">
-                  {items.map((it) => (
-                    <motion.li
-                      key={it.id}
-                      layout
-                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ type: "spring", stiffness: 320, damping: 22 }}
-                      className="flex gap-4 border-b border-border pb-6 last:border-b-0"
-                    >
-                      <div className="h-24 w-20 flex-shrink-0 overflow-hidden rounded-sm bg-card">
-                        {it.img && (
-                          <img
-                            src={it.img}
-                            alt={it.name}
-                            className="h-full w-full object-contain"
-                          />
-                        )}
-                      </div>
-                      <div className="flex flex-1 flex-col justify-between">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h4 className="font-display text-lg italic leading-tight">{it.name}</h4>
-                            {it.sizeLabel && (
-                              <p className="mt-1 text-[10px] uppercase tracking-[0.3em] text-foreground/40">
-                                {it.sizeLabel}
-                              </p>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => remove(it.id)}
-                            aria-label="Remove"
-                            className="text-foreground/40 hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                <>
+                  <ul className="space-y-5">
+                    {items.map((it) => (
+                      <motion.li
+                        key={it.id}
+                        layout
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ type: "spring", stiffness: 320, damping: 26 }}
+                        className="flex gap-4 border-b border-border pb-5"
+                      >
+                        <div className="flex h-24 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm bg-card">
+                          {it.img ? (
+                            <img src={it.img} alt={it.name} className="h-full w-full object-contain" />
+                          ) : (
+                            <ShoppingBag className="h-6 w-6 text-foreground/20" aria-hidden="true" />
+                          )}
                         </div>
-                        <div className="mt-3 flex items-center justify-between">
-                          <div className="flex items-center border border-border">
+                        <div className="flex min-w-0 flex-1 flex-col justify-between">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <h3 className="break-words font-display text-lg italic leading-tight">
+                                {it.name}
+                              </h3>
+                              {it.sizeLabel && (
+                                <p className="mt-1 text-[10px] uppercase tracking-[0.3em] text-foreground/55">
+                                  Size · {it.sizeLabel}
+                                </p>
+                              )}
+                            </div>
                             <button
-                              onClick={() => setQty(it.id, it.qty - 1)}
-                              className="px-2 py-1 text-foreground/70 hover:text-gold"
-                              aria-label="Decrease"
+                              onClick={() => remove(it.id)}
+                              aria-label={`Remove ${it.name}${it.sizeLabel ? ` ${it.sizeLabel}` : ""}`}
+                              className="-mr-2 -mt-2 flex h-10 w-10 flex-shrink-0 items-center justify-center text-foreground/45 hover:text-destructive"
                             >
-                              <Minus className="h-3 w-3" />
-                            </button>
-                            <span className="px-3 text-sm tabular-nums">{it.qty}</span>
-                            <button
-                              onClick={() => setQty(it.id, it.qty + 1)}
-                              className="px-2 py-1 text-foreground/70 hover:text-gold"
-                              aria-label="Increase"
-                            >
-                              <Plus className="h-3 w-3" />
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
-                          <span className="flex items-baseline gap-2">
-                            {it.originalPrice && it.originalPrice > it.price && (
-                              <span className="text-xs text-foreground/40 line-through">
-                                {formatPKR(it.originalPrice * it.qty)}
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center border border-border">
+                              <button
+                                onClick={() => setQty(it.id, it.qty - 1)}
+                                className="flex h-9 w-9 items-center justify-center text-foreground/70 hover:text-gold"
+                                aria-label={`Decrease quantity of ${it.name}`}
+                              >
+                                <Minus className="h-3 w-3" />
+                              </button>
+                              <span className="min-w-[2rem] text-center text-sm tabular-nums" aria-live="polite">
+                                {it.qty}
                               </span>
-                            )}
-                            <span className="text-gradient-gold font-display text-lg">
-                              {formatPKR(it.price * it.qty)}
+                              <button
+                                onClick={() => setQty(it.id, it.qty + 1)}
+                                className="flex h-9 w-9 items-center justify-center text-foreground/70 hover:text-gold"
+                                aria-label={`Increase quantity of ${it.name}`}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </button>
+                            </div>
+                            <span className="flex items-baseline gap-2">
+                              {it.originalPrice && it.originalPrice > it.price && (
+                                <span className="text-xs text-foreground/40 line-through">
+                                  {formatPKR(it.originalPrice * it.qty)}
+                                </span>
+                              )}
+                              <span className="text-gradient-gold font-display text-lg">
+                                {formatPKR(it.price * it.qty)}
+                              </span>
                             </span>
-                          </span>
+                          </div>
                         </div>
-                      </div>
-                    </motion.li>
-                  ))}
-                </ul>
+                      </motion.li>
+                    ))}
+                  </ul>
+
+                  <div className="mt-6 space-y-3">
+                    <p className="text-[10px] uppercase tracking-[0.4em] text-gold">Your Details</p>
+                    <label className="block">
+                      <span className={labelCls}>
+                        WhatsApp Number <span className="text-gold">*</span>
+                      </span>
+                      <input
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        maxLength={20}
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="03XX XXXXXXX"
+                        className={inputCls}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className={labelCls}>
+                        Your Name <span className="text-gold">*</span>
+                      </span>
+                      <input
+                        type="text"
+                        autoComplete="name"
+                        maxLength={120}
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Full name"
+                        className={inputCls}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className={labelCls}>Delivery Address</span>
+                      <input
+                        type="text"
+                        autoComplete="street-address"
+                        maxLength={500}
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        placeholder="Optional"
+                        className={inputCls}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className={labelCls}>Location Link</span>
+                      <input
+                        type="url"
+                        inputMode="url"
+                        maxLength={500}
+                        value={locationLink}
+                        onChange={(e) => setLocationLink(e.target.value)}
+                        placeholder="Google Maps link (optional)"
+                        className={inputCls}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className={labelCls}>Note</span>
+                      <input
+                        type="text"
+                        maxLength={500}
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        placeholder="Optional"
+                        className={inputCls}
+                      />
+                    </label>
+                  </div>
+                </>
               )}
+
+              <div className="mt-8 border-t border-border pt-5">
+                <p className="mb-3 text-center text-[10px] uppercase tracking-[0.3em] text-foreground/50">
+                  Questions? Talk to us
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <a
+                    href={waLink(waNumber, "Hello, I'd like to ask about an order.")}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-sm border border-gold/30 text-[10px] uppercase tracking-[0.3em] text-gold hover:border-gold hover:bg-gold/10"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                  </a>
+                  <a
+                    href={`tel:${CONTACT_PHONE_TEL}`}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-sm border border-gold/30 text-[10px] uppercase tracking-[0.3em] text-gold hover:border-gold hover:bg-gold/10"
+                  >
+                    <Phone className="h-3.5 w-3.5" /> Call
+                  </a>
+                </div>
+                <p className="mt-2 text-center text-[10px] tracking-[0.25em] text-foreground/55">
+                  {CONTACT_PHONE_DISPLAY}
+                </p>
+              </div>
             </div>
 
-            <footer className="border-t border-border px-6 py-5">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="text-[10px] uppercase tracking-[0.4em] text-foreground/60">
-                  Total
-                </span>
-                <span className="text-gradient-gold font-display text-3xl italic">
-                  {formatPKR(total)}
-                </span>
-              </div>
-
-              {items.length > 0 && (
-                <div className="mb-4 space-y-2">
-                  <label className="block">
-                    <span className="mb-1 block text-[9px] uppercase tracking-[0.3em] text-foreground/50">
-                      WhatsApp Number <span className="text-gold">*</span>
-                    </span>
-                    <input
-                      type="tel"
-                      inputMode="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="03XX XXXXXXX"
-                      aria-label="Your WhatsApp number"
-                      className="w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="mb-1 block text-[9px] uppercase tracking-[0.3em] text-foreground/50">
-                      Your Name <span className="text-gold">*</span>
-                    </span>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Full name"
-                      aria-label="Your name"
-                      className="w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
-                    />
-                  </label>
-                  <input
-                    type="text"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Delivery address (optional)"
-                    aria-label="Delivery address"
-                    className="w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
-                  />
-                  <input
-                    type="text"
-                    value={locationLink}
-                    onChange={(e) => setLocationLink(e.target.value)}
-                    placeholder="Google Maps / shared location link (optional)"
-                    aria-label="Shared location link"
-                    className="w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
-                  />
-                  <input
-                    type="text"
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="Note (optional)"
-                    aria-label="Order note"
-                    className="w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
-                  />
+            {items.length > 0 && (
+              <footer className="border-t border-border bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:px-6">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-[0.4em] text-foreground/60">Total</span>
+                  <span className="text-gradient-gold font-display text-3xl italic">{formatPKR(total)}</span>
                 </div>
-              )}
-
-              <button
-                disabled={!items.length || submitting}
-                onClick={handleCheckout}
-                data-magnetic
-                className="btn-gold w-full py-4 text-[10px] uppercase tracking-[0.4em] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {submitting ? "Preparing…" : "Send Order via WhatsApp"}
-              </button>
-              <p className="mt-3 text-center text-[10px] uppercase tracking-[0.3em] text-foreground/40">
-                Records your order &amp; opens WhatsApp to confirm. No online payment.
-              </p>
-
-              <div className="mt-5 grid grid-cols-2 gap-2 border-t border-border pt-4">
-                <a
-                  href={waLink(waNumber, "Hello, I'd like to ask about an order.")}
-                  target="_blank"
-                  rel="noreferrer"
-                  data-magnetic
-                  className="flex items-center justify-center gap-2 rounded-sm border border-gold/30 py-3 text-[9px] uppercase tracking-[0.3em] text-gold hover:border-gold hover:bg-gold/10"
+                <button
+                  disabled={submitting}
+                  onClick={handleCheckout}
+                  className="btn-gold flex w-full items-center justify-center gap-2 py-4 text-[10px] uppercase tracking-[0.4em] disabled:cursor-wait disabled:opacity-60"
                 >
-                  <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
-                </a>
-                <a
-                  href={`tel:${CONTACT_PHONE_TEL}`}
-                  data-magnetic
-                  className="flex items-center justify-center gap-2 rounded-sm border border-gold/30 py-3 text-[9px] uppercase tracking-[0.3em] text-gold hover:border-gold hover:bg-gold/10"
-                >
-                  <Phone className="h-3.5 w-3.5" /> Call
-                </a>
-              </div>
-              <p className="mt-2 text-center text-[10px] tracking-[0.25em] text-foreground/50">
-                {CONTACT_PHONE_DISPLAY}
-              </p>
-            </footer>
+                  <MessageCircle className="h-4 w-4" aria-hidden="true" />
+                  {submitting ? "Preparing…" : "Send Order via WhatsApp"}
+                </button>
+                <p className="mt-2 text-center text-[10px] tracking-[0.15em] text-foreground/50">
+                  We confirm every order on WhatsApp. No online payment.
+                </p>
+              </footer>
+            )}
           </motion.aside>
         </>
       )}

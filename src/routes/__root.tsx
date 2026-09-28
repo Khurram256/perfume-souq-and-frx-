@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { SITE_URL, absoluteUrl } from "@/lib/site";
 import {
   Outlet,
   Link,
@@ -20,23 +21,29 @@ import { ThemeEngine, themeBootScript } from "../components/ThemeEngine";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <main className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
+        <p className="text-[10px] uppercase tracking-[0.5em] text-gold">Error 404</p>
+        <h1 className="mt-4 font-display text-4xl italic text-foreground sm:text-5xl">Page not found</h1>
+        <p className="mt-4 text-sm font-light text-foreground/60">
+          This page doesn't exist or has moved. The collection is just a step away.
         </p>
-        <div className="mt-6">
+        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Link
+            to="/shop"
+            className="btn-gold inline-block px-8 py-3.5 text-[10px] uppercase tracking-[0.4em]"
+          >
+            Browse the Collection
+          </Link>
           <Link
             to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex min-h-11 items-center px-4 text-[10px] uppercase tracking-[0.4em] text-foreground/60 hover:text-gold"
           >
-            Go home
+            Return Home
           </Link>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -98,8 +105,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:locale", content: "en_PK" },
       // Absolute URL required by crawlers; product/brand pages override this
       // with their own artwork where they have it.
-      { property: "og:image", content: `https://theperfumesouq.pk${logoMark}` },
-      { name: "twitter:image", content: `https://theperfumesouq.pk${logoMark}` },
+      ...(absoluteUrl(logoMark)
+        ? [
+            { property: "og:image", content: absoluteUrl(logoMark)! },
+            { name: "twitter:image", content: absoluteUrl(logoMark)! },
+          ]
+        : []),
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "The Perfume Souq by Khurram Shabbir" },
       { name: "twitter:description", content: "A maison of rare olfactive composition." },
@@ -108,7 +119,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "@context": "https://schema.org",
           "@type": "Organization",
           name: "The Perfume Souq by Khurram Shabbir",
-          url: "/",
+          ...(SITE_URL ? { url: SITE_URL, logo: absoluteUrl(logoMark) } : {}),
           sameAs: [INSTAGRAM_URL],
         },
       },
@@ -117,7 +128,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "@context": "https://schema.org",
           "@type": "WebSite",
           name: "The Perfume Souq by Khurram Shabbir",
-          url: "/",
+          ...(SITE_URL ? { url: SITE_URL } : {}),
         },
       },
     ],
