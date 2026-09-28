@@ -1,6 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -32,7 +33,6 @@ function clampDescription(text: string, max = 158) {
   if (clean.length <= max) return clean;
   return clean.slice(0, clean.lastIndexOf(" ", max - 1)).replace(/[,;:.\s]+$/, "") + "…";
 }
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/product/$slug")({
   loader: async ({ params }) => {
@@ -367,7 +367,7 @@ function ProductContent() {
   const hasNotes = perfume.top_notes.length + perfume.heart_notes.length + perfume.base_notes.length > 0;
 
   return (
-    <main className="section-pad relative px-6 pt-32 lg:px-16">
+    <main className="section-pad page-top relative px-6 lg:px-16">
       <div className="mx-auto max-w-6xl">
         <nav aria-label="Breadcrumb" className="mb-6 flex flex-wrap sm:mb-10 gap-2 text-[10px] uppercase tracking-[0.35em] text-foreground/40">
           <Link to="/shop" className="hover:text-gold">

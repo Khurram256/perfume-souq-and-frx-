@@ -7,7 +7,7 @@ import {
   useTransform,
 } from "framer-motion";
 import { Link } from "@tanstack/react-router";
-import { useMemo, useRef, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 import bottle from "@/assets/hero-bottle.png";
 import logoMark from "@/assets/logo-mark.png";
 import { Magnetic } from "./Magnetic";
@@ -88,6 +88,20 @@ export function Hero() {
   // depths moving at different rates is what actually reads as "alive" on
   // scroll, rather than everything sliding together as one flat layer.
   const bgParallaxY = useTransform(scrollYProgress, [0, 1], [0, reduceMotion ? 0 : 45]);
+
+  // Pause the hero's looping CSS effects (glow orbs, dust, light rays, halos)
+  // while it is scrolled out of view — saves GPU/battery on phones and keeps
+  // scrolling through the rest of the page smooth. They resume in place.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) el.removeAttribute("data-offscreen");
+      else el.setAttribute("data-offscreen", "");
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   // Mouse-parallax: bottles, glow and fragrance notes drift opposite the
   // cursor across the whole hero. Never fires on touch (no mousemove there).

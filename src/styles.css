@@ -231,6 +231,21 @@
     padding-bottom: clamp(6rem, 12vw, 10rem);
   }
 
+  /* Top of a standalone page: never less than 8rem, so content always clears
+     the fixed header (104px tall from 640px up). On its own, section-pad
+     dropped to 96px between ~640 and ~870px wide and tucked breadcrumbs and
+     eyebrows under the header on tablets. */
+  .section-pad.page-top {
+    padding-top: max(8rem, clamp(6rem, 12vw, 10rem));
+  }
+
+  /* Hero effects stop while the hero is off-screen (set by Hero.tsx). */
+  #top[data-offscreen] *,
+  #top[data-offscreen] *::before,
+  #top[data-offscreen] *::after {
+    animation-play-state: paused !important;
+  }
+
   /* Premium product-image hover: quiet grayscale-to-color bloom, not a bounce */
   .img-reveal {
     filter: grayscale(0.55) contrast(1.02);

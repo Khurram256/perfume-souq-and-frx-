@@ -5,7 +5,7 @@ import { DEVELOPER_NAME, DEVELOPER_URL } from "../lib/contact";
 export function Footer() {
   return (
     <footer
-      className="relative overflow-hidden border-t border-border pt-16 pb-10 text-center"
+      className="relative overflow-hidden border-t border-border pt-16 pb-28 text-center sm:pb-24 lg:pb-10"
       style={{ background: "var(--navy-deep)" }}
     >
       <div

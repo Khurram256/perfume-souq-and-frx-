@@ -38,7 +38,7 @@ function BrandsPage() {
     <CartProvider>
       <div className="min-h-screen">
         <Navbar />
-        <main className="section-pad relative px-6 pt-32 lg:px-16">
+        <main className="section-pad page-top relative px-6 lg:px-16">
           <div className="mx-auto max-w-6xl">
             <p className="label-eyebrow mb-4">Our Maisons</p>
             <h1 className="heading-section mb-16">Houses We Carry</h1>

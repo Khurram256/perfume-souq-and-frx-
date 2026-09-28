@@ -137,14 +137,14 @@ export function Navbar() {
                   className="w-full rounded-sm border border-border bg-background py-3 pl-10 pr-3 text-base text-foreground placeholder:text-foreground/40 focus:border-gold focus:outline-none"
                 />
               </form>
-              <div className="mt-8 flex flex-col gap-6">
+              <div className="mt-6 flex flex-col gap-2">
                 {NAV_LINKS.map((l) => (
                   <Link
                     key={l.label}
                     to={l.to}
                     search={l.search}
                     onClick={() => setMobileOpen(false)}
-                    className="text-lg font-light uppercase tracking-[0.2em] text-foreground/80 hover:text-gold"
+                    className="block py-2 text-lg font-light uppercase tracking-[0.2em] text-foreground/80 hover:text-gold"
                   >
                     {l.label}
                   </Link>
@@ -154,7 +154,7 @@ export function Navbar() {
                     key={l.label}
                     href={l.href}
                     onClick={() => setMobileOpen(false)}
-                    className="text-lg font-light uppercase tracking-[0.2em] text-foreground/80 hover:text-gold"
+                    className="block py-2 text-lg font-light uppercase tracking-[0.2em] text-foreground/80 hover:text-gold"
                   >
                     {l.label}
                   </a>

@@ -105,7 +105,7 @@ function BrandContent() {
   return (
     <main>
       <section
-        className="section-pad relative overflow-hidden px-6 pt-32 text-center lg:px-16"
+        className="section-pad page-top relative overflow-hidden px-6 text-center lg:px-16"
         style={
           brand.hero_image_url
             ? {

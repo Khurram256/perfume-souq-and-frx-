@@ -269,7 +269,7 @@ function ShopContent() {
     (search.min !== undefined || search.max !== undefined ? 1 : 0) + (search.q ? 1 : 0) + (search.families?.length ?? 0) + (search.accords?.length ?? 0);
 
   return (
-    <main className="section-pad relative px-6 pt-32 lg:px-16">
+    <main className="section-pad page-top relative px-6 lg:px-16">
       <div className="mx-auto max-w-7xl">
         <div className="mb-14">
           <p className="label-eyebrow mb-4">The Full Collection</p>
@@ -323,7 +323,7 @@ function ShopContent() {
                   <button
                     key={g}
                     onClick={() => patch({ gender: search.gender === g ? undefined : g })}
-                    className={`rounded-full border px-4 py-1.5 text-[9px] uppercase tracking-[0.3em] transition-colors ${
+                    className={`rounded-full border px-4 py-2 text-[9px] lg:py-1.5 uppercase tracking-[0.3em] transition-colors ${
                       search.gender === g ? "border-gold bg-gold text-obsidian" : "border-gold/25 text-foreground/60 hover:border-gold/60"
                     }`}
                   >
@@ -337,7 +337,7 @@ function ShopContent() {
               <p className="label-eyebrow mb-4 text-[9px]">Maison</p>
               <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
                 {brandsWithPerfumes.map((b) => (
-                  <label key={b.id} className="flex items-center gap-3 text-sm cursor-pointer">
+                  <label key={b.id} className="flex cursor-pointer items-center gap-3 py-1.5 text-sm lg:py-0">
                     <Checkbox checked={search.brands?.includes(b.id) ?? false} onCheckedChange={() => toggleBrand(b.id)} />
                     <span className="text-foreground/75">{b.name}</span>
                   </label>
@@ -358,7 +358,7 @@ function ShopContent() {
                         type="button"
                         aria-pressed={on}
                         onClick={() => toggleIn("families", fam)}
-                        className={`rounded-full border px-3 py-1.5 text-[9px] uppercase tracking-[0.25em] transition-colors ${
+                        className={`rounded-full border px-3 py-2 text-[9px] lg:py-1.5 uppercase tracking-[0.25em] transition-colors ${
                           on ? "border-gold bg-gold text-obsidian" : "border-gold/25 text-foreground/60 hover:border-gold/60"
                         }`}
                       >
@@ -382,7 +382,7 @@ function ShopContent() {
                         type="button"
                         aria-pressed={on}
                         onClick={() => toggleIn("accords", acc)}
-                        className={`rounded-full border px-3 py-1.5 text-[9px] capitalize tracking-[0.15em] transition-colors ${
+                        className={`rounded-full border px-3 py-2 text-[9px] lg:py-1.5 capitalize tracking-[0.15em] transition-colors ${
                           on ? "border-gold bg-gold text-obsidian" : "border-gold/25 text-foreground/60 hover:border-gold/60"
                         }`}
                       >
@@ -401,7 +401,7 @@ function ShopContent() {
                   <button
                     key={c.id}
                     onClick={() => patch({ category: search.category === c.id ? undefined : c.id })}
-                    className={`rounded-full border px-4 py-1.5 text-[9px] uppercase tracking-[0.3em] transition-colors ${
+                    className={`rounded-full border px-4 py-2 text-[9px] lg:py-1.5 uppercase tracking-[0.3em] transition-colors ${
                       search.category === c.id ? "border-gold bg-gold text-obsidian" : "border-gold/25 text-foreground/60 hover:border-gold/60"
                     }`}
                   >
@@ -446,7 +446,7 @@ function ShopContent() {
               </div>
             </div>
 
-            <label className="flex items-center gap-3 text-sm cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-3 py-1.5 text-sm lg:py-0">
               <Checkbox checked={search.inStock ?? false} onCheckedChange={(v) => patch({ inStock: v ? true : undefined })} />
               <span className="text-foreground/75">In stock only</span>
             </label>

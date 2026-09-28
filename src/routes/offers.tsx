@@ -48,7 +48,7 @@ function OffersContent() {
   const livePromotions = useMemo(() => promotions.filter((p) => isPromotionLiveNow(p) && p.discount_type !== "bundle"), [promotions]);
 
   return (
-    <main className="section-pad relative px-6 pt-32 lg:px-16">
+    <main className="section-pad page-top relative px-6 lg:px-16">
       <div className="mx-auto max-w-6xl">
         <p className="label-eyebrow mb-4">Current Offers</p>
         <h1 className="heading-section mb-16">Souq Offers</h1>
