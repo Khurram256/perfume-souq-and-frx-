@@ -1,13 +1,24 @@
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSpotlight, usePerfumes } from "@/lib/api/queries";
 import { Magnetic } from "./Magnetic";
 
 export function Signature() {
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-  const imgY = useTransform(scrollYProgress, [0, 1], [90, -90]);
-  const imgScale = useTransform(scrollYProgress, [0, 0.5, 1], [0.9, 1.06, 0.94]);
+  // Below lg the bottle sits directly above the text, so the full ±90px drift
+  // slid it over the "Maison Spotlight" heading mid-scroll on phones. Keep the
+  // dramatic drift side-by-side on laptops, a gentle one when stacked.
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setWide(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  const imgY = useTransform(scrollYProgress, [0, 1], wide ? [90, -90] : [24, -24]);
+  const imgScale = useTransform(scrollYProgress, [0, 0.5, 1], wide ? [0.9, 1.06, 0.94] : [0.97, 1, 0.98]);
 
   const { data: spotlight } = useSpotlight();
   const { data: perfumes = [] } = usePerfumes();
@@ -37,7 +48,7 @@ export function Signature() {
       <div className="glow-orb pointer-events-none" style={{ width: 460, height: 460, top: "10%", left: "-8%", background: "oklch(0.62 0.08 76 / 0.30)" }} />
       <div className="glow-orb pointer-events-none" style={{ width: 380, height: 380, bottom: "0%", right: "-4%", background: "oklch(0.87 0.06 68 / 0.24)", animationDelay: "-9s" }} />
 
-      <div className="relative z-10 mx-auto grid max-w-7xl grid-cols-1 items-center gap-4 px-6 lg:grid-cols-[auto_1fr_1fr] lg:px-16">
+      <div className="relative z-10 mx-auto grid max-w-7xl grid-cols-1 items-center gap-16 px-6 lg:grid-cols-[auto_1fr_1fr] lg:gap-4 lg:px-16">
         <span className="section-index hidden text-[7vw] leading-none lg:block">03</span>
 
         <motion.div
@@ -66,7 +77,7 @@ export function Signature() {
                 src={p.image_url}
                 alt={p.name}
                 loading="lazy"
-                className="relative max-h-[560px] w-auto"
+                className="relative max-h-[52vh] w-auto max-w-full object-contain lg:max-h-[560px]"
                 style={{ filter: "drop-shadow(0 50px 70px rgba(0,0,0,0.9))" }}
               />
             )}

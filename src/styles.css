@@ -558,10 +558,23 @@
   animation: hud-draw 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
   animation-delay: var(--hud-delay, 0.6s);
 }
-.hud-corner--tl { top: 28px; left: 28px; border-width: 1.5px 0 0 1.5px; transform-origin: top left; }
-.hud-corner--tr { top: 28px; right: 28px; border-width: 1.5px 1.5px 0 0; transform-origin: top right; }
-.hud-corner--bl { bottom: 28px; left: 28px; border-width: 0 0 1.5px 1.5px; transform-origin: bottom left; }
-.hud-corner--br { bottom: 28px; right: 28px; border-width: 0 1.5px 1.5px 0; transform-origin: bottom right; }
+/* Top corners sit below the fixed header (92px on phones, 104px from 640px):
+   at top: 28px they were drawn straight through the logo and the header
+   buttons, which are transparent over the hero. */
+.hud-corner--tl { top: 112px; left: 12px; border-width: 1.5px 0 0 1.5px; transform-origin: top left; }
+.hud-corner--tr { top: 112px; right: 12px; border-width: 1.5px 1.5px 0 0; transform-origin: top right; }
+/* Bottom corners sit just above the hero's scrolling notes strip (77px tall
+   on phones, ~89px from 768px) instead of drawing over its moving text. */
+.hud-corner--bl { bottom: 92px; left: 12px; border-width: 0 0 1.5px 1.5px; transform-origin: bottom left; }
+.hud-corner--br { bottom: 92px; right: 12px; border-width: 0 1.5px 1.5px 0; transform-origin: bottom right; }
+@media (min-width: 768px) {
+  .hud-corner--bl, .hud-corner--br { bottom: 104px; }
+}
+@media (min-width: 640px) {
+  .hud-corner--tl, .hud-corner--tr { top: 124px; }
+  .hud-corner--tl, .hud-corner--bl { left: 28px; }
+  .hud-corner--tr, .hud-corner--br { right: 28px; }
+}
 @keyframes hud-draw {
   from { opacity: 0; transform: scale(0.6); }
   to   { opacity: 1; transform: scale(1); }

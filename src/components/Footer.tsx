@@ -31,7 +31,7 @@ export function Footer() {
       <p className="mt-14 text-[10px] uppercase tracking-[0.4em]" style={{ color: "oklch(0.96 0.012 220 / 0.3)" }}>
         © The Perfume Souq · All rights reserved
       </p>
-      <p className="mt-3 text-[9px] uppercase tracking-[0.3em]" style={{ color: "oklch(0.96 0.012 220 / 0.45)" }}>
+      <p className="mt-4 text-[11px] uppercase tracking-[0.3em] sm:text-xs" style={{ color: "oklch(0.96 0.012 220 / 0.55)" }}>
         Powered by{" "}
         <a
           href={DEVELOPER_URL}

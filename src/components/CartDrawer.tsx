@@ -125,7 +125,7 @@ export function CartButton() {
       data-magnetic
       data-cart-anchor
       aria-label="Open cart"
-      className="relative flex h-11 w-11 items-center justify-center rounded-full border border-gold/40 text-gold transition hover:bg-gold/10"
+      className="relative flex h-10 w-10 sm:h-11 sm:w-11 flex-shrink-0 items-center justify-center rounded-full border border-gold/40 text-gold transition hover:bg-gold/10"
     >
       <ShoppingBag className="h-4 w-4" />
       {count > 0 && (

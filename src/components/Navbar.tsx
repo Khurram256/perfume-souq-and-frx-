@@ -83,19 +83,17 @@ export function Navbar() {
           ))}
         </div>
 
-        <div className="flex flex-shrink-0 items-center justify-end gap-2 sm:flex-1 sm:gap-3">
+        <div className="flex flex-shrink-0 items-center justify-end gap-1.5 sm:flex-1 sm:gap-3">
           <Link
             to="/shop"
             hash="search"
             aria-label="Search perfumes"
             style={linkColor}
-            className={`hidden h-9 w-9 items-center justify-center rounded-full border border-gold/25 transition hover:border-gold/60 hover:text-gold sm:flex ${scrolled ? "" : "text-foreground/70"}`}
+            className={`hidden h-11 w-11 items-center justify-center rounded-full border border-gold/25 transition hover:border-gold/60 hover:text-gold sm:flex ${scrolled ? "" : "text-foreground/70"}`}
           >
             <Search className="h-3.5 w-3.5" />
           </Link>
-          <div className="hidden sm:block">
-            <ThemeToggle forceLight={scrolled} />
-          </div>
+          <ThemeToggle forceLight={scrolled} />
           <AccountMenu />
           <CartButton />
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -103,7 +101,7 @@ export function Navbar() {
               <button
                 aria-label="Open menu"
                 style={linkColor}
-                className={`flex h-11 w-11 items-center justify-center rounded-full border border-gold/25 lg:hidden ${scrolled ? "" : "text-foreground/70"}`}
+                className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-gold/25 lg:hidden ${scrolled ? "" : "text-foreground/70"}`}
               >
                 <Menu className="h-4 w-4" />
               </button>
@@ -159,12 +157,6 @@ export function Navbar() {
                     {l.label}
                   </a>
                 ))}
-                <div className="mt-2 flex items-center gap-3 border-t border-border pt-6 sm:hidden">
-                  <ThemeToggle />
-                  <span className="text-[10px] uppercase tracking-[0.3em] text-foreground/60">
-                    Light / Dark
-                  </span>
-                </div>
               </div>
             </SheetContent>
           </Sheet>

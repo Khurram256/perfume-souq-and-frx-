@@ -36,9 +36,9 @@ export function ThemeToggle({ forceLight }: { forceLight?: boolean } = {}) {
       onClick={toggle}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       style={forceLight ? { color: "oklch(0.96 0.012 220 / 0.75)" } : undefined}
-      className={`flex h-9 w-9 items-center justify-center rounded-full border border-gold/25 transition hover:border-gold/60 hover:text-gold ${forceLight ? "" : "text-foreground/70"}`}
+      className={`flex h-10 w-10 sm:h-11 sm:w-11 flex-shrink-0 items-center justify-center rounded-full border border-gold/25 transition hover:border-gold/60 hover:text-gold ${forceLight ? "" : "text-foreground/70"}`}
     >
-      {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
     </button>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import logoMark from "@/assets/logo-mark.png";
+import { DEVELOPER_NAME, DEVELOPER_URL } from "@/lib/contact";
 
 const SESSION_KEY = "tps_boutique_intro_shown";
 
@@ -70,6 +71,23 @@ export function BoutiqueLoader() {
             className="mt-2 text-center text-[10px] uppercase tracking-[0.4em] text-foreground/50"
           >
             by Khurram Shabbir
+          </motion.p>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={stage >= 3 ? { opacity: 1 } : {}}
+            transition={{ duration: 0.7, delay: 0.3 }}
+            className="relative z-10 mt-10 text-center text-[9px] uppercase tracking-[0.35em]"
+            style={{ color: "oklch(0.96 0.012 220 / 0.55)" }}
+          >
+            Powered by{" "}
+            <a
+              href={DEVELOPER_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="italic text-[var(--gold)] underline underline-offset-4 hover:opacity-80"
+            >
+              {DEVELOPER_NAME}
+            </a>
           </motion.p>
           {stage >= 5 && <div className="intro-sweep" />}
         </motion.div>
