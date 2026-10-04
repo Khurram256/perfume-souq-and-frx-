@@ -2,7 +2,6 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { CartProvider, useCart } from "@/contexts/CartContext";
@@ -10,6 +9,8 @@ import { CartDrawer } from "@/components/CartDrawer";
 import { FlyToCart } from "@/components/FlyToCart";
 import { ContactButton } from "@/components/ContactButton";
 import {
+  perfumeBySlugQuery,
+  variantsQuery,
   usePerfumeBySlug,
   useVariants,
   useBrands,
@@ -23,126 +24,152 @@ import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
 import { genderLabel, sortedSizes } from "@/lib/catalog";
 import { waLink } from "@/lib/contact";
-import { absoluteUrl, canonicalLink, ogUrlMeta } from "@/lib/site";
+import { absoluteUrl } from "@/lib/site";
+import { BRAND, breadcrumbLd, jsonLd, pageTitle, sellerRef, seo } from "@/lib/seo";
+import { prefetchCatalog } from "@/lib/api/prefetch";
 
-const withItem = (url: string | undefined) => (url ? { item: url } : {});
-
-// Search engines show ~155 characters; cut on a word boundary.
-function clampDescription(text: string, max = 158) {
-  const clean = text.replace(/\s+/g, " ").trim();
-  if (clean.length <= max) return clean;
-  return clean.slice(0, clean.lastIndexOf(" ", max - 1)).replace(/[,;:.\s]+$/, "") + "…";
-}
+const GENDER_AUDIENCE = { men: "male", women: "female", unisex: "unisex" } as const;
 
 export const Route = createFileRoute("/product/$slug")({
-  loader: async ({ params }) => {
-    const { data } = await supabase
-      .from("perfumes")
-      .select(
-        "id,name,tagline,description,meta_title,meta_description,og_image_url,image_url,price_pkr,in_stock,concentration,family,brand:brands(name,slug)",
-      )
-      .eq("slug", params.slug)
-      .maybeSingle();
-    // A real 404 status (not a 200 "not found" page) so search engines drop
-    // dead product URLs instead of indexing them.
-    if (!data) throw notFound();
-    // Sizes feed the structured data, so search engines see every real
-    // bottle size and price instead of a single flat number.
-    const { data: variants } = await supabase
-      .from("product_variants")
-      .select("size_label,size_ml,price_pkr,in_stock")
-      .eq("perfume_id", data.id)
-      .order("sort_order");
-    return { ...data, variants: variants ?? [] };
+  // Server-renders the product (name, price, sizes, notes, related links) and
+  // returns a real 404 status for unknown/unpublished slugs so search engines
+  // drop dead URLs instead of indexing a "not found" page.
+  loader: async ({ params, context }) => {
+    const qc = context.queryClient;
+    const [{ brands }, perfume] = await Promise.all([
+      prefetchCatalog(qc),
+      qc.ensureQueryData(perfumeBySlugQuery(params.slug)),
+    ]);
+    if (!perfume) throw notFound();
+    const variants = await qc.ensureQueryData(variantsQuery(perfume.id));
+    const brand = brands.find((x) => x.id === perfume.brand_id);
+    return {
+      id: perfume.id,
+      name: perfume.name,
+      tagline: perfume.tagline,
+      description: perfume.description,
+      meta_title: perfume.meta_title,
+      meta_description: perfume.meta_description,
+      image: perfume.og_image_url || perfume.image_url || null,
+      price_pkr: perfume.price_pkr,
+      in_stock: perfume.in_stock,
+      sku: perfume.sku,
+      gender: perfume.gender,
+      family: perfume.family,
+      concentration: perfume.concentration,
+      main_accords: perfume.main_accords ?? [],
+      top_notes: perfume.top_notes ?? [],
+      heart_notes: perfume.heart_notes ?? [],
+      base_notes: perfume.base_notes ?? [],
+      brand: brand ? { name: brand.name, slug: brand.slug } : null,
+      variants: variants.map((v) => ({
+        size_label: v.size_label,
+        price_pkr: v.price_pkr,
+        in_stock: v.in_stock,
+        sku: v.sku,
+      })),
+    };
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) {
-      return { meta: [{ title: "Product Not Found — The Perfume Souq" }] };
+      return seo({ title: pageTitle("Perfume Not Found"), description: "This perfume could not be found.", noindex: true });
     }
-    const brandRow = loaderData.brand as { name: string; slug: string } | null;
-    const brandName = brandRow?.name;
-    const title =
-      loaderData.meta_title ||
-      `${loaderData.name}${brandName ? ` by ${brandName}` : ""} — The Perfume Souq`;
-    const description = clampDescription(
-      loaderData.meta_description ||
-        loaderData.tagline ||
-        loaderData.description ||
-        `Shop ${loaderData.name}${brandName ? ` by ${brandName}` : ""} at The Perfume Souq.`,
-    );
-    const image = loaderData.og_image_url || loaderData.image_url || undefined;
-    const canonicalUrl = absoluteUrl(`/product/${params.slug}`);
+    const p = loaderData;
+    const brandName = p.brand?.name;
+    const path = `/product/${params.slug}`;
+    const canonicalUrl = absoluteUrl(path);
+    const fullName = `${p.name}${brandName ? ` by ${brandName}` : ""}`;
+    const title = p.meta_title || pageTitle(fullName);
+
+    const prices = p.variants.length ? p.variants.map((v) => v.price_pkr) : [p.price_pkr];
+    const fromPrice = Math.min(...prices);
+    const sizes = p.variants.map((v) => v.size_label).join(" / ");
+    // One sentence of real facts: what it is, sizes, price. One page per
+    // perfume — sizes are options on it, never separate indexable pages.
+    const facts = [
+      p.family ? `${p.family} fragrance` : "fragrance",
+      p.gender ? `for ${genderLabel(p.gender).toLowerCase()}` : "",
+    ].filter(Boolean).join(" ");
+    const composed =
+      `${fullName} — ${facts}.` +
+      (sizes ? ` ${sizes}` : "") +
+      ` ${p.variants.length > 1 ? "from " : ""}${formatPKR(fromPrice)} at ${BRAND}.` +
+      (p.description ? ` ${p.description}` : "");
+    const description = p.meta_description || composed;
 
     const availability = (inStock: boolean) =>
       inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
-    const variants = loaderData.variants;
-    const offerFor = (v: { size_label: string; price_pkr: number; in_stock: boolean }, named: boolean) => ({
+    const offerFor = (v: { size_label: string; price_pkr: number; in_stock: boolean; sku?: string | null }, named: boolean) => ({
       "@type": "Offer",
       ...(canonicalUrl ? { url: canonicalUrl } : {}),
       ...(named ? { name: v.size_label } : {}),
+      ...(v.sku ? { sku: v.sku } : {}),
       priceCurrency: "PKR",
       price: v.price_pkr,
       availability: availability(v.in_stock),
+      seller: sellerRef(),
     });
     let offers: Record<string, unknown>;
-    if (variants.length > 1) {
-      const prices = variants.map((v) => v.price_pkr);
+    if (p.variants.length > 1) {
       offers = {
         "@type": "AggregateOffer",
         priceCurrency: "PKR",
         lowPrice: Math.min(...prices),
         highPrice: Math.max(...prices),
-        offerCount: variants.length,
-        offers: variants.map((v) => offerFor(v, true)),
+        offerCount: p.variants.length,
+        offers: p.variants.map((v) => offerFor(v, true)),
       };
-    } else if (variants.length === 1) {
-      offers = offerFor(variants[0], false);
+    } else if (p.variants.length === 1) {
+      offers = offerFor(p.variants[0], false);
     } else {
-      offers = offerFor(
-        { size_label: "", price_pkr: loaderData.price_pkr, in_stock: loaderData.in_stock },
-        false,
-      );
+      offers = offerFor({ size_label: "", price_pkr: p.price_pkr, in_stock: p.in_stock }, false);
     }
+
+    // Fragrance facts as structured properties — only what the catalogue holds.
+    const prop = (name: string, value: string | string[] | null | undefined) => {
+      const v = Array.isArray(value) ? value.join(", ") : value;
+      return v ? [{ "@type": "PropertyValue", name, value: v }] : [];
+    };
+    const additionalProperty = [
+      ...prop("Fragrance family", p.family),
+      ...prop("Concentration", p.concentration),
+      ...prop("Main accords", p.main_accords),
+      ...prop("Top notes", p.top_notes),
+      ...prop("Heart notes", p.heart_notes),
+      ...prop("Base notes", p.base_notes),
+    ];
 
     // Only real, verified fields — no fabricated ratings, reviews, or
     // shipping claims (per the explicit "no fake reviews" requirement).
-    const productLd: Record<string, unknown> = {
-      "@context": "https://schema.org",
-      "@type": "Product",
-      name: loaderData.name,
-      description: loaderData.description || loaderData.tagline || undefined,
-      ...(canonicalUrl ? { url: canonicalUrl } : {}),
-      ...(image ? { image } : {}),
-      ...(brandName ? { brand: { "@type": "Brand", name: brandName } } : {}),
-      ...(loaderData.family ? { category: loaderData.family } : {}),
-      offers,
-    };
-    // Mirrors the breadcrumb trail the page actually renders above the title.
-    const breadcrumbLd = {
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Shop", ...withItem(absoluteUrl("/shop")) },
-        ...(brandRow
-          ? [{ "@type": "ListItem", position: 2, name: brandRow.name, ...withItem(absoluteUrl(`/brand/${brandRow.slug}`)) }]
-          : []),
-        { "@type": "ListItem", position: brandRow ? 3 : 2, name: loaderData.name, ...withItem(canonicalUrl) },
-      ],
-    };
+    const productLd = jsonLd({
+        "@type": "Product",
+        name: p.name,
+        ...(p.description || p.tagline ? { description: p.description || p.tagline } : {}),
+        ...(canonicalUrl ? { url: canonicalUrl } : {}),
+        ...(p.image ? { image: p.image } : {}),
+        ...(p.sku ? { sku: p.sku } : {}),
+        ...(brandName ? { brand: { "@type": "Brand", name: brandName } } : {}),
+        category: p.family ? `Perfume > ${p.family}` : "Perfume",
+        ...(p.gender
+          ? { audience: { "@type": "PeopleAudience", suggestedGender: GENDER_AUDIENCE[p.gender as keyof typeof GENDER_AUDIENCE] } }
+          : {}),
+        ...(additionalProperty.length ? { additionalProperty } : {}),
+        offers,
+    });
+    const base = seo({ title, description, path, image: p.image, type: "product" });
     return {
+      ...base,
       meta: [
-        { title },
-        { name: "description", content: description },
-        { property: "og:title", content: title },
-        { property: "og:description", content: description },
-        ...(image ? [{ property: "og:image", content: image }] : []),
-        { property: "og:type", content: "product" },
-        ...ogUrlMeta(`/product/${params.slug}`),
-        { name: "twitter:card", content: "summary_large_image" },
-        { "script:ld+json": productLd },
-        { "script:ld+json": breadcrumbLd },
+        ...base.meta,
+        productLd,
+        // Mirrors the breadcrumb trail the page actually renders above the title.
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Shop", path: "/shop" },
+          ...(p.brand ? [{ name: p.brand.name, path: `/brand/${p.brand.slug}` }] : []),
+          { name: p.name, path },
+        ]),
       ],
-      links: canonicalLink(`/product/${params.slug}`),
     };
   },
   component: ProductPage,
@@ -370,6 +397,10 @@ function ProductContent() {
     <main className="section-pad page-top relative px-6 lg:px-16">
       <div className="mx-auto max-w-6xl">
         <nav aria-label="Breadcrumb" className="mb-6 flex flex-wrap sm:mb-10 gap-2 text-[10px] uppercase tracking-[0.35em] text-foreground/40">
+          <Link to="/" className="hover:text-gold">
+            Home
+          </Link>
+          <span aria-hidden="true">/</span>
           <Link to="/shop" className="hover:text-gold">
             Shop
           </Link>
@@ -572,23 +603,6 @@ function ProductContent() {
                 {perfume.concentration && <span className={chipCls}>{perfume.concentration}</span>}
                 {perfume.family && <span className={chipCls}>{perfume.family}</span>}
               </div>
-
-              {(perfume.launch_year || perfume.perfumer) && (
-                <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-                  {perfume.launch_year && (
-                    <>
-                      <dt className="text-[8px] uppercase tracking-[0.4em] text-foreground/40">Launched</dt>
-                      <dd className="text-foreground/75">{perfume.launch_year}</dd>
-                    </>
-                  )}
-                  {perfume.perfumer && (
-                    <>
-                      <dt className="text-[8px] uppercase tracking-[0.4em] text-foreground/40">Perfumer</dt>
-                      <dd className="text-foreground/75">{perfume.perfumer}</dd>
-                    </>
-                  )}
-                </dl>
-              )}
 
               {perfume.main_accords.length > 0 && (
                 <div className="mt-8">

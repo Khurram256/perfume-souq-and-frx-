@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { canonicalLink, ogUrlMeta } from "@/lib/site";
+import { BRAND, seo, webPageLd } from "@/lib/seo";
+import { prefetchCatalog } from "@/lib/api/prefetch";
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
 import { About } from "@/components/About";
@@ -21,20 +22,21 @@ import { OffersLayer, InlineOffers } from "@/components/OffersLayer";
 import { BoutiqueLoader } from "@/components/BoutiqueLoader";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "The Perfume Souq — by Khurram Shabbir" },
-      {
-        name: "description",
-        content:
-          "The Perfume Souq — a maison of rare olfactive composition. Obsidian, gold, and the silence you leave behind.",
-      },
-      { property: "og:title", content: "The Perfume Souq — by Khurram Shabbir" },
-      { property: "og:description", content: "A maison of rare olfactive composition." },
-      ...ogUrlMeta("/"),
-    ],
-    links: canonicalLink("/"),
-  }),
+  loader: async ({ context }) => {
+    const { perfumes, brands } = await prefetchCatalog(context.queryClient, { spotlight: true });
+    const houses = new Set(perfumes.map((p) => p.brand_id));
+    return { perfumeCount: perfumes.length, brandCount: brands.filter((b) => houses.has(b.id)).length };
+  },
+  head: ({ loaderData }) => {
+    const n = loaderData?.perfumeCount ?? 0;
+    const b = loaderData?.brandCount ?? 0;
+    const title = `${BRAND} — Authentic Designer & Niche Perfumes in Pakistan`;
+    // Counts come from the live catalogue, so the snippet never goes stale.
+    const range = n && b ? `${n} fragrances from ${b} houses` : "designer and niche fragrances";
+    const description = `${BRAND} by Khurram Shabbir — authentic perfumes in Pakistan. Shop ${range}, compare scents side by side and order on WhatsApp.`;
+    const base = seo({ title, description, path: "/" });
+    return { ...base, meta: [...base.meta, webPageLd({ name: title, description, path: "/" })] };
+  },
   component: Index,
 });
 

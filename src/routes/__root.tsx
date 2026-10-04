@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { SITE_URL, absoluteUrl } from "@/lib/site";
+import { absoluteUrl } from "@/lib/site";
+import { BRAND, BRAND_FULL, organizationLd, websiteLd } from "@/lib/seo";
 import {
   Outlet,
   Link,
@@ -15,9 +16,10 @@ import { trackEvent } from "../lib/api/queries";
 import appCss from "../styles.css?url";
 import logoMark from "../assets/logo-mark.png";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { INSTAGRAM_URL } from "../lib/contact";
 import { Toaster } from "../components/ui/sonner";
 import { ThemeEngine, themeBootScript } from "../components/ThemeEngine";
+
+const GOOGLE_SITE_VERIFICATION = (import.meta.env.VITE_GOOGLE_SITE_VERIFICATION ?? "").trim();
 
 function NotFoundComponent() {
   return (
@@ -90,17 +92,26 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "The Perfume Souq by Khurram Shabbir" },
+      // Site-wide defaults; every public route overrides title/description
+      // with its own (see lib/seo.ts).
+      { title: `${BRAND} — Authentic Designer & Niche Perfumes` },
       {
         name: "description",
         content:
-          "The Perfume Souq by Khurram Shabbir — a maison of rare olfactive composition. Authentic and premium-inspired fragrances, hand-selected.",
+          "Perfume Souq by Khurram Shabbir — authentic designer and niche fragrances, hand-selected. Compare perfumes, find your signature scent and order on WhatsApp.",
       },
-      { name: "author", content: "The Perfume Souq by Khurram Shabbir" },
+      { name: "author", content: BRAND_FULL },
+      { name: "application-name", content: BRAND },
+      { name: "apple-mobile-web-app-title", content: BRAND },
       { name: "developer", content: "FRX Technologies" },
-      { property: "og:site_name", content: "The Perfume Souq by Khurram Shabbir" },
-      { property: "og:title", content: "The Perfume Souq by Khurram Shabbir" },
-      { property: "og:description", content: "A maison of rare olfactive composition." },
+      // Google Search Console ownership check: set VITE_GOOGLE_SITE_VERIFICATION
+      // on the host to the code Google gives you, then redeploy.
+      ...(GOOGLE_SITE_VERIFICATION
+        ? [{ name: "google-site-verification", content: GOOGLE_SITE_VERIFICATION }]
+        : []),
+      { property: "og:site_name", content: BRAND },
+      { property: "og:title", content: BRAND },
+      { property: "og:description", content: "Authentic designer and niche fragrances, hand-selected." },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "en_PK" },
       // Absolute URL required by crawlers; product/brand pages override this
@@ -112,25 +123,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           ]
         : []),
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "The Perfume Souq by Khurram Shabbir" },
-      { name: "twitter:description", content: "A maison of rare olfactive composition." },
-      {
-        "script:ld+json": {
-          "@context": "https://schema.org",
-          "@type": "Organization",
-          name: "The Perfume Souq by Khurram Shabbir",
-          ...(SITE_URL ? { url: SITE_URL, logo: absoluteUrl(logoMark) } : {}),
-          sameAs: [INSTAGRAM_URL],
-        },
-      },
-      {
-        "script:ld+json": {
-          "@context": "https://schema.org",
-          "@type": "WebSite",
-          name: "The Perfume Souq by Khurram Shabbir",
-          ...(SITE_URL ? { url: SITE_URL } : {}),
-        },
-      },
+      { name: "twitter:title", content: BRAND },
+      { name: "twitter:description", content: "Authentic designer and niche fragrances, hand-selected." },
+      organizationLd(logoMark),
+      websiteLd(),
     ],
     links: [
       {

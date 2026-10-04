@@ -2,6 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { SITE_URL } from "@/lib/site";
 import { supabase } from "@/integrations/supabase/client";
 
+const xml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+
+type Entry = { path: string; lastmod?: string | null; image?: string | null };
+
+// Only canonical, indexable pages: home, shop, the gender category pages,
+// brands that actually carry perfumes, and published perfumes (one URL per
+// perfume — sizes are options on that page, never separate URLs). Admin,
+// cart/checkout state and filtered or searched listings are never listed.
 export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
@@ -11,43 +20,62 @@ export const Route = createFileRoute("/sitemap.xml")({
         const origin = SITE_URL || new URL(request.url).origin;
 
         const [{ data: perfumes }, { data: brands }] = await Promise.all([
-          supabase.from("perfumes").select("slug,updated_at").eq("status", "published").eq("archived", false),
-          supabase.from("brands").select("slug,updated_at"),
+          supabase
+            .from("perfumes")
+            .select("slug,updated_at,image_url,brand_id,gender")
+            .eq("status", "published")
+            .eq("archived", false),
+          supabase.from("brands").select("id,slug,updated_at").eq("is_active", true),
         ]);
+        const published = perfumes ?? [];
+        const brandsInUse = new Set(published.map((p) => p.brand_id));
+        const genders = new Set(published.map((p) => p.gender));
+        const newest = (rows: { updated_at: string | null }[]) =>
+          rows.map((r) => r.updated_at).filter(Boolean).sort().pop() ?? null;
+        const catalogueUpdated = newest(published);
 
-        const urls = [
-          { loc: `${origin}/`, changefreq: "daily", priority: "1.0" },
-          { loc: `${origin}/shop`, changefreq: "daily", priority: "0.9" },
-          { loc: `${origin}/offers`, changefreq: "daily", priority: "0.8" },
-          { loc: `${origin}/brands`, changefreq: "weekly", priority: "0.6" },
-          ...(perfumes ?? []).map((p) => ({
-            loc: `${origin}/product/${p.slug}`,
-            changefreq: "weekly",
-            priority: "0.8",
+        const entries: Entry[] = [
+          { path: "/", lastmod: catalogueUpdated },
+          { path: "/shop", lastmod: catalogueUpdated },
+          ...(["men", "women", "unisex"] as const)
+            .filter((g) => genders.has(g))
+            .map((g) => ({
+              path: `/shop?gender=${g}`,
+              lastmod: newest(published.filter((p) => p.gender === g)),
+            })),
+          { path: "/brands", lastmod: catalogueUpdated },
+          { path: "/offers" },
+          ...(brands ?? [])
+            .filter((b) => brandsInUse.has(b.id))
+            .map((b) => ({
+              path: `/brand/${b.slug}`,
+              lastmod: newest(published.filter((p) => p.brand_id === b.id)) ?? b.updated_at,
+            })),
+          ...published.map((p) => ({
+            path: `/product/${p.slug}`,
             lastmod: p.updated_at,
-          })),
-          ...(brands ?? []).map((b) => ({
-            loc: `${origin}/brand/${b.slug}`,
-            changefreq: "weekly",
-            priority: "0.6",
-            lastmod: b.updated_at,
+            image: p.image_url,
           })),
         ];
 
         const body = [
           '<?xml version="1.0" encoding="UTF-8"?>',
-          '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-          ...urls.map(
-            (u) =>
-              `  <url><loc>${u.loc}</loc><changefreq>${u.changefreq}</changefreq><priority>${u.priority}</priority>${
-                "lastmod" in u && u.lastmod ? `<lastmod>${new Date(u.lastmod).toISOString()}</lastmod>` : ""
-              }</url>`,
-          ),
+          '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">',
+          ...entries.map((e) => {
+            const lastmod = e.lastmod ? `<lastmod>${new Date(e.lastmod).toISOString()}</lastmod>` : "";
+            const image = e.image
+              ? `<image:image><image:loc>${xml(e.image)}</image:loc></image:image>`
+              : "";
+            return `  <url><loc>${xml(origin + e.path)}</loc>${lastmod}${image}</url>`;
+          }),
           "</urlset>",
           "",
         ].join("\n");
         return new Response(body, {
-          headers: { "content-type": "application/xml; charset=utf-8" },
+          headers: {
+            "content-type": "application/xml; charset=utf-8",
+            "cache-control": "public, max-age=3600",
+          },
         });
       },
     },

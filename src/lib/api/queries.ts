@@ -1,21 +1,24 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 /* ---------------- categories ---------------- */
 export type Category = { id: string; name: string; slug: string; sort_order: number };
 
+export const categoriesQuery = queryOptions({
+  queryKey: ["categories"],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("categories")
+      .select("id,name,slug,sort_order")
+      .order("sort_order");
+    if (error) throw error;
+    return (data ?? []) as Category[];
+  },
+  staleTime: 60_000,
+});
+
 export function useCategories() {
-  return useQuery({
-    queryKey: ["categories"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("categories")
-        .select("id,name,slug,sort_order")
-        .order("sort_order");
-      if (error) throw error;
-      return (data ?? []) as Category[];
-    },
-  });
+  return useQuery(categoriesQuery);
 }
 
 /* ---------------- perfumes ---------------- */
@@ -88,19 +91,22 @@ export type Perfume = {
   source_notes?: string | null;
 };
 
+export const perfumesQuery = queryOptions({
+  queryKey: ["perfumes"],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("perfumes")
+      .select(PUBLIC_PERFUME_COLUMNS)
+      .order("sort_order")
+      .order("created_at");
+    if (error) throw error;
+    return (data ?? []) as unknown as Perfume[];
+  },
+  staleTime: 60_000,
+});
+
 export function usePerfumes() {
-  return useQuery({
-    queryKey: ["perfumes"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("perfumes")
-        .select(PUBLIC_PERFUME_COLUMNS)
-        .order("sort_order")
-        .order("created_at");
-      if (error) throw error;
-      return (data ?? []) as unknown as Perfume[];
-    },
-  });
+  return useQuery(perfumesQuery);
 }
 
 // Admin dashboard only — includes needs_confirmation and source_notes so
@@ -121,8 +127,8 @@ export function usePerfumesAdmin() {
   });
 }
 
-export function usePerfumeBySlug(slug: string | undefined) {
-  return useQuery({
+export const perfumeBySlugQuery = (slug: string | undefined) =>
+  queryOptions({
     queryKey: ["perfume", slug],
     enabled: !!slug,
     queryFn: async () => {
@@ -130,7 +136,11 @@ export function usePerfumeBySlug(slug: string | undefined) {
       if (error) throw error;
       return data as unknown as Perfume | null;
     },
+    staleTime: 60_000,
   });
+
+export function usePerfumeBySlug(slug: string | undefined) {
+  return useQuery(perfumeBySlugQuery(slug));
 }
 
 /* ---------------- brands ---------------- */
@@ -153,20 +163,23 @@ export type Brand = {
 // hook is safe to reuse from anywhere without needing to reason about who's
 // signed in. Every public filter/page (Shop, brand pages, quiz, compare)
 // uses this.
+export const brandsQuery = queryOptions({
+  queryKey: ["brands"],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("brands")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order")
+      .order("name");
+    if (error) throw error;
+    return (data ?? []) as Brand[];
+  },
+  staleTime: 60_000,
+});
+
 export function useBrands() {
-  return useQuery({
-    queryKey: ["brands"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("brands")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order")
-        .order("name");
-      if (error) throw error;
-      return (data ?? []) as Brand[];
-    },
-  });
+  return useQuery(brandsQuery);
 }
 
 // Admin-only: every brand, active or not, so the management panel and the
@@ -184,8 +197,8 @@ export function useBrandsAdmin() {
   });
 }
 
-export function useBrandBySlug(slug: string | undefined) {
-  return useQuery({
+export const brandBySlugQuery = (slug: string | undefined) =>
+  queryOptions({
     queryKey: ["brand", slug],
     enabled: !!slug,
     queryFn: async () => {
@@ -193,7 +206,11 @@ export function useBrandBySlug(slug: string | undefined) {
       if (error) throw error;
       return data as Brand | null;
     },
+    staleTime: 60_000,
   });
+
+export function useBrandBySlug(slug: string | undefined) {
+  return useQuery(brandBySlugQuery(slug));
 }
 
 /* ---------------- product variants ---------------- */
@@ -210,8 +227,8 @@ export type ProductVariant = {
   sort_order: number;
 };
 
-export function useVariants(perfumeId: string | undefined) {
-  return useQuery({
+export const variantsQuery = (perfumeId: string | undefined) =>
+  queryOptions({
     queryKey: ["variants", perfumeId],
     enabled: !!perfumeId,
     queryFn: async () => {
@@ -223,23 +240,30 @@ export function useVariants(perfumeId: string | undefined) {
       if (error) throw error;
       return (data ?? []) as ProductVariant[];
     },
+    staleTime: 60_000,
   });
+
+export function useVariants(perfumeId: string | undefined) {
+  return useQuery(variantsQuery(perfumeId));
 }
 
+export const allVariantsQuery = queryOptions({
+  queryKey: ["variants", "all"],
+  queryFn: async () => {
+    const { data, error } = await supabase.from("product_variants").select("*").order("sort_order");
+    if (error) throw error;
+    return (data ?? []) as ProductVariant[];
+  },
+  staleTime: 60_000,
+});
+
 export function useAllVariants() {
-  return useQuery({
-    queryKey: ["variants", "all"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("product_variants").select("*").order("sort_order");
-      if (error) throw error;
-      return (data ?? []) as ProductVariant[];
-    },
-  });
+  return useQuery(allVariantsQuery);
 }
 
 /* ---------------- promotions (discount engine) ---------------- */
-export function usePromotions(opts?: { includeInactive?: boolean }) {
-  return useQuery({
+export const promotionsQuery = (opts?: { includeInactive?: boolean }) =>
+  queryOptions({
     queryKey: ["promotions", opts?.includeInactive ? "all" : "active"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -248,7 +272,11 @@ export function usePromotions(opts?: { includeInactive?: boolean }) {
       if (error) throw error;
       return (data ?? []) as import("@/lib/pricing").Promotion[];
     },
+    staleTime: 60_000,
   });
+
+export function usePromotions(opts?: { includeInactive?: boolean }) {
+  return useQuery(promotionsQuery(opts));
 }
 
 /* ---------------- back-in-stock requests ---------------- */
@@ -457,19 +485,22 @@ export function useAnalyticsEvents(days: number) {
 }
 
 /* ---------------- spotlight ---------------- */
+export const spotlightQuery = queryOptions({
+  queryKey: ["spotlight"],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("spotlight")
+      .select("perfume_id, description_override")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error) throw error;
+    return data as { perfume_id: string | null; description_override: string | null } | null;
+  },
+  staleTime: 60_000,
+});
+
 export function useSpotlight() {
-  return useQuery({
-    queryKey: ["spotlight"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("spotlight")
-        .select("perfume_id, description_override")
-        .eq("id", 1)
-        .maybeSingle();
-      if (error) throw error;
-      return data as { perfume_id: string | null; description_override: string | null } | null;
-    },
-  });
+  return useQuery(spotlightQuery);
 }
 
 /* ---------------- offers ---------------- */
@@ -542,17 +573,20 @@ export function useSubmitReview() {
 }
 
 /* ---------------- site_content ---------------- */
+export const siteContentQuery = queryOptions({
+  queryKey: ["site_content"],
+  queryFn: async () => {
+    const { data, error } = await supabase.from("site_content").select("key,value");
+    if (error) throw error;
+    const map: Record<string, string> = {};
+    for (const row of data ?? []) map[row.key] = row.value ?? "";
+    return map;
+  },
+  staleTime: 60_000,
+});
+
 export function useSiteContent() {
-  return useQuery({
-    queryKey: ["site_content"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("site_content").select("key,value");
-      if (error) throw error;
-      const map: Record<string, string> = {};
-      for (const row of data ?? []) map[row.key] = row.value ?? "";
-      return map;
-    },
-  });
+  return useQuery(siteContentQuery);
 }
 
 // `|| fallback`, not `?? fallback`: several site_content rows (hero CTA
@@ -572,23 +606,26 @@ export type Settings = {
   community_link: string | null;
 };
 
+export const settingsQuery = queryOptions({
+  queryKey: ["settings"],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("settings")
+      .select("whatsapp_number,instagram_handle,community_link")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error) throw error;
+    return (data ?? {
+      whatsapp_number: "923228408507",
+      instagram_handle: "theperfumesouq.pk",
+      community_link: null,
+    }) as Settings;
+  },
+  staleTime: 60_000,
+});
+
 export function useSettings() {
-  return useQuery({
-    queryKey: ["settings"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("settings")
-        .select("whatsapp_number,instagram_handle,community_link")
-        .eq("id", 1)
-        .maybeSingle();
-      if (error) throw error;
-      return (data ?? {
-        whatsapp_number: "923228408507",
-        instagram_handle: "theperfumesouq.pk",
-        community_link: null,
-      }) as Settings;
-    },
-  });
+  return useQuery(settingsQuery);
 }
 
 /* ---------------- admin lock ---------------- */

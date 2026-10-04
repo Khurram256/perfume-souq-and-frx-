@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { canonicalLink, ogUrlMeta } from "@/lib/site";
+import { BRAND, breadcrumbLd, itemListLd, pageTitle, seo, webPageLd } from "@/lib/seo";
+import { prefetchCatalog } from "@/lib/api/prefetch";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Search, SlidersHorizontal, X } from "lucide-react";
@@ -47,9 +48,15 @@ type ShopSearch = {
   accords?: string[];
 };
 
+const GENDER_PAGE = {
+  men: { title: "Men's Perfumes", intro: "Shop men's perfumes" },
+  women: { title: "Women's Perfumes", intro: "Shop women's perfumes" },
+  unisex: { title: "Unisex Perfumes", intro: "Shop unisex perfumes" },
+} as const;
+
 export const Route = createFileRoute("/shop")({
   validateSearch: (search: Record<string, unknown>): ShopSearch => ({
-    gender: search.gender as ShopSearch["gender"],
+    gender: (["men", "women", "unisex"] as const).find((g) => g === search.gender),
     brands: Array.isArray(search.brands) ? (search.brands as string[]) : search.brands ? [String(search.brands)] : undefined,
     category: search.category ? String(search.category) : undefined,
     min: search.min !== undefined ? Number(search.min) : undefined,
@@ -60,16 +67,46 @@ export const Route = createFileRoute("/shop")({
     families: toList(search.families),
     accords: toList(search.accords),
   }),
-  head: () => ({
-    meta: [
-      { title: "Shop — The Perfume Souq by Khurram Shabbir" },
-      { name: "description", content: "Browse the full Perfume Souq catalogue — filter by gender, maison, fragrance family, and price." },
-      { property: "og:title", content: "Shop — The Perfume Souq by Khurram Shabbir" },
-      { property: "og:description", content: "Browse the full Perfume Souq catalogue — filter by gender, maison, fragrance family, and price." },
-      ...ogUrlMeta("/shop"),
-    ],
-    links: canonicalLink("/shop"),
-  }),
+  // Server-renders the catalogue so the listing (and its product links) is in
+  // the first HTML response. Returns only what the page <head> needs.
+  loader: async ({ context }) => {
+    const { perfumes } = await prefetchCatalog(context.queryClient);
+    return { products: perfumes.map((p) => ({ name: p.name, slug: p.slug, gender: p.gender })) };
+  },
+  head: ({ match, loaderData }) => {
+    const search = match.search as ShopSearch;
+    const products = loaderData?.products ?? [];
+    const filterKeys = Object.entries(search).filter(([, v]) => v !== undefined).map(([k]) => k);
+    // "Men's / Women's / Unisex perfumes" are real category pages with their
+    // own canonical URL. Every other filter combination is the same listing
+    // re-sliced, so it points back to /shop instead of creating duplicates;
+    // internal search results are kept out of the index entirely.
+    const genderOnly = search.gender && filterKeys.length === 1 ? search.gender : undefined;
+    const label = genderOnly ? GENDER_PAGE[genderOnly] : undefined;
+    const title = pageTitle(label ? label.title : "Shop All Perfumes");
+    const description = label
+      ? `${label.intro} at ${BRAND} — authentic designer and niche fragrances with prices in PKR. Compare scents and order on WhatsApp.`
+      : `Browse every fragrance at ${BRAND} — search by perfume, brand, note or accord and filter by gender, fragrance family and price.`;
+    const path = genderOnly ? `/shop?gender=${genderOnly}` : "/shop";
+    const listed = genderOnly ? products.filter((p) => p.gender === genderOnly) : products;
+    const base = seo({ title, description, path, noindex: !!search.q });
+    return {
+      ...base,
+      meta: [
+        ...base.meta,
+        webPageLd({ type: "CollectionPage", name: label ? label.title : "Shop All Perfumes", description, path }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Shop", path: "/shop" },
+          ...(label ? [{ name: label.title, path }] : []),
+        ]),
+        itemListLd(
+          label ? label.title : "All perfumes",
+          listed.map((p) => ({ name: p.name, path: `/product/${p.slug}` })),
+        ),
+      ],
+    };
+  },
   component: ShopPage,
 });
 
@@ -273,7 +310,7 @@ function ShopContent() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-14">
           <p className="label-eyebrow mb-4">The Full Collection</p>
-          <h1 className="heading-section">Shop the Souq</h1>
+          <h1 className="heading-section">{search.gender ? GENDER_PAGE[search.gender].title : "Shop the Souq"}</h1>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr] lg:gap-12">

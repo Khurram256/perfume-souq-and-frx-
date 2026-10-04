@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { canonicalLink, ogUrlMeta } from "@/lib/site";
+import { BRAND, breadcrumbLd, pageTitle, seo } from "@/lib/seo";
+import { prefetchCatalog } from "@/lib/api/prefetch";
 import { useMemo } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -12,16 +13,26 @@ import { isPromotionLiveNow } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
 
 export const Route = createFileRoute("/offers")({
-  head: () => ({
-    meta: [
-      { title: "Offers — The Perfume Souq by Khurram Shabbir" },
-      { name: "description", content: "Current discounts and promotions from The Perfume Souq." },
-      { property: "og:title", content: "Offers — The Perfume Souq by Khurram Shabbir" },
-      { property: "og:description", content: "Current discounts and promotions from The Perfume Souq." },
-      ...ogUrlMeta("/offers"),
-    ],
-    links: canonicalLink("/offers"),
-  }),
+  loader: async ({ context }) => {
+    await prefetchCatalog(context.queryClient);
+  },
+  head: () => {
+    const base = seo({
+      title: pageTitle("Perfume Offers & Discounts"),
+      description: `Current offers and discounts on authentic perfumes at ${BRAND}. See what's on promotion and order on WhatsApp.`,
+      path: "/offers",
+    });
+    return {
+      ...base,
+      meta: [
+        ...base.meta,
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Offers", path: "/offers" },
+        ]),
+      ],
+    };
+  },
   component: OffersPage,
 });
 

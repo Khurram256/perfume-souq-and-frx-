@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { canonicalLink, ogUrlMeta } from "@/lib/site";
+import { BRAND, breadcrumbLd, itemListLd, pageTitle, seo, webPageLd } from "@/lib/seo";
+import { prefetchCatalog } from "@/lib/api/prefetch";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { CartProvider } from "@/contexts/CartContext";
@@ -9,19 +10,29 @@ import { ContactButton } from "@/components/ContactButton";
 import { useBrands, usePerfumes } from "@/lib/api/queries";
 
 export const Route = createFileRoute("/brands")({
-  head: () => ({
-    meta: [
-      { title: "Maisons — The Perfume Souq by Khurram Shabbir" },
-      {
-        name: "description",
-        content: "Explore the maisons and houses carried by The Perfume Souq.",
-      },
-      { property: "og:title", content: "Maisons — The Perfume Souq by Khurram Shabbir" },
-      { property: "og:description", content: "Explore the maisons and houses carried by The Perfume Souq." },
-      ...ogUrlMeta("/brands"),
-    ],
-    links: canonicalLink("/brands"),
-  }),
+  loader: async ({ context }) => {
+    const { perfumes, brands } = await prefetchCatalog(context.queryClient);
+    const houses = new Set(perfumes.map((p) => p.brand_id));
+    return { brands: brands.filter((b) => houses.has(b.id)).map((b) => ({ name: b.name, slug: b.slug })) };
+  },
+  head: ({ loaderData }) => {
+    const list = loaderData?.brands ?? [];
+    const title = pageTitle("Perfume Brands");
+    const description = `Explore the ${list.length || ""} perfume houses at ${BRAND} — from designer names to niche maisons. Pick a brand to see every fragrance and price.`.replace("  ", " ");
+    const base = seo({ title, description, path: "/brands" });
+    return {
+      ...base,
+      meta: [
+        ...base.meta,
+        webPageLd({ type: "CollectionPage", name: "Perfume Brands", description, path: "/brands" }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Brands", path: "/brands" },
+        ]),
+        itemListLd("Perfume brands", list.map((b) => ({ name: b.name, path: `/brand/${b.slug}` }))),
+      ],
+    };
+  },
   component: BrandsPage,
 });
 

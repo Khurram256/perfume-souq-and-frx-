@@ -13,6 +13,8 @@ export const Route = createFileRoute("/robots.txt")({
           "Allow: /",
           "Disallow: /admin",
           "Disallow: /admin/",
+          // Internal API endpoints — nothing for a crawler to index.
+          "Disallow: /_serverFn/",
           "",
           `Sitemap: ${origin}/sitemap.xml`,
           "",

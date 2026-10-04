@@ -67,8 +67,6 @@ function attributeValues(p: Perfume, variants: Variants) {
     gender: genderLabel(p.gender),
     family: p.family ?? "",
     concentration: p.concentration ?? "",
-    launchYear: p.launch_year ? String(p.launch_year) : "",
-    perfumer: p.perfumer ?? "",
     sizes: pv.length ? pv.map((v) => v.size_label).join(", ") : "",
     mainAccords: p.main_accords.join(", "),
     topNotes: p.top_notes.join(", "),
@@ -220,11 +218,6 @@ function Side({
         {gated("gender", "Gender")}
         {gated("family", "Fragrance Family")}
         {gated("concentration", "Concentration")}
-        {gated("launchYear", "Launch Year")}
-        {gated(
-          "perfumer",
-          "Perfumer",
-        )}
         {gated(
           "sizes",
           "Sizes & Prices",
@@ -285,8 +278,6 @@ const MOBILE_ROWS: { key: AttrKey; label: string }[] = [
   { key: "gender", label: "Gender" },
   { key: "family", label: "Fragrance Family" },
   { key: "concentration", label: "Concentration" },
-  { key: "launchYear", label: "Launch Year" },
-  { key: "perfumer", label: "Perfumer" },
   { key: "sizes", label: "Sizes & Prices" },
   { key: "mainAccords", label: "Main Accords" },
   { key: "topNotes", label: "Top Notes" },

@@ -1,47 +1,70 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { canonicalLink, ogUrlMeta } from "@/lib/site";
+import { BRAND, breadcrumbLd, itemListLd, pageTitle, seo, webPageLd } from "@/lib/seo";
+import { prefetchCatalog } from "@/lib/api/prefetch";
 import { useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { CartProvider } from "@/contexts/CartContext";
 import { CartDrawer } from "@/components/CartDrawer";
 import { FlyToCart } from "@/components/FlyToCart";
 import { ContactButton } from "@/components/ContactButton";
-import { useBrandBySlug, usePerfumes, useAllVariants, usePromotions } from "@/lib/api/queries";
+import { brandBySlugQuery, useBrandBySlug, usePerfumes, useAllVariants, usePromotions } from "@/lib/api/queries";
 import { resolveVariantPrice } from "@/lib/pricing";
 import { formatPKR } from "@/lib/format";
 import { formatSizeList } from "@/lib/catalog";
 
 export const Route = createFileRoute("/brand/$slug")({
-  loader: async ({ params }) => {
-    const { data } = await supabase
-      .from("brands")
-      .select("name,story,meta_title,meta_description,hero_image_url,logo_url")
-      .eq("slug", params.slug)
-      .maybeSingle();
-    if (!data) throw notFound();
-    return data;
+  // Server-renders the brand and its perfumes; a missing brand is a real 404.
+  loader: async ({ params, context }) => {
+    const qc = context.queryClient;
+    const [{ perfumes, variants }, brand] = await Promise.all([
+      prefetchCatalog(qc),
+      qc.ensureQueryData(brandBySlugQuery(params.slug)),
+    ]);
+    if (!brand) throw notFound();
+    const products = perfumes.filter((p) => p.brand_id === brand.id);
+    const ids = new Set(products.map((p) => p.id));
+    const prices = [
+      ...variants.filter((v) => ids.has(v.perfume_id)).map((v) => v.price_pkr),
+      ...products.map((p) => p.price_pkr),
+    ].filter((n) => n > 0);
+    return {
+      name: brand.name,
+      story: brand.story,
+      meta_title: brand.meta_title,
+      meta_description: brand.meta_description,
+      image: brand.hero_image_url || brand.logo_url || products.find((p) => p.image_url)?.image_url || null,
+      products: products.map((p) => ({ name: p.name, slug: p.slug })),
+      fromPrice: prices.length ? Math.min(...prices) : null,
+    };
   },
   head: ({ loaderData, params }) => {
-    if (!loaderData) return { meta: [{ title: "Maison Not Found — The Perfume Souq" }] };
-    const title =
-      loaderData.meta_title || `${loaderData.name} — The Perfume Souq by Khurram Shabbir`;
-    const description =
-      loaderData.meta_description ||
-      loaderData.story ||
-      `Shop ${loaderData.name} at The Perfume Souq.`;
-    const image = loaderData.hero_image_url || loaderData.logo_url || undefined;
+    if (!loaderData) {
+      return seo({ title: pageTitle("Brand Not Found"), description: "This brand could not be found.", noindex: true });
+    }
+    const { name, products, fromPrice } = loaderData;
+    const path = `/brand/${params.slug}`;
+    const title = loaderData.meta_title || pageTitle(`${name} Perfumes`);
+    // Real names and the real lowest price from the catalogue.
+    const sample = products.slice(0, 4).map((p) => p.name).join(", ");
+    const composed =
+      `Shop ${products.length} ${name} ${products.length === 1 ? "fragrance" : "fragrances"} at ${BRAND}` +
+      (sample ? ` — ${sample}${products.length > 4 ? " and more" : ""}.` : ".") +
+      (fromPrice ? ` Prices from ${formatPKR(fromPrice)}.` : "");
+    const description = loaderData.meta_description || composed;
+    const base = seo({ title, description, path, image: loaderData.image });
     return {
+      ...base,
       meta: [
-        { title },
-        { name: "description", content: description },
-        { property: "og:title", content: title },
-        { property: "og:description", content: description },
-        ...(image ? [{ property: "og:image", content: image }] : []),
-        ...ogUrlMeta(`/brand/${params.slug}`),
+        ...base.meta,
+        webPageLd({ type: "CollectionPage", name: `${name} Perfumes`, description, path }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Brands", path: "/brands" },
+          { name, path },
+        ]),
+        itemListLd(`${name} perfumes`, products.map((p) => ({ name: p.name, path: `/product/${p.slug}` }))),
       ],
-      links: canonicalLink(`/brand/${params.slug}`),
     };
   },
   component: BrandPage,
@@ -116,8 +139,23 @@ function BrandContent() {
             : { background: "var(--obsidian)" }
         }
       >
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-8 flex flex-wrap justify-center gap-2 text-[10px] uppercase tracking-[0.35em]"
+          style={{ color: "oklch(0.96 0.012 220 / 0.5)" }}
+        >
+          <Link to="/" className="hover:text-gold">
+            Home
+          </Link>
+          <span aria-hidden="true">/</span>
+          <Link to="/brands" className="hover:text-gold">
+            Brands
+          </Link>
+          <span aria-hidden="true">/</span>
+          <span style={{ color: "oklch(0.96 0.012 220 / 0.8)" }}>{brand.name}</span>
+        </nav>
         {brand.logo_url && (
-          <img src={brand.logo_url} alt={brand.name} className="mx-auto mb-6 h-16 w-auto" />
+          <img src={brand.logo_url} alt={`${brand.name} logo`} className="mx-auto mb-6 h-16 w-auto" />
         )}
         <h1
           className="heading-section text-gradient-gold"
@@ -157,7 +195,7 @@ function BrandContent() {
                 {perfume.image_url ? (
                   <img
                     src={perfume.image_url}
-                    alt={perfume.name}
+                    alt={`${perfume.name} by ${brand.name}`}
                     loading="lazy"
                     decoding="async"
                     className="mb-4 h-56 w-auto object-contain"
