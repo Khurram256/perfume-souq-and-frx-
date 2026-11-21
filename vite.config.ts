@@ -9,7 +9,11 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 // Public site address for canonical URLs, Open Graph and structured data.
 // An explicit VITE_SITE_URL wins; otherwise Netlify's build-time URL (the
 // site's primary address, i.e. the custom domain once it is attached).
-const siteUrl = process.env.VITE_SITE_URL || process.env.URL || "";
+// Vercel exposes its production host without a protocol.
+const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : "";
+const siteUrl = process.env.VITE_SITE_URL || process.env.URL || vercelUrl || "";
 
 export default defineConfig({
   tanstackStart: {
@@ -17,9 +21,9 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  // Pin the deploy target explicitly instead of relying on Nitro's
-  // env-based auto-detection — the project is deployed to Netlify.
-  nitro: { preset: "netlify" },
+  // Build output for whichever host is building: Vercel sets VERCEL=1,
+  // everything else (Netlify, local) gets the Netlify output as before.
+  nitro: { preset: process.env.VERCEL ? "vercel" : "netlify" },
   vite: {
     define: {
       "import.meta.env.VITE_SITE_URL": JSON.stringify(siteUrl),
