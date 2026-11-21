@@ -24,7 +24,7 @@ export function Logo({ size = 56, withText = true, forceLight }: { size?: number
         alt=""
         width={size}
         height={size}
-        className={withText ? "h-9 w-9 flex-shrink-0 min-[400px]:h-10 min-[400px]:w-10 sm:h-14 sm:w-14" : undefined}
+        className={withText ? "h-9 w-9 flex-shrink-0 min-[400px]:h-10 min-[400px]:w-10 sm:h-14 sm:w-14 lg:h-11 lg:w-11 xl:h-14 xl:w-14" : undefined}
         style={{ filter: "drop-shadow(0 0 14px oklch(0.78 0.09 78 / 0.55))" }}
         whileHover={
           reduceMotion
@@ -40,12 +40,12 @@ export function Logo({ size = 56, withText = true, forceLight }: { size?: number
       />
       {withText && (
         <span className="hidden flex-col leading-none min-[360px]:flex">
-          <span className="whitespace-nowrap font-display text-[12px] uppercase tracking-[0.08em] text-gradient-gold min-[400px]:text-[13px] sm:text-[18px] sm:tracking-[0.32em] md:text-[20px]">
+          <span className="whitespace-nowrap font-display text-[12px] uppercase tracking-[0.08em] text-gradient-gold min-[400px]:text-[13px] sm:text-[18px] sm:tracking-[0.32em] md:text-[20px] lg:text-[14px] lg:tracking-[0.16em] xl:text-[18px] xl:tracking-[0.28em]">
             The Perfume Souq
           </span>
           <span
             style={forceLight ? { color: "oklch(0.96 0.012 220 / 0.65)" } : undefined}
-            className={`mt-1.5 whitespace-nowrap font-display text-[9px] italic tracking-[0.1em] min-[400px]:tracking-[0.15em] sm:text-[11px] sm:tracking-[0.28em] ${forceLight ? "" : "text-foreground/65"}`}
+            className={`mt-1.5 whitespace-nowrap font-display text-[9px] italic tracking-[0.1em] min-[400px]:tracking-[0.15em] sm:text-[11px] sm:tracking-[0.28em] lg:text-[10px] lg:tracking-[0.16em] xl:text-[11px] xl:tracking-[0.28em] ${forceLight ? "" : "text-foreground/65"}`}
           >
             by Khurram Shabbir
           </span>

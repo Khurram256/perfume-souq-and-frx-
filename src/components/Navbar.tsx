@@ -50,14 +50,14 @@ export function Navbar() {
       style={scrolled ? { background: "oklch(0.11 0.03 258 / 0.82)" } : undefined}
     >
       <nav className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 sm:px-6 lg:px-12">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 lg:flex-none lg:shrink-0">
           <Logo forceLight={scrolled} />
         </div>
 
         {/* Center zone: switches to the drawer below lg (1024px). The nav is
             short enough now (Home/Shop/Brands/Offers + 2 anchors) that it
             comfortably fits at lg and up without wrapping. */}
-        <div className="hidden shrink-0 items-center gap-6 lg:flex">
+        <div className="hidden shrink-0 items-center gap-5 lg:mx-6 lg:flex xl:gap-6">
           {NAV_LINKS.map((l) => (
             <Link
               key={l.label}
