@@ -20,7 +20,11 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "../components/ui/sonner";
 import { ThemeEngine, themeBootScript } from "../components/ThemeEngine";
 
-const GOOGLE_SITE_VERIFICATION = (import.meta.env.VITE_GOOGLE_SITE_VERIFICATION ?? "").trim();
+// Google Search Console ownership code (public by design — it only proves
+// who owns the site). VITE_GOOGLE_SITE_VERIFICATION can override it.
+const GOOGLE_SITE_VERIFICATION = (
+  import.meta.env.VITE_GOOGLE_SITE_VERIFICATION || "8hHvE9uEpta8_JpK6lMjHn5FDcAJ1NCBGW-nzCVExt4"
+).trim();
 
 function NotFoundComponent() {
   return (
